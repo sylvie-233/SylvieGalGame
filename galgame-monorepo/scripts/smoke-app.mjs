@@ -193,6 +193,36 @@ async function main() {
         buttons: [...document.querySelectorAll('button')].map((item) => (item.textContent ?? '').trim()).filter(Boolean),
       }))()`);
 
+    const waitDialogueChange = async (previous, timeoutMs = 8000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const current = (await state()).dialogue;
+        if (current && current !== previous) return current;
+        await sleep(150);
+      }
+      return null;
+    };
+    const stableDialogue = async () => {
+      let previous = null;
+      for (let attempt = 0; attempt < 24; attempt += 1) {
+        const current = (await state()).dialogue;
+        if (current && current === previous) return current;
+        previous = current;
+        await sleep(250);
+      }
+      return previous;
+    };
+    const pressUntilDialogueChanges = async (previous) => {
+      await pressSpace();
+      let next = await waitDialogueChange(previous);
+      if (next) return next;
+      // 第一下可能只是补全打字，仍未推进；再按一次。
+      await pressSpace();
+      next = await waitDialogueChange(previous);
+      if (!next) throw new Error('空格未能推进到下一句');
+      return next;
+    };
+
     await waitFor(`Boolean(document.querySelector('[data-view]'))`);
     await waitFor(
       `[...document.querySelectorAll('button')].some((item) => (item.textContent ?? '').includes('开始新游戏') && !item.disabled)`,
@@ -201,22 +231,24 @@ async function main() {
     await shot('title');
 
     await clickButton('开始新游戏');
-    await sleep(1200);
+    const firstLine = await stableDialogue();
+    if (!firstLine) throw new Error('开始后没有出现对话');
     await shot('first-line');
 
-    await pressSpace();
-    await sleep(600);
+    const secondLine = await pressUntilDialogueChanges(firstLine);
+    console.log('推进验证：', `${firstLine.slice(0, 24)} -> ${secondLine.slice(0, 24)}`);
     await shot('second-line');
 
     // 回退：第二句 -> 第一句，验证历史快照与舞台恢复。
-    const beforeRollback = await state();
     await evaluate(
       `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', code: 'PageUp', bubbles: true }))`,
     );
-    await sleep(700);
-    const afterRollback = await state();
-    if (beforeRollback.dialogue === afterRollback.dialogue) throw new Error('PageUp 回退未生效');
-    console.log('回退验证：', `${beforeRollback.dialogue} -> ${afterRollback.dialogue}`);
+    const changed = await waitDialogueChange(secondLine);
+    if (!changed) throw new Error('PageUp 回退未生效');
+    // 回退后台词会重新走打字机，等它稳定后再与第一句比较。
+    const rolledBack = await stableDialogue();
+    if (rolledBack !== firstLine) throw new Error(`PageUp 回退到了意外台词：${rolledBack}`);
+    console.log('回退验证：', `${secondLine.slice(0, 24)} -> ${rolledBack.slice(0, 24)}`);
     await shot('rollback');
 
     // 推进到选项
