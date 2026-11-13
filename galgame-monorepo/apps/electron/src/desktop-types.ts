@@ -16,6 +16,8 @@ export interface SylvieDesktopApi {
   captureScreenshot(): Promise<string | null>;
   setFullscreen(value: boolean): Promise<boolean>;
   getFullscreen(): Promise<boolean>;
+  saveTextFile(filename: string, content: string): Promise<boolean>;
+  openTextFile(): Promise<string | null>;
   quit(): Promise<void>;
 }
 

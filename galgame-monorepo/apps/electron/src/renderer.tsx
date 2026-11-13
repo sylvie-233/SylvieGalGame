@@ -57,6 +57,8 @@ async function boot(): Promise<void> {
     },
     setFullscreen: (value) => desktop.setFullscreen(value),
     getFullscreen: () => desktop.getFullscreen(),
+    saveTextFile: (filename, content) => desktop.saveTextFile(filename, content),
+    openTextFile: () => desktop.openTextFile(),
     quit: () => {
       void desktop.quit();
     },

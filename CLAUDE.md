@@ -28,7 +28,7 @@ pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，
 pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
-pnpm test         # engine-core 的 Vitest（目前 27 个用例）
+pnpm test         # engine-core 的 Vitest（目前 28 个用例）
 pnpm validate     # 加载真实剧本、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
@@ -81,7 +81,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - ESLint 9 flat config：逻辑包用 `@sylvie/eslint-config/base`，React 端用 `@sylvie/eslint-config/react`；每包 `eslint . --max-warnings 0`，另有 Prettier。
 - 注释、UI 文案、README 与提交信息使用中文；类型名、变量名、文件名使用英文。
 - **分支策略**：用户要求直接在 `main` 上提交，不新建特性分支，也不主动开 PR；推送仍需用户明确要求。
-- **平台能力**：新增宿主能力时先扩展 `packages/types/src/platform.ts`，再分别实现 Electron / Web 两侧；禁止在共享 UI 里判断运行环境或直接调用宿主 API。
+- **平台能力**：新增宿主能力时先扩展 `packages/types/src/platform.ts`，再分别实现 Electron / Web 两侧；禁止在共享 UI 里判断运行环境或直接调用宿主 API。文件导入导出使用 `saveTextFile` / `openTextFile`：Electron 走 `dialog` + `fs`，Web 走 Blob 下载与文件选择。
 - **内容单一来源**：剧情与素材只改 `packages/game-content/game/`，不要复制到 `apps/web/public` 或 Electron 资源目录。改完运行 `pnpm validate`。
 
 ## 存档与状态
@@ -89,6 +89,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - 键名：`save:auto`、`save:auto:2..3`（`AUTO_SAVE_COUNT = 3`）、`save:quick`、`save:slot:1..20`（`MANUAL_SAVE_COUNT = 20`）、`meta:read-marks`、`meta:settings`、`meta:gallery`。
 - 存档包含场景 / 指针、变量、图层、BGM 及播放位置（`bgmPosition`）、已读标记、Backlog、章节备注、截图缩略图、`contentVersion`；`SAVE_VERSION = 3`，`migrateSaveData()` 负责把 `version: 1` / `2` 的旧档补成 v3，迁移失败不得覆盖原始数据。BGM 位置由播放器通过 `createSave({ bgmPosition })` 写入，引擎不认识音频实例。
 - 自动存档由 `checkpoint` 效果触发（900ms 防抖），写入 `save:auto` 并把旧档轮换到 `save:auto:2` / `save:auto:3`；截图只在选项节点或章节变化时重新抓取，普通文本复用上一张，避免每条台词都 `capturePage`。「继续游戏」通过 `readLatestSave()` 读取自动 / 快速 / 手动存档中最新的一份。
+- 存档导出格式为 `{ format: 'sylvie-save-export', version: 1, exportedAt, saves }`；导入时只接受白名单键（存档、已读、设置、图鉴），未知键与非字符串值直接跳过，格式错误不得写入任何数据。
 - Electron 落盘在 `%APPDATA%\SylvieGalGame\game-storage.json`。
 - Web 的 `localStorage` 统一加 `sylvie:` 前缀；缩略图使用 JPEG（640px）以控制配额。容量不足时提示执行 `window.sylvieWeb.resetStorage()`；`window.sylvieWeb.storageDelete(key)` 按原始键删除单条。
 - Web 存档按 origin 隔离；修改 `WEB_PORT` 会进入新的存档空间，`docker compose down` 不会丢档。

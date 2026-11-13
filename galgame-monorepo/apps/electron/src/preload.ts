@@ -20,6 +20,9 @@ const api: SylvieDesktopApi = {
     ipcRenderer.invoke('window:capture-screenshot') as Promise<string | null>,
   setFullscreen: (value) => ipcRenderer.invoke('window:set-fullscreen', value) as Promise<boolean>,
   getFullscreen: () => ipcRenderer.invoke('window:get-fullscreen') as Promise<boolean>,
+  saveTextFile: (filename, content) =>
+    ipcRenderer.invoke('file:save-text', filename, content) as Promise<boolean>,
+  openTextFile: () => ipcRenderer.invoke('file:open-text') as Promise<string | null>,
   quit: () => ipcRenderer.invoke('app:quit') as Promise<void>,
 };
 

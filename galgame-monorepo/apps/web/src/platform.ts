@@ -124,6 +124,40 @@ export const webPlatform: PlayerPlatform = {
   async getFullscreen() {
     return Boolean(document.fullscreenElement);
   },
+  async saveTextFile(filename, content) {
+    try {
+      const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return true;
+    } catch (error) {
+      console.warn('[Web 导出] 下载失败', error);
+      return false;
+    }
+  },
+  openTextFile() {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.addEventListener(
+        'change',
+        () => {
+          const file = input.files?.[0];
+          if (!file) {
+            resolve(null);
+            return;
+          }
+          void file.text().then(resolve, () => resolve(null));
+        },
+        { once: true },
+      );
+      input.click();
+    });
+  },
   appVersion: '0.1.0-web',
 };
 

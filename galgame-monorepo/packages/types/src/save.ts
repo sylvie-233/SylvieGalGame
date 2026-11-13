@@ -50,3 +50,14 @@ export function manualSaveKey(slot: number): string {
 
 export const READ_MARKS_KEY = 'meta:read-marks';
 export const SETTINGS_KEY = 'meta:settings';
+
+export const SAVE_EXPORT_FORMAT = 'sylvie-save-export';
+export const SAVE_EXPORT_VERSION = 1;
+
+/** 全量 / 单档导出的 JSON 结构；saves 的键是不带 Web 前缀的原始键。 */
+export interface SaveExportBundle {
+  format: typeof SAVE_EXPORT_FORMAT;
+  version: typeof SAVE_EXPORT_VERSION;
+  exportedAt: number;
+  saves: Record<string, string>;
+}

@@ -1,5 +1,7 @@
 import {
+  createSaveExport,
   deleteSave,
+  importSaveExport,
   readAutoSaves,
   readManualSaves,
   readSave,
@@ -44,6 +46,7 @@ interface SlotCardProps {
   formatChapter: (chapter: string) => string;
   onActivate: () => void;
   onDelete?: () => void;
+  onExport?: () => void;
 }
 
 function SlotCard({
@@ -54,6 +57,7 @@ function SlotCard({
   formatChapter,
   onActivate,
   onDelete,
+  onExport,
 }: SlotCardProps) {
   return (
     <div
@@ -91,18 +95,35 @@ function SlotCard({
         <span className="absolute top-1.5 left-1.5 rounded-sm bg-[#040509]/70 px-[7px] py-0.5 text-[10px] tracking-[0.08em] text-sg-ink/80">
           {title}
         </span>
-        {onDelete && data && (
-          <button
-            type="button"
-            className="absolute top-[5px] right-[5px] rounded-sm border border-red-300/25 bg-red-950/70 px-[7px] py-[3px] text-[10px] text-red-200/85 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete();
-            }}
-            aria-label={`删除${title}`}
-          >
-            删除
-          </button>
+        {data && (onDelete || onExport) && (
+          <div className="absolute top-[5px] right-[5px] flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            {onExport && (
+              <button
+                type="button"
+                className="rounded-sm border border-sg-line bg-[#040509]/75 px-[7px] py-[3px] text-[10px] text-sg-ink/80"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onExport();
+                }}
+                aria-label={`导出${title}`}
+              >
+                导出
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="rounded-sm border border-red-300/25 bg-red-950/70 px-[7px] py-[3px] text-[10px] text-red-200/85"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDelete();
+                }}
+                aria-label={`删除${title}`}
+              >
+                删除
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="flex flex-col gap-0.5 px-0.5 pb-0.5 text-[11px] leading-[1.5] tabular-nums text-sg-dim">
@@ -206,6 +227,51 @@ export function SaveLoadPanel({
     }
   };
 
+  const exportKeys = async (keys?: string[]) => {
+    if (busy) return;
+    if (!platform.saveTextFile) {
+      notify('当前环境不支持导出存档');
+      return;
+    }
+    setBusy(true);
+    try {
+      const content = await createSaveExport(platform.storage, keys);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const single = keys?.[0]?.replace(/[^a-z0-9]+/gi, '-');
+      const filename = single
+        ? `sylvie-${single}-${stamp}.json`
+        : `sylvie-saves-${stamp}.json`;
+      const saved = await platform.saveTextFile(filename, content);
+      notify(saved ? '存档已导出' : '已取消导出');
+    } catch (error) {
+      console.error(error);
+      notify('导出失败');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importSaves = async () => {
+    if (busy) return;
+    if (!platform.openTextFile) {
+      notify('当前环境不支持导入存档');
+      return;
+    }
+    setBusy(true);
+    try {
+      const raw = await platform.openTextFile();
+      if (raw === null) return;
+      const count = await importSaveExport(platform.storage, raw);
+      await refresh();
+      notify(count > 0 ? `已导入 ${count} 项存档数据` : '文件中没有可导入的存档');
+    } catch (error) {
+      console.error(error);
+      notify('存档文件格式不正确');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const loadData = (data: SaveData) => {
     onLoad(data);
   };
@@ -213,11 +279,32 @@ export function SaveLoadPanel({
   return (
     <>
       <Modal title={mode === 'save' ? '保存进度' : '读取进度'} onClose={onClose} wide>
-        <p className="mb-[18px] text-[13px] leading-[1.7] tracking-[0.04em] text-sg-muted">
+        <p className="mb-2 text-[13px] leading-[1.7] tracking-[0.04em] text-sg-muted">
           {mode === 'save'
             ? '点击空槽位保存当前进度；点击已有存档可覆盖。'
             : '点击带快照的槽位读取进度。'}
         </p>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-sm border border-sg-line bg-sg-accent/10 px-3 py-1.5 text-[11px] tracking-[0.1em] text-sg-ink transition-colors hover:border-sg-line-strong disabled:opacity-40"
+            onClick={() => void exportKeys()}
+          >
+            导出全部存档
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            className="rounded-sm border border-sg-ink/15 px-3 py-1.5 text-[11px] tracking-[0.1em] text-sg-muted transition-colors hover:border-sg-line hover:text-sg-ink disabled:opacity-40"
+            onClick={() => void importSaves()}
+          >
+            导入存档
+          </button>
+          <span className="text-[11px] leading-[1.6] tracking-[0.03em] text-sg-dim">
+            导出包含存档、已读、设置与图鉴记录；导入会覆盖同键数据。
+          </span>
+        </div>
 
         <h3 className="mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase">
           特殊存档
@@ -232,6 +319,7 @@ export function SaveLoadPanel({
               disabled={mode === 'save' || !entry.data}
               formatChapter={formatChapter}
               onActivate={() => entry.data && loadData(entry.data)}
+              onExport={entry.data ? () => void exportKeys([entry.key]) : undefined}
             />
           ))}
           <SlotCard
@@ -242,6 +330,7 @@ export function SaveLoadPanel({
             formatChapter={formatChapter}
             onActivate={() => quick && loadData(quick)}
             onDelete={() => void remove(SAVE_KEYS.quick)}
+            onExport={quick ? () => void exportKeys([SAVE_KEYS.quick]) : undefined}
           />
         </div>
 
@@ -265,6 +354,9 @@ export function SaveLoadPanel({
                 }
               }}
               onDelete={() => void remove(manualSaveKey(entry.slot))}
+              onExport={
+                entry.data ? () => void exportKeys([manualSaveKey(entry.slot)]) : undefined
+              }
             />
           ))}
         </div>

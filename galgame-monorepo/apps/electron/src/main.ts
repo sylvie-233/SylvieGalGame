@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { app, BrowserWindow, ipcMain, Menu, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron';
 
 const APP_SCHEME = 'app';
 const APP_HOST = 'sylvie';
@@ -286,6 +286,46 @@ function registerIpc(): void {
   ipcMain.handle('window:get-fullscreen', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     return window?.isFullScreen() ?? false;
+  });
+
+  ipcMain.handle('file:save-text', async (event, filename: unknown, content: unknown) => {
+    if (typeof content !== 'string' || content.length > 20_000_000) return false;
+    const suggested = typeof filename === 'string' && filename ? filename : 'sylvie-saves.json';
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      defaultPath: suggested,
+      filters: [{ name: '存档 JSON', extensions: ['json'] }],
+    };
+    const result = window
+      ? await dialog.showSaveDialog(window, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return false;
+    try {
+      await writeFile(result.filePath, content, 'utf8');
+      return true;
+    } catch (error) {
+      console.error('[导出] 写入失败', error);
+      return false;
+    }
+  });
+
+  ipcMain.handle('file:open-text', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      properties: ['openFile' as const],
+      filters: [{ name: '存档 JSON', extensions: ['json'] }],
+    };
+    const result = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options);
+    const file = result.filePaths[0];
+    if (result.canceled || !file) return null;
+    try {
+      return await readFile(file, 'utf8');
+    } catch (error) {
+      console.error('[导入] 读取失败', error);
+      return null;
+    }
   });
 
   ipcMain.handle('app:quit', () => {

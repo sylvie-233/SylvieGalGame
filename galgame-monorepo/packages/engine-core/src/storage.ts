@@ -1,9 +1,18 @@
-import type { GalleryUnlocks, GameSettings, KeyValueStorage, SaveData } from '@sylvie/types';
+import type {
+  GalleryUnlocks,
+  GameSettings,
+  KeyValueStorage,
+  SaveData,
+  SaveExportBundle,
+} from '@sylvie/types';
 import {
   AUTO_SAVE_COUNT,
   DEFAULT_SETTINGS,
   GALLERY_KEY,
   MANUAL_SAVE_COUNT,
+  READ_MARKS_KEY,
+  SAVE_EXPORT_FORMAT,
+  SAVE_EXPORT_VERSION,
   SETTINGS_KEY,
   SAVE_KEYS,
   SAVE_VERSION,
@@ -172,6 +181,77 @@ export async function readLatestSave(storage: KeyValueStorage): Promise<SaveData
     }
   }
   return latest;
+}
+
+const EXPORT_KEY_PATTERN =
+  /^(?:save:(?:auto(?::[23])?|quick|slot:(?:[1-9]|1[0-9]|20))|meta:(?:read-marks|settings|gallery))$/;
+
+export function exportableSaveKeys(): string[] {
+  return [
+    ...Array.from({ length: AUTO_SAVE_COUNT }, (_, index) => autoSaveKey(index + 1)),
+    SAVE_KEYS.quick,
+    ...Array.from({ length: MANUAL_SAVE_COUNT }, (_, index) => manualSaveKey(index + 1)),
+    READ_MARKS_KEY,
+    SETTINGS_KEY,
+    GALLERY_KEY,
+  ];
+}
+
+/** 打包指定键（默认全量）为可下载的 JSON 字符串。 */
+export async function createSaveExport(
+  storage: KeyValueStorage,
+  keys: string[] = exportableSaveKeys(),
+): Promise<string> {
+  const saves: Record<string, string> = {};
+  for (const key of keys) {
+    const raw = await storage.get(key);
+    if (raw !== null) saves[key] = raw;
+  }
+  return JSON.stringify({
+    format: SAVE_EXPORT_FORMAT,
+    version: SAVE_EXPORT_VERSION,
+    exportedAt: Date.now(),
+    saves,
+  });
+}
+
+/** 校验导入文件结构，过滤未知键与非字符串值；格式不正确时返回 null。 */
+export function parseSaveExport(raw: string): Record<string, string> | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const record = parsed as Partial<SaveExportBundle>;
+    if (record.format !== SAVE_EXPORT_FORMAT || record.version !== SAVE_EXPORT_VERSION) {
+      return null;
+    }
+    if (typeof record.saves !== 'object' || record.saves === null) return null;
+
+    const saves: Record<string, string> = {};
+    for (const [key, value] of Object.entries(record.saves)) {
+      if (!EXPORT_KEY_PATTERN.test(key)) continue;
+      if (typeof value !== 'string' || value.length > 5_000_000) continue;
+      saves[key] = value;
+    }
+    return saves;
+  } catch {
+    return null;
+  }
+}
+
+/** 导入存档；返回实际写入的键数量。格式不正确时抛错，调用方负责提示。 */
+export async function importSaveExport(
+  storage: KeyValueStorage,
+  raw: string,
+): Promise<number> {
+  const saves = parseSaveExport(raw);
+  if (!saves) {
+    throw new Error('存档文件格式不正确');
+  }
+  const entries = Object.entries(saves);
+  for (const [key, value] of entries) {
+    await storage.set(key, value);
+  }
+  return entries.length;
 }
 
 export async function loadGalleryUnlocks(storage: KeyValueStorage): Promise<GalleryUnlocks> {

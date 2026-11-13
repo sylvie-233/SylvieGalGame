@@ -26,6 +26,10 @@ export interface PlayerPlatform {
   captureScreenshot?: () => Promise<string | null>;
   setFullscreen?: (value: boolean) => Promise<boolean>;
   getFullscreen?: () => Promise<boolean>;
+  /** 宿主文件对话框导出文本文件；返回是否实际写入。 */
+  saveTextFile?: (filename: string, content: string) => Promise<boolean>;
+  /** 宿主文件对话框选择文本文件；取消时返回 null。 */
+  openTextFile?: () => Promise<string | null>;
   quit?: () => void;
   appVersion?: string;
 }

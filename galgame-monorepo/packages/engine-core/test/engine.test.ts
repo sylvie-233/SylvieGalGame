@@ -7,7 +7,10 @@ import { evaluateCondition, evaluateExpression, validateExpression } from '../sr
 import { interpolateText, validateInterpolation } from '../src/interpolate';
 import { loadGame, parseManifest } from '../src/script';
 import {
+  createSaveExport,
+  importSaveExport,
   loadGalleryUnlocks,
+  parseSaveExport,
   persistGalleryUnlocks,
   readAutoSaves,
   readLatestSave,
@@ -578,6 +581,35 @@ commands:
 
     await writeSave(storage, manualSaveKey(1), { ...base, createdAt: 5 });
     expect((await readLatestSave(storage))?.createdAt).toBe(5);
+  });
+
+  it('exports and imports save bundles with key validation', async () => {
+    const source = createStorage();
+    const engine = await createEngine();
+    engine.start();
+    const save = engine.createSave({ note: '导出测试' });
+    await writeSave(source, manualSaveKey(1), save);
+
+    const raw = await createSaveExport(source, [manualSaveKey(1)]);
+    const parsed = parseSaveExport(raw);
+    expect(Object.keys(parsed ?? {})).toEqual([manualSaveKey(1)]);
+
+    const target = createStorage();
+    expect(await importSaveExport(target, raw)).toBe(1);
+    expect((await readSave(target, manualSaveKey(1)))?.note).toBe('导出测试');
+
+    expect(parseSaveExport('{"format":"wrong"}')).toBeNull();
+    expect(
+      parseSaveExport(
+        JSON.stringify({
+          format: 'sylvie-save-export',
+          version: 1,
+          exportedAt: 1,
+          saves: { evil: 'x', 'save:slot:99': 'y' },
+        }),
+      ),
+    ).toEqual({});
+    await expect(importSaveExport(target, 'not json')).rejects.toThrow('格式不正确');
   });
 
   it('persists gallery unlocks independently from saves', async () => {
