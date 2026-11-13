@@ -1,7 +1,8 @@
 import type { BacklogEntry, Pointer, StageSnapshot } from './state';
 import type { VariableTable } from './variables';
 
-export const SAVE_VERSION = 1;
+/** 2：新增 contentVersion，用于提示存档与当前内容是否匹配。 */
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
   version: typeof SAVE_VERSION;
@@ -16,6 +17,8 @@ export interface SaveData {
   readMarks: string[];
   backlog: BacklogEntry[];
   note: string;
+  /** 存档时 manifest 的 version；旧存档迁移后为空字符串。 */
+  contentVersion: string;
   /** data:image/png;base64, ... 形式的缩略图。 */
   screenshot: string | null;
 }

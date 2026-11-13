@@ -1,4 +1,4 @@
-import { configurePlayer, GameApp } from '@sylvie/player';
+import { configurePlayer, ErrorBoundary, GameApp } from '@sylvie/player';
 import { createRoot } from 'react-dom/client';
 
 import './index.css';
@@ -29,7 +29,11 @@ function boot(): void {
   }
 
   configurePlayer(webPlatform);
-  createRoot(container).render(<GameApp />);
+  createRoot(container).render(
+    <ErrorBoundary>
+      <GameApp />
+    </ErrorBoundary>,
+  );
 }
 
 try {

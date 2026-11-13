@@ -1,4 +1,4 @@
-import { configurePlayer, GameApp } from '@sylvie/player';
+import { configurePlayer, ErrorBoundary, GameApp } from '@sylvie/player';
 import { createRoot } from 'react-dom/client';
 
 import './index.css';
@@ -69,7 +69,11 @@ async function boot(): Promise<void> {
     return;
   }
 
-  createRoot(container).render(<GameApp />);
+  createRoot(container).render(
+    <ErrorBoundary>
+      <GameApp />
+    </ErrorBoundary>,
+  );
 }
 
 void boot().catch((error: unknown) => {

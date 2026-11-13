@@ -16,6 +16,7 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useConfirm } from './ConfirmDialog';
 import { Modal } from './Modal';
 
 interface SaveLoadPanelProps {
@@ -63,7 +64,12 @@ function SlotCard({ title, data, mode, disabled, onActivate, onDelete }: SlotCar
     >
       <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-sm bg-[linear-gradient(140deg,#1a1c29,#0d0f17)]">
         {data?.screenshot ? (
-          <img className="h-full w-full object-cover" src={data.screenshot} alt="" draggable={false} />
+          <img
+            className="h-full w-full object-cover"
+            src={data.screenshot}
+            alt=""
+            draggable={false}
+          />
         ) : (
           <span className="text-[11px] tracking-[0.14em] text-sg-ink/25">
             {data ? '无快照' : '空'}
@@ -114,6 +120,7 @@ export function SaveLoadPanel({
   const [auto, setAuto] = useState<SaveData | null>(null);
   const [quick, setQuick] = useState<SaveData | null>(null);
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   const refresh = useCallback(async () => {
     const entries = await readManualSaves(platform.storage, MANUAL_SAVE_COUNT);
@@ -128,7 +135,14 @@ export function SaveLoadPanel({
 
   const saveTo = async (key: string, existing: SaveData | null) => {
     if (busy) return;
-    if (existing && !window.confirm('该槽位已有存档，确定覆盖吗？')) return;
+    if (existing) {
+      const confirmed = await confirm('该槽位已有存档，确定覆盖吗？', {
+        title: '覆盖存档',
+        confirmLabel: '覆盖',
+        danger: true,
+      });
+      if (!confirmed) return;
+    }
     setBusy(true);
     try {
       const screenshot = platform.captureScreenshot
@@ -148,7 +162,12 @@ export function SaveLoadPanel({
 
   const remove = async (key: string) => {
     if (busy) return;
-    if (!window.confirm('确定删除该存档吗？')) return;
+    const confirmed = await confirm('确定删除该存档吗？删除后无法恢复。', {
+      title: '删除存档',
+      confirmLabel: '删除',
+      danger: true,
+    });
+    if (!confirmed) return;
     setBusy(true);
     try {
       await deleteSave(platform.storage, key);
@@ -167,56 +186,59 @@ export function SaveLoadPanel({
   };
 
   return (
-    <Modal title={mode === 'save' ? '保存进度' : '读取进度'} onClose={onClose} wide>
-      <p className="mb-[18px] text-[13px] leading-[1.7] tracking-[0.04em] text-sg-muted">
-        {mode === 'save'
-          ? '点击空槽位保存当前进度；点击已有存档可覆盖。'
-          : '点击带快照的槽位读取进度。'}
-      </p>
+    <>
+      <Modal title={mode === 'save' ? '保存进度' : '读取进度'} onClose={onClose} wide>
+        <p className="mb-[18px] text-[13px] leading-[1.7] tracking-[0.04em] text-sg-muted">
+          {mode === 'save'
+            ? '点击空槽位保存当前进度；点击已有存档可覆盖。'
+            : '点击带快照的槽位读取进度。'}
+        </p>
 
-      <h3 className="mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase">
-        特殊存档
-      </h3>
-      <div className="mb-2 mt-3 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-        <SlotCard
-          title="自动存档"
-          data={auto}
-          mode={mode}
-          disabled={mode === 'save' || !auto}
-          onActivate={() => auto && loadData(auto)}
-        />
-        <SlotCard
-          title="快速存档"
-          data={quick}
-          mode={mode}
-          disabled={mode === 'save' || !quick}
-          onActivate={() => quick && loadData(quick)}
-          onDelete={() => void remove(SAVE_KEYS.quick)}
-        />
-      </div>
-
-      <h3 className="mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase">
-        手动存档
-      </h3>
-      <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3">
-        {manual.map((entry) => (
+        <h3 className="mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase">
+          特殊存档
+        </h3>
+        <div className="mb-2 mt-3 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           <SlotCard
-            key={entry.slot}
-            title={`${String(entry.slot).padStart(2, '0')}`}
-            data={entry.data}
+            title="自动存档"
+            data={auto}
             mode={mode}
-            disabled={busy}
-            onActivate={() => {
-              if (mode === 'save') {
-                void saveTo(manualSaveKey(entry.slot), entry.data);
-              } else if (entry.data) {
-                loadData(entry.data);
-              }
-            }}
-            onDelete={() => void remove(manualSaveKey(entry.slot))}
+            disabled={mode === 'save' || !auto}
+            onActivate={() => auto && loadData(auto)}
           />
-        ))}
-      </div>
-    </Modal>
+          <SlotCard
+            title="快速存档"
+            data={quick}
+            mode={mode}
+            disabled={mode === 'save' || !quick}
+            onActivate={() => quick && loadData(quick)}
+            onDelete={() => void remove(SAVE_KEYS.quick)}
+          />
+        </div>
+
+        <h3 className="mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase">
+          手动存档
+        </h3>
+        <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3">
+          {manual.map((entry) => (
+            <SlotCard
+              key={entry.slot}
+              title={`${String(entry.slot).padStart(2, '0')}`}
+              data={entry.data}
+              mode={mode}
+              disabled={busy}
+              onActivate={() => {
+                if (mode === 'save') {
+                  void saveTo(manualSaveKey(entry.slot), entry.data);
+                } else if (entry.data) {
+                  loadData(entry.data);
+                }
+              }}
+              onDelete={() => void remove(manualSaveKey(entry.slot))}
+            />
+          ))}
+        </div>
+      </Modal>
+      {dialog}
+    </>
   );
 }

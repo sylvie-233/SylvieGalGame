@@ -93,5 +93,5 @@ export type EngineEffect =
   | { type: 'se'; sound: string; volume: number }
   | { type: 'voice'; sound: string }
   /** 到达新的对话 / 选项，播放器可据此自动存档。 */
-  | { type: 'checkpoint' }
+  | { type: 'checkpoint'; block: 'text' | 'choice'; chapter: string }
   | { type: 'ended' };

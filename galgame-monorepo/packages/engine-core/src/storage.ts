@@ -12,9 +12,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function isSaveData(value: unknown): value is SaveData {
-  if (!isRecord(value)) return false;
-  if (value.version !== SAVE_VERSION) return false;
+const LEGACY_SAVE_VERSION = 1;
+
+function hasSaveShape(value: Record<string, unknown>): boolean {
   if (typeof value.scene !== 'string' || typeof value.chapter !== 'string') return false;
   if (typeof value.createdAt !== 'number') return false;
   if (!isRecord(value.pointer)) return false;
@@ -28,15 +28,37 @@ export function isSaveData(value: unknown): value is SaveData {
   return true;
 }
 
-export async function readSave(
-  storage: KeyValueStorage,
-  key: string,
-): Promise<SaveData | null> {
+export function isSaveData(value: unknown): value is SaveData {
+  return (
+    isRecord(value) &&
+    value.version === SAVE_VERSION &&
+    typeof value.contentVersion === 'string' &&
+    hasSaveShape(value)
+  );
+}
+
+/**
+ * 把历史版本存档升级到当前结构；无法识别的版本返回 null。
+ * 迁移只发生在读取时，原文件在下一次写入前保持不变。
+ */
+export function migrateSaveData(value: unknown): SaveData | null {
+  if (!isRecord(value)) return null;
+  if (value.version === SAVE_VERSION) {
+    return isSaveData(value) ? value : null;
+  }
+  if (value.version === LEGACY_SAVE_VERSION && hasSaveShape(value)) {
+    const legacy = value as unknown as Omit<SaveData, 'version' | 'contentVersion'>;
+    return { ...legacy, version: SAVE_VERSION, contentVersion: '' };
+  }
+  return null;
+}
+
+export async function readSave(storage: KeyValueStorage, key: string): Promise<SaveData | null> {
   try {
     const raw = await storage.get(key);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isSaveData(parsed) ? parsed : null;
+    return migrateSaveData(parsed);
   } catch {
     return null;
   }

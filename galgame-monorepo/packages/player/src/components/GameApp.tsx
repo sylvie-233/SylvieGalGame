@@ -13,6 +13,7 @@ import { AudioManager } from '../audio';
 import { getPlayerPlatform } from '../player-config';
 import { usePlayerStore } from '../store';
 import { BacklogPanel } from './BacklogPanel';
+import { useConfirm } from './ConfirmDialog';
 import type { DialogueHandle } from './DialogueBox';
 import { GameStage } from './GameStage';
 import { MenuOverlay } from './MenuOverlay';
@@ -21,6 +22,7 @@ import { SaveLoadPanel } from './SaveLoadPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { TitleScreen } from './TitleScreen';
 import { Toast } from './Toast';
+import { WarningsPanel } from './WarningsPanel';
 
 const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp|gif|svg|avif)$/i;
 
@@ -37,6 +39,7 @@ export function GameApp() {
   const skip = usePlayerStore((state) => state.skip);
   const auto = usePlayerStore((state) => state.auto);
   const toast = usePlayerStore((state) => state.toast);
+  const warnings = usePlayerStore((state) => state.warnings);
 
   const setSnapshot = usePlayerStore((state) => state.setSnapshot);
   const setManifest = usePlayerStore((state) => state.setManifest);
@@ -50,6 +53,7 @@ export function GameApp() {
   const toggleSkip = usePlayerStore((state) => state.toggleSkip);
   const toggleAuto = usePlayerStore((state) => state.toggleAuto);
   const showToast = usePlayerStore((state) => state.showToast);
+  const { confirm, dialog } = useConfirm();
 
   const [engine] = useState(
     () =>
@@ -60,7 +64,10 @@ export function GameApp() {
             exists: (path) => platform.exists(path),
           },
           storage: platform.storage,
-          onWarning: (message) => console.warn(message),
+          onWarning: (message) => {
+            console.warn(message);
+            usePlayerStore.getState().addWarning(message);
+          },
         },
       }),
   );
@@ -75,6 +82,8 @@ export function GameApp() {
   useEffect(() => {
     let active = true;
     let autoSaveTimer: number | null = null;
+    let lastScreenshotChapter: string | null = null;
+    let lastScreenshot: string | null = null;
 
     const preload = (assets: string[]) => {
       for (const asset of assets) {
@@ -86,14 +95,23 @@ export function GameApp() {
       audio.preloadAudio(assets);
     };
 
-    const scheduleAutoSave = () => {
+    const scheduleAutoSave = (block: 'text' | 'choice', chapter: string) => {
       if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
       autoSaveTimer = window.setTimeout(() => {
         void (async () => {
           try {
-            const screenshot = platform.captureScreenshot
-              ? await platform.captureScreenshot().catch(() => null)
-              : null;
+            let screenshot = lastScreenshot;
+            const shouldCapture =
+              platform.captureScreenshot &&
+              (block === 'choice' || chapter !== lastScreenshotChapter);
+            if (shouldCapture && platform.captureScreenshot) {
+              const captured = await platform.captureScreenshot().catch(() => null);
+              if (captured) {
+                lastScreenshot = captured;
+                screenshot = captured;
+              }
+              lastScreenshotChapter = chapter;
+            }
             const data = engine.createSave({ screenshot, note: '自动存档' });
             await writeSave(platform.storage, SAVE_KEYS.auto, data);
           } catch (error) {
@@ -112,6 +130,9 @@ export function GameApp() {
       switch (effect.type) {
         case 'scene':
           preload(effect.assets);
+          // 新游戏、读档或跨场景后，旧截图已不再对应当前画面。
+          lastScreenshotChapter = null;
+          lastScreenshot = null;
           break;
         case 'bgm':
           audio.playBgm(effect.track, effect.fade, effect.loop);
@@ -123,7 +144,7 @@ export function GameApp() {
           audio.playVoice(effect.sound);
           break;
         case 'checkpoint':
-          scheduleAutoSave();
+          scheduleAutoSave(effect.block, effect.chapter);
           break;
         case 'ended':
           setAuto(false);
@@ -267,6 +288,15 @@ export function GameApp() {
     engine.advance();
   }, [engine]);
 
+  const rollback = useCallback(() => {
+    if (!ready || view !== 'game' || overlay) return;
+    if (!engine.canRollback()) return;
+    if (!engine.rollback()) return;
+    setAuto(false);
+    setSkip(false);
+    showToast('已回到上一句');
+  }, [engine, overlay, ready, setAuto, setSkip, showToast, view]);
+
   const applyLoadedSave = useCallback(
     (data: SaveData): boolean => {
       audio.stopAll();
@@ -377,6 +407,11 @@ export function GameApp() {
       if (overlay) return;
       if (!ready || view !== 'game') return;
 
+      if (event.key === 'PageUp') {
+        event.preventDefault();
+        rollback();
+        return;
+      }
       if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         handleInteract();
@@ -390,11 +425,7 @@ export function GameApp() {
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key !== 'Control') return;
       const shouldToggleSkip =
-        ctrlDown.current &&
-        !ctrlComboUsed.current &&
-        ready &&
-        view === 'game' &&
-        overlay === null;
+        ctrlDown.current && !ctrlComboUsed.current && ready && view === 'game' && overlay === null;
       ctrlDown.current = false;
       ctrlComboUsed.current = false;
       if (shouldToggleSkip) toggleSkip();
@@ -413,10 +444,25 @@ export function GameApp() {
     handleInteract,
     quickSave,
     quickLoad,
+    rollback,
     setOverlay,
     toggleAuto,
     toggleSkip,
   ]);
+
+  useEffect(() => {
+    if (!ready || view !== 'game' || overlay) return;
+    let lastRollback = 0;
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY >= 0 || !engine.canRollback()) return;
+      const now = Date.now();
+      if (now - lastRollback < 450) return;
+      lastRollback = now;
+      rollback();
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, [engine, overlay, ready, rollback, view]);
 
   const backToTitle = useCallback(() => {
     audio.stopAll();
@@ -426,14 +472,31 @@ export function GameApp() {
     setSkip(false);
   }, [audio, setAuto, setOverlay, setSkip, setView]);
 
-  const confirmBackToTitle = useCallback(() => {
-    if (!window.confirm('返回标题？未保存的进度会丢失。')) return;
-    backToTitle();
-  }, [backToTitle]);
+  const confirmBackToTitle = useCallback(async () => {
+    const confirmed = await confirm('返回标题？未保存的进度会丢失。', {
+      title: '返回标题',
+      confirmLabel: '返回',
+      danger: true,
+    });
+    if (confirmed) backToTitle();
+  }, [backToTitle, confirm]);
 
   const title = manifest?.title ?? 'Sylvie Galgame';
   const version = manifest?.version ?? '0.1.0';
   const titleArt = platform.assetUrl('images/bg/title.svg');
+
+  const copyDiagnostics = useCallback(() => {
+    const clipboard = navigator.clipboard;
+    if (!clipboard) {
+      showToast('当前环境不支持剪贴板');
+      return;
+    }
+    const text = [initError ?? '', ...warnings].filter(Boolean).join('\n\n');
+    void clipboard
+      .writeText(text)
+      .then(() => showToast('已复制诊断信息'))
+      .catch(() => showToast('复制失败'));
+  }, [initError, showToast, warnings]);
 
   if (initError) {
     return (
@@ -445,6 +508,18 @@ export function GameApp() {
         <p className="m-0 max-w-[640px] text-sm leading-[1.8] text-sg-muted">
           请检查游戏资源目录下的脚本与资源是否完整。
         </p>
+        {warnings.length > 0 && (
+          <p className="m-0 max-w-[640px] text-sm leading-[1.8] text-sg-dim">
+            另有 {warnings.length} 条脚本警告，可在诊断信息中查看。
+          </p>
+        )}
+        <button
+          type="button"
+          className="mt-2 rounded-sm border border-sg-line bg-sg-accent/10 px-5 py-2 text-[13px] tracking-[0.12em] transition-colors hover:border-sg-line-strong hover:bg-sg-accent/20"
+          onClick={copyDiagnostics}
+        >
+          复制诊断信息
+        </button>
       </div>
     );
   }
@@ -484,8 +559,10 @@ export function GameApp() {
           <QuickBar
             auto={auto}
             skip={skip}
+            canRollback={engine.canRollback()}
             onToggleAuto={toggleAuto}
             onToggleSkip={toggleSkip}
+            onRollback={rollback}
             onBacklog={() => setOverlay({ kind: 'backlog' })}
             onSave={() => setOverlay({ kind: 'saves', mode: 'save', origin: 'game' })}
             onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'game' })}
@@ -500,13 +577,24 @@ export function GameApp() {
         </div>
       )}
 
+      {warnings.length > 0 && (
+        <button
+          type="button"
+          className="fixed top-[clamp(16px,2.4vh,30px)] left-[clamp(18px,2.6vw,38px)] z-[80] rounded-[3px] border border-sg-gold/30 bg-[#0a0c14]/70 px-3 py-1.5 text-[11px] tracking-[0.1em] text-sg-gold/90 backdrop-blur-md transition-colors hover:border-sg-gold/60 hover:text-sg-gold"
+          onClick={() => setOverlay({ kind: 'warnings' })}
+          data-ui-chrome
+        >
+          脚本警告 {warnings.length}
+        </button>
+      )}
+
       {overlay?.kind === 'menu' && (
         <MenuOverlay
           onResume={() => setOverlay(null)}
           onSave={() => setOverlay({ kind: 'saves', mode: 'save', origin: 'game' })}
           onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'game' })}
           onSettings={() => setOverlay({ kind: 'settings', origin: 'game' })}
-          onBackToTitle={confirmBackToTitle}
+          onBackToTitle={() => void confirmBackToTitle()}
           onQuit={platform.quit ? () => platform.quit?.() : undefined}
         />
       )}
@@ -537,6 +625,10 @@ export function GameApp() {
           onClose={() => setOverlay(null)}
           onReplay={(voice) => audio.playVoice(voice)}
         />
+      )}
+
+      {overlay?.kind === 'warnings' && (
+        <WarningsPanel warnings={warnings} onClose={() => setOverlay(null)} />
       )}
 
       <AnimatePresence>
@@ -590,6 +682,7 @@ export function GameApp() {
         )}
       </AnimatePresence>
 
+      {dialog}
       <Toast message={toast} />
     </div>
   );

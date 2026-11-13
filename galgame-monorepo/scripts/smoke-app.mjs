@@ -189,6 +189,17 @@ async function main() {
     await sleep(600);
     await shot('second-line');
 
+    // 回退：第二句 -> 第一句，验证历史快照与舞台恢复。
+    const beforeRollback = await state();
+    await evaluate(
+      `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', code: 'PageUp', bubbles: true }))`,
+    );
+    await sleep(700);
+    const afterRollback = await state();
+    if (beforeRollback.dialogue === afterRollback.dialogue) throw new Error('PageUp 回退未生效');
+    console.log('回退验证：', `${beforeRollback.dialogue} -> ${afterRollback.dialogue}`);
+    await shot('rollback');
+
     // 推进到选项
     for (let step = 0; step < 40; step += 1) {
       const current = await state();

@@ -24,6 +24,7 @@ import type {
 import { parse as parseYaml } from 'yaml';
 
 import { validateExpression } from './expression';
+import { validateInterpolation } from './interpolate';
 
 export type Warn = (message: string) => void;
 
@@ -88,7 +89,9 @@ function parseSpritePosition(
   if (numeric !== null) {
     return Math.min(100, Math.max(0, numeric));
   }
-  warn(`[脚本] ${block} 第 ${index + 1} 条 sprite：position 应为 left/center/right 或 0-100 的数字`);
+  warn(
+    `[脚本] ${block} 第 ${index + 1} 条 sprite：position 应为 left/center/right 或 0-100 的数字`,
+  );
   return 'center';
 }
 
@@ -219,7 +222,12 @@ function parseBg(payload: unknown, block: string, index: number, warn: Warn): Bg
   return { kind: 'bg', image, transition, duration };
 }
 
-function parseSprite(payload: unknown, block: string, index: number, warn: Warn): SpriteCommand | null {
+function parseSprite(
+  payload: unknown,
+  block: string,
+  index: number,
+  warn: Warn,
+): SpriteCommand | null {
   if (!isRecord(payload)) {
     warn(`[脚本] ${block} 第 ${index + 1} 条 sprite：参数必须是映射，例如 { id, image }`);
     return null;
@@ -239,8 +247,7 @@ function parseSprite(payload: unknown, block: string, index: number, warn: Warn)
   }
 
   const opacityRaw = asFiniteNumber(payload.opacity);
-  const opacity =
-    opacityRaw === null ? (image ? 1 : 0) : Math.min(1, Math.max(0, opacityRaw));
+  const opacity = opacityRaw === null ? (image ? 1 : 0) : Math.min(1, Math.max(0, opacityRaw));
 
   return {
     kind: 'sprite',
@@ -279,25 +286,31 @@ function parseCg(payload: unknown, block: string, index: number, warn: Warn): Cg
 }
 
 function parseText(payload: unknown, block: string, index: number, warn: Warn): TextCommand | null {
+  let text: string | null = null;
+  let speaker: string | null = null;
+  let voice: string | null = null;
+
   if (typeof payload === 'string') {
-    return { kind: 'text', id: '', speaker: null, text: payload, voice: null };
-  }
-  if (isRecord(payload)) {
-    const text = asString(payload.text);
+    text = payload;
+  } else if (isRecord(payload)) {
+    text = asString(payload.text);
     if (text === null) {
       warn(`[脚本] ${block} 第 ${index + 1} 条 text：缺少 text 字段`);
       return null;
     }
-    return {
-      kind: 'text',
-      id: '',
-      speaker: asString(payload.speaker) ?? asString(payload.name),
-      text,
-      voice: asString(payload.voice),
-    };
+    speaker = asString(payload.speaker) ?? asString(payload.name);
+    voice = asString(payload.voice);
+  } else {
+    warn(`[脚本] ${block} 第 ${index + 1} 条 text：参数应为字符串或 { speaker, text } 映射`);
+    return null;
   }
-  warn(`[脚本] ${block} 第 ${index + 1} 条 text：参数应为字符串或 { speaker, text } 映射`);
-  return null;
+
+  const interpolationError = validateInterpolation(text);
+  if (interpolationError) {
+    warn(`[脚本] ${block} 第 ${index + 1} 条 text：${interpolationError}`);
+  }
+
+  return { kind: 'text', id: '', speaker, text, voice };
 }
 
 function parseBgm(payload: unknown, block: string, index: number, warn: Warn): BgmCommand {
@@ -344,7 +357,12 @@ function parseSe(payload: unknown, block: string, index: number, warn: Warn): Se
   return null;
 }
 
-function parseVoice(payload: unknown, block: string, index: number, warn: Warn): VoiceCommand | null {
+function parseVoice(
+  payload: unknown,
+  block: string,
+  index: number,
+  warn: Warn,
+): VoiceCommand | null {
   if (typeof payload === 'string') {
     return { kind: 'voice', sound: payload };
   }
@@ -358,7 +376,12 @@ function parseVoice(payload: unknown, block: string, index: number, warn: Warn):
   return null;
 }
 
-function parseChoice(payload: unknown, block: string, index: number, warn: Warn): ChoiceCommand | null {
+function parseChoice(
+  payload: unknown,
+  block: string,
+  index: number,
+  warn: Warn,
+): ChoiceCommand | null {
   if (!isRecord(payload) || !Array.isArray(payload.options)) {
     warn(`[脚本] ${block} 第 ${index + 1} 条 choice：缺少 options 数组`);
     return null;
@@ -373,14 +396,18 @@ function parseChoice(payload: unknown, block: string, index: number, warn: Warn)
     const text = asString(option.text);
     const target = asString(option.jump) ?? asString(option.target);
     if (!text || !target) {
-      warn(`[脚本] ${block} 第 ${index + 1} 条 choice 选项 ${optionIndex + 1}：text 与 jump 均必填`);
+      warn(
+        `[脚本] ${block} 第 ${index + 1} 条 choice 选项 ${optionIndex + 1}：text 与 jump 均必填`,
+      );
       return;
     }
     const condition = asString(option.if) ?? asString(option.condition);
     if (condition) {
       const error = validateExpression(condition);
       if (error) {
-        warn(`[脚本] ${block} 第 ${index + 1} 条 choice 选项 ${optionIndex + 1} 条件无效：${error}`);
+        warn(
+          `[脚本] ${block} 第 ${index + 1} 条 choice 选项 ${optionIndex + 1} 条件无效：${error}`,
+        );
       }
     }
     options.push({ text, target, condition });

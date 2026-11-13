@@ -28,7 +28,7 @@ pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，
 pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
-pnpm test         # engine-core 的 Vitest（目前 11 个用例）
+pnpm test         # engine-core 的 Vitest（目前 17 个用例）
 pnpm validate     # 加载真实剧本、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
@@ -66,8 +66,8 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
         └──存档 / 设置──▶ KeyValueStorage（Electron: JSON 文件 / Web: localStorage）
 ```
 
-- **engine-core**：解析 manifest 与递归 imports，按 `label` / `jump` / `choice` / `if` 等指令推进；采用指针 + 阻塞模型，`text` / `choice` / `wait` 阻塞，其余即时执行。`phase` 为 `idle | text | choice | wait | ended`，每次推进产生不可变 `GameSnapshot`，并通过 effect 事件通知 UI 播放 BGM / SE / 语音、预加载资源。
-- **player**：`GameApp` 只消费快照与事件；启动时必须先调用 `configurePlayer(PlayerPlatform)` 注入平台能力。UI 状态集中在 Zustand（`packages/player/src/store.ts`），音频由 `AudioManager` 管理。`player` 不直接访问 `window.sylvieGame`、`localStorage` 或任何文件系统 API。
+- **engine-core**：解析 manifest 与递归 imports，按 `label` / `jump` / `choice` / `if` 等指令推进；采用指针 + 阻塞模型，`text` / `choice` / `wait` 阻塞，其余即时执行。`phase` 为 `idle | text | choice | wait | ended`，每次推进产生不可变 `GameSnapshot`，并通过 effect 事件通知 UI 播放 BGM / SE / 语音、预加载资源。每个阻塞点会记录最多 50 个完整状态快照供 `rollback()` 使用；`text` 的 `{变量}` 插值在阻塞时求值；到达文本 / 选项时发出 `checkpoint` 效果，供播放器节流自动存档。
+- **player**：`GameApp` 只消费快照与事件；启动时必须先调用 `configurePlayer(PlayerPlatform)` 注入平台能力。UI 状态集中在 Zustand（`packages/player/src/store.ts`），音频由 `AudioManager` 管理。`player` 不直接访问 `window.sylvieGame`、`localStorage` 或任何文件系统 API。覆盖 / 删除 / 返回标题统一走 `useConfirm()` 应用内确认框，不要恢复原生 `window.confirm`；脚本警告汇总到 Zustand 的 `warnings` 并由 `WarningsPanel` 展示；宿主入口用 `ErrorBoundary` 包住 `GameApp`。
 - **Electron**：`main.ts` 注册 `app://sylvie/index.html` 与 `game://assets/...`，资源访问经过 `resolveInside` 防目录穿越；`preload.ts` 通过 `contextBridge` 暴露受控 API；存档写入 `userData/game-storage.json`。渲染进程的 CSP 禁止外部脚本，截图通过 `capturePage` 生成 640px 宽缩略图。
 - **Web**：`apps/web/src/platform.ts` 将同一套 `PlayerPlatform` 映射为 `fetch` + `localStorage` + `html-to-image` + Fullscreen API。Vite 配置把共享包别名到源码，开发期中间件把 `game-content/game` 挂到 `/game`（支持 HEAD / Range）；构建时把内容复制到 `dist/game`。`quit` 刻意不实现，播放器会自动隐藏“退出游戏”。
 - **Docker**：`scripts/docker-compose.yml` → `apps/web/Dockerfile` 多阶段构建（Node 22 构建、Nginx 运行），只安装 Web 所需 workspace 依赖，不把 Electron 装进镜像。容器无状态，存档在访问者浏览器中。
@@ -87,7 +87,8 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 ## 存档与状态
 
 - 键名：`save:auto`、`save:quick`、`save:slot:1..20`（`MANUAL_SAVE_COUNT = 20`）、`meta:read-marks`、`meta:settings`。
-- 存档包含场景 / 指针、变量、图层、BGM、已读标记、Backlog、章节备注与截图缩略图。
+- 存档包含场景 / 指针、变量、图层、BGM、已读标记、Backlog、章节备注、截图缩略图、`contentVersion`；`SAVE_VERSION = 2`，`migrateSaveData()` 负责把 `version: 1` 的旧档补成 v2，迁移失败不得覆盖原始数据。
+- 自动存档由 `checkpoint` 效果触发（900ms 防抖）；截图只在选项节点或章节变化时重新抓取，普通文本复用上一张，避免每条台词都 `capturePage`。
 - Electron 落盘在 `%APPDATA%\SylvieGalGame\game-storage.json`。
 - Web 的 `localStorage` 统一加 `sylvie:` 前缀；缩略图使用 JPEG（640px）以控制配额。容量不足时提示执行 `window.sylvieWeb.resetStorage()`；`window.sylvieWeb.storageDelete(key)` 按原始键删除单条。
 - Web 存档按 origin 隔离；修改 `WEB_PORT` 会进入新的存档空间，`docker compose down` 不会丢档。
@@ -96,12 +97,16 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 
 - 提交前至少运行 `pnpm lint`、`pnpm typecheck`；改动引擎或存档逻辑再加 `pnpm test`；改动剧本或资源必须 `pnpm validate`。根目录 `pwsh ./manage.ps1 verify` 会依次跑完这四项。
 - 改动 UI 后优先用 `pnpm dev:web` 在浏览器验收；需要验证桌面交付时运行 `pwsh ./manage.ps1 smoke`（依赖已 packge 的 exe 与 Node 22+）。
-- 桌面冒烟脚本在覆盖存档槽位 01 前会先执行 `window.sylvieGame.storageDelete('save:slot:1')`，避免原生 `window.confirm` 阻塞 CDP。新增自动化步骤时保留该处理。
+- 桌面冒烟脚本在覆盖存档槽位 01 前会先执行 `window.sylvieGame.storageDelete('save:slot:1')`，避免覆盖确认框打断后续 CDP 步骤。新增自动化步骤时保留该处理；若需要测试确认框，应显式点击「取消 / 覆盖」按钮而不是依赖原生对话框。
 - Docker 构建改动后至少执行一次 `pwsh ./manage.ps1 docker:build`；运行验收用 `docker:up`，再检查 `/health`、`/game/scripts/game.yaml` 与音频 Range 请求。
 
 ## 已知边界与常见坑
 
 - 一期只支持 `fade` / `none` 转场；无剧本编辑器；资源为松散文件，未加密或压缩。
+- 回滚历史只存在当前会话内存中（最多 50 个阻塞点），`start()` / `restoreSave()` 会清空；它不写入存档，读档后不能继续回退到读档前的进度。
+- 脚本警告已汇总到播放器内面板，但暂未带 `scene.yaml` 行号，也没有错误 / 警告分级；渲染异常只做 ErrorBoundary 兜底，尚未把日志写入 `userData`。
+- 新增存档字段时必须同时提升 `SAVE_VERSION`、更新 `isSaveData()` 并在 `migrateSaveData()` 中补迁移逻辑，否则旧档会被当成坏档丢弃。
+- 嵌套弹窗必须使用 `Modal`：它维护全局弹窗栈，Esc 只关闭最上层；直接写 `<div role="dialog">` 会破坏该行为。
 - 美术与音频是 `scripts/generate-assets.mjs` 生成的占位素材，可直接替换。
 - `ELECTRON_RUN_AS_NODE=1` 会让 Electron 退化为 Node 并报 `bad option`；`manage.ps1` 与 `scripts/smoke-app.mjs` 已处理。
 - 打包产物较大（Electron + 游戏资源）；NSIS 安装包未签名，Windows SmartScreen 可能提示。

@@ -19,17 +19,31 @@ import type {
   TextCommand,
   VariableTable,
 } from '@sylvie/types';
-import {
-  READ_MARKS_KEY,
-  SAVE_VERSION,
-} from '@sylvie/types';
+import { READ_MARKS_KEY, SAVE_VERSION } from '@sylvie/types';
 
 import { evaluateCondition } from './expression';
+import { interpolateText } from './interpolate';
 import { loadGame, type LoadedGame } from './script';
 
 const MAX_BACKLOG = 400;
 const RUN_STEP_LIMIT = 200_000;
 const READ_MARK_PERSIST_DELAY = 300;
+/** 回滚只覆盖当前会话，最多保留 50 个阻塞点。 */
+const ROLLBACK_HISTORY_LIMIT = 50;
+
+interface RollbackState {
+  phase: GameSnapshot['phase'];
+  pointer: Pointer;
+  chapter: string;
+  variables: VariableTable;
+  stage: StageSnapshot;
+  audio: { bgm: string | null };
+  backlog: BacklogEntry[];
+  dialogue: DialogueSnapshot | null;
+  choice: GameSnapshot['choice'];
+  choiceOptions: ChoiceCommand['options'];
+  waitMs: number;
+}
 
 export interface GameEngineOptions {
   host: EngineHost;
@@ -96,6 +110,9 @@ export class GameEngine {
   private readMarksTimer: ReturnType<typeof setTimeout> | null = null;
   private stateListeners = new Set<(snapshot: GameSnapshot) => void>();
   private effectListeners = new Set<(effect: EngineEffect) => void>();
+  private readonly rollbackHistory: RollbackState[] = [];
+  private readonly warned = new Set<string>();
+  private contentVersion = '';
 
   constructor(options: GameEngineOptions) {
     this.host = options.host;
@@ -107,6 +124,7 @@ export class GameEngine {
     this.loaded = loaded;
     this.manifest = loaded.manifest;
     this.variables = { ...loaded.manifest.variables };
+    this.contentVersion = loaded.manifest.version;
 
     const storedReadMarks = await this.host.storage.get(READ_MARKS_KEY);
     if (storedReadMarks) {
@@ -169,6 +187,7 @@ export class GameEngine {
     this.phase = 'idle';
     this.waitMs = 0;
     this.chapter = 'start';
+    this.rollbackHistory.length = 0;
     this.pointer = { scene: name, block: scene.entryBlock, index: 0 };
 
     this.emitEffect({ type: 'bgm', track: null, fade: 0, loop: true });
@@ -205,6 +224,13 @@ export class GameEngine {
       block: data.pointer.block,
       index: Math.max(0, data.pointer.index),
     };
+    this.rollbackHistory.length = 0;
+
+    if (data.contentVersion && data.contentVersion !== this.contentVersion) {
+      this.warn(
+        `[存档] 存档来自游戏版本 ${data.contentVersion}，当前为 ${this.contentVersion}，剧情可能已变化`,
+      );
+    }
 
     let markAdded = false;
     for (const id of data.readMarks) {
@@ -255,6 +281,56 @@ export class GameEngine {
     this.run(false);
   }
 
+  /** 当前会话中是否还有可回滚的阻塞点。 */
+  canRollback(): boolean {
+    return (
+      this.loaded !== null &&
+      this.phase !== 'idle' &&
+      this.phase !== 'ended' &&
+      this.rollbackHistory.length >= 2
+    );
+  }
+
+  /** 回到上一个文本 / 选项 / 等待阻塞点，并恢复当时的完整状态。 */
+  rollback(): boolean {
+    if (!this.canRollback()) return false;
+
+    this.rollbackHistory.pop();
+    const state = this.rollbackHistory[this.rollbackHistory.length - 1];
+    if (!state) return false;
+
+    this.phase = state.phase;
+    this.pointer = { ...state.pointer };
+    this.chapter = state.chapter;
+    this.variables = { ...state.variables };
+    this.stage = cloneStage(state.stage);
+    this.audio = { ...state.audio };
+    this.backlog = state.backlog.map((entry) => ({ ...entry }));
+    this.dialogue = state.dialogue ? { ...state.dialogue } : null;
+    this.choice = state.choice
+      ? {
+          prompt: state.choice.prompt,
+          options: state.choice.options.map((option) => ({ ...option })),
+        }
+      : null;
+    this.choiceOptions = state.choiceOptions.map((option) => ({ ...option }));
+    this.waitMs = state.waitMs;
+
+    const scene = this.requireLoaded().scenes.get(this.pointer.scene);
+    if (scene) {
+      this.emitEffect({ type: 'scene', scene: scene.name, assets: [...scene.assets] });
+    }
+    this.emitEffect({ type: 'bgm', track: this.audio.bgm, fade: 0, loop: true });
+    if (this.dialogue?.voice) {
+      this.emitEffect({ type: 'voice', sound: this.dialogue.voice });
+    }
+    this.emit();
+    if (this.phase === 'text' || this.phase === 'choice') {
+      this.emitEffect({ type: 'checkpoint', block: this.phase, chapter: this.chapter });
+    }
+    return true;
+  }
+
   isCurrentTextRead(): boolean {
     return this.dialogue ? this.readMarks.has(this.dialogue.id) : false;
   }
@@ -277,6 +353,7 @@ export class GameEngine {
       readMarks: [...this.readMarks],
       backlog: this.backlog.slice(),
       note: options.note ?? '',
+      contentVersion: this.contentVersion,
       screenshot: options.screenshot ?? null,
     };
   }
@@ -287,6 +364,7 @@ export class GameEngine {
       this.readMarksTimer = null;
       void this.persistReadMarks();
     }
+    this.rollbackHistory.length = 0;
     this.stateListeners.clear();
     this.effectListeners.clear();
   }
@@ -427,6 +505,7 @@ export class GameEngine {
         case 'wait':
           this.phase = 'wait';
           this.waitMs = command.duration;
+          this.recordRollback('wait', this.waitMs);
           this.emit();
           return;
         default: {
@@ -440,10 +519,14 @@ export class GameEngine {
   }
 
   private blockOnText(command: TextCommand, restoring: boolean): void {
+    const text = interpolateText(command.text, this.variables, (message) =>
+      this.warnOnce(`text:${command.id}:${message}`, message),
+    );
+
     this.dialogue = {
       id: command.id,
       speaker: command.speaker,
-      text: command.text,
+      text,
       voice: command.voice,
     };
     this.phase = 'text';
@@ -454,7 +537,7 @@ export class GameEngine {
       this.backlog.push({
         id: command.id,
         speaker: command.speaker,
-        text: command.text,
+        text,
         voice: command.voice,
         at: Date.now(),
       });
@@ -463,12 +546,13 @@ export class GameEngine {
       }
     }
 
+    this.recordRollback('text', 0);
     this.emit();
     if (command.voice) {
       this.emitEffect({ type: 'voice', sound: command.voice });
     }
     if (!restoring) {
-      this.emitEffect({ type: 'checkpoint' });
+      this.emitEffect({ type: 'checkpoint', block: 'text', chapter: this.chapter });
     }
   }
 
@@ -490,7 +574,9 @@ export class GameEngine {
     });
 
     if (views.length === 0) {
-      this.warn(`[引擎] ${this.pointer.block}#${this.pointer.index} 的 choice 没有可见选项，已跳过`);
+      this.warn(
+        `[引擎] ${this.pointer.block}#${this.pointer.index} 的 choice 没有可见选项，已跳过`,
+      );
       this.pointer.index += 1;
       return false;
     }
@@ -499,11 +585,42 @@ export class GameEngine {
     this.choiceOptions = command.options;
     this.phase = 'choice';
     this.waitMs = 0;
+    this.recordRollback('choice', 0);
     this.emit();
     if (!restoring) {
-      this.emitEffect({ type: 'checkpoint' });
+      this.emitEffect({ type: 'checkpoint', block: 'choice', chapter: this.chapter });
     }
     return true;
+  }
+
+  private recordRollback(phase: RollbackState['phase'], waitMs: number): void {
+    if (this.rollbackHistory.length >= ROLLBACK_HISTORY_LIMIT) {
+      this.rollbackHistory.shift();
+    }
+    this.rollbackHistory.push({
+      phase,
+      pointer: { ...this.pointer },
+      chapter: this.chapter,
+      variables: { ...this.variables },
+      stage: cloneStage(this.stage),
+      audio: { ...this.audio },
+      backlog: this.backlog.map((entry) => ({ ...entry })),
+      dialogue: this.dialogue ? { ...this.dialogue } : null,
+      choice: this.choice
+        ? {
+            prompt: this.choice.prompt,
+            options: this.choice.options.map((option) => ({ ...option })),
+          }
+        : null,
+      choiceOptions: this.choiceOptions.map((option) => ({ ...option })),
+      waitMs,
+    });
+  }
+
+  private warnOnce(key: string, message: string): void {
+    if (this.warned.has(key)) return;
+    this.warned.add(key);
+    this.warn(message);
   }
 
   private applyBg(command: BgCommand): void {
@@ -655,7 +772,10 @@ export class GameEngine {
       stage: cloneStage(this.stage),
       dialogue: this.dialogue ? { ...this.dialogue } : null,
       choice: this.choice
-        ? { prompt: this.choice.prompt, options: this.choice.options.map((option) => ({ ...option })) }
+        ? {
+            prompt: this.choice.prompt,
+            options: this.choice.options.map((option) => ({ ...option })),
+          }
         : null,
       audio: { ...this.audio },
       variables: { ...this.variables },

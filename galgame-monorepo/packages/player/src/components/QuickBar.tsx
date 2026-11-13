@@ -1,8 +1,10 @@
 interface QuickBarProps {
   auto: boolean;
   skip: boolean;
+  canRollback: boolean;
   onToggleAuto: () => void;
   onToggleSkip: () => void;
+  onRollback: () => void;
   onBacklog: () => void;
   onSave: () => void;
   onLoad: () => void;
@@ -15,8 +17,10 @@ const BASE_BUTTON =
 export function QuickBar({
   auto,
   skip,
+  canRollback,
   onToggleAuto,
   onToggleSkip,
+  onRollback,
   onBacklog,
   onSave,
   onLoad,
@@ -45,16 +49,45 @@ export function QuickBar({
         跳过
       </button>
       <span className="mx-[3px] h-4 w-px bg-sg-ink/10" aria-hidden="true" />
-      <button type="button" className={`${BASE_BUTTON} text-sg-ink/70`} onClick={onBacklog} title="对话历史">
+      <button
+        type="button"
+        className={`${BASE_BUTTON} text-sg-ink/70 disabled:cursor-default disabled:opacity-30`}
+        onClick={onRollback}
+        disabled={!canRollback}
+        title="回到上一句（PageUp）"
+      >
+        回退
+      </button>
+      <button
+        type="button"
+        className={`${BASE_BUTTON} text-sg-ink/70`}
+        onClick={onBacklog}
+        title="对话历史"
+      >
         历史
       </button>
-      <button type="button" className={`${BASE_BUTTON} text-sg-ink/70`} onClick={onSave} title="存档（Ctrl+S）">
+      <button
+        type="button"
+        className={`${BASE_BUTTON} text-sg-ink/70`}
+        onClick={onSave}
+        title="存档（Ctrl+S）"
+      >
         存档
       </button>
-      <button type="button" className={`${BASE_BUTTON} text-sg-ink/70`} onClick={onLoad} title="读档（Ctrl+L）">
+      <button
+        type="button"
+        className={`${BASE_BUTTON} text-sg-ink/70`}
+        onClick={onLoad}
+        title="读档（Ctrl+L）"
+      >
         读档
       </button>
-      <button type="button" className={`${BASE_BUTTON} text-sg-ink/70`} onClick={onMenu} title="菜单（Esc）">
+      <button
+        type="button"
+        className={`${BASE_BUTTON} text-sg-ink/70`}
+        onClick={onMenu}
+        title="菜单（Esc）"
+      >
         菜单
       </button>
     </nav>

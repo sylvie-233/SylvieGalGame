@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 interface ModalProps {
   title: string;
@@ -9,7 +9,38 @@ interface ModalProps {
   wide?: boolean;
 }
 
+interface ModalEntry {
+  id: string;
+  close: () => void;
+}
+
+/** 当前打开的 Modal 栈，Esc 只关闭最上层的弹窗。 */
+const modalStack: ModalEntry[] = [];
+
 export function Modal({ title, onClose, children, footer, wide = false }: ModalProps) {
+  const id = useId();
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    const entry: ModalEntry = { id, close: () => closeRef.current() };
+    modalStack.push(entry);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (modalStack[modalStack.length - 1]?.id !== id) return;
+      event.stopImmediatePropagation();
+      entry.close();
+    };
+
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, { capture: true });
+      const index = modalStack.indexOf(entry);
+      if (index >= 0) modalStack.splice(index, 1);
+    };
+  }, [id]);
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center px-[3vw] py-[4vh]"

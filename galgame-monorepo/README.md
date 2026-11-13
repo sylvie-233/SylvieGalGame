@@ -2,7 +2,7 @@
 
 一期目标（见 [需求整理](../docs/SylvieGalGame需求整理-v1.md)）：**无编辑器、纯 YAML 脚本驱动、React + Electron、仅播放器**，跑通线性 + 分支视觉小说流程，并可打包为 Windows exe。
 
-当前仓库已包含一个可玩的竖切版本：标题页 → 序章 → 两个分支 → 两次选择 → 两个结局，含立绘 / CG / BGM / SE / 语音、打字机、Auto、Skip（仅已读）、Backlog、20 个手动存档 + 自动/快速存档、设置面板与打包配置。
+当前仓库已包含一个可玩的竖切版本：标题页 → 序章 → 两个分支 → 两次选择 → 两个结局，含立绘 / CG / BGM / SE / 语音、打字机、Auto、Skip（仅已读）、Backlog、20 个手动存档 + 自动/快速存档、设置面板与打包配置。二期 M1 另已加入回滚、文本插值、存档迁移、应用内确认框、警告面板与错误边界。
 
 ## 技术栈
 
@@ -37,7 +37,7 @@ galgame-monorepo/
 │     └─ nginx.conf            # 静态托管、CSP、/game/ 缓存策略与健康检查
 ├─ packages/
 │  ├─ types/                   # 跨包共享类型：指令、状态、存档、设置、平台能力
-│  ├─ engine-core/             # 纯 TS 内核：解析、指针调度、变量、条件、已读、存档
+│  ├─ engine-core/             # 纯 TS 内核：解析、指针调度、变量、条件、插值、回滚、存档迁移
 │  │  └─ test/                 # Vitest 单元测试
 │  ├─ player/                  # React 播放器：舞台、对话、选项、面板、音频、状态
 │  ├─ eslint-config/           # 共享 ESLint 平面配置（base / react）
@@ -74,7 +74,7 @@ engine-core ──快照/效果──▶ player（Zustand + React + Motion）
                                           Web: localStorage，键前缀 sylvie:）
 ```
 
-引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。
+引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。
 
 ## 开始开发
 
@@ -102,7 +102,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm assets` | 重新生成占位美术与音频 |
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
 | `pnpm make` | 通过 NSIS 生成安装包 `apps/electron/out/make/` |
-| `pnpm smoke` | 启动已打包产物，自动验证标题 / 分支 / 选项 / 菜单 / 存读档 / 设置并截图到 `scripts/.smoke/`（需先 `pnpm package`，或把 exe 路径作为参数传入） |
+| `pnpm smoke` | 启动已打包产物，自动验证标题 / 回退 / 分支 / 选项 / 菜单 / 存读档 / 设置并截图到 `scripts/.smoke/`（需先 `pnpm package`，或把 exe 路径作为参数传入） |
 
 > 若终端导出了 `ELECTRON_RUN_AS_NODE=1`，Electron 会以纯 Node 模式启动并报 `bad option`。运行前先 `unset ELECTRON_RUN_AS_NODE`；`pnpm smoke` 已自动处理。
 
@@ -152,19 +152,23 @@ pnpm validate
 | 空格 / 回车 / 点击 | 打字中：立即显示全文；等待中：推进 |
 | `A` | 切换 Auto |
 | `Ctrl` | 切换 Skip（遇到未读文本自动停止） |
-| `Esc` | 打开 / 关闭游戏内菜单 |
+| `PageUp` / 滚轮上滑 | 回退到上一个文本、选项或等待 |
+| `Esc` | 打开 / 关闭游戏内菜单（弹窗打开时只关闭最上层弹窗） |
 | `Ctrl+S` / `Ctrl+L` | 快速存档 / 快速读档 |
 
 ## 存档
 
 - 手动槽位 20 个，另有自动存档与快速存档。
-- 存档内容：场景与指针、全部变量、图层状态、BGM、已读标记、Backlog、章节备注、截图缩略图。
+- 存档内容：场景与指针、全部变量、图层状态、BGM、已读标记、Backlog、章节备注、截图缩略图、内容版本号。
+- 存档版本为 `2`；旧版（`version: 1`）自动迁移并补空 `contentVersion`，迁移失败不会覆盖原数据。读取到不同内容版本的存档时会提示剧情可能已变化。
+- 自动存档在到达文本 / 选项时触发，900ms 防抖；截图只在选项或章节变化时重新抓取，普通文本复用上一张缩略图。
 - 桌面端统一写入 `userData/game-storage.json`（Windows 下通常位于 `%APPDATA%\SylvieGalGame\`）。
 - Web 预览写入 `localStorage`，统一加 `sylvie:` 前缀；存档缩略图使用 JPEG 压缩，避免 20+ 槽位顶满浏览器配额。控制台可用 `window.sylvieWeb.resetStorage()` 清空预览存档，`storageDelete(key)` 可按原始键删除单条（自动加前缀）。
 
-## 一期边界
+## 当前边界
 
 - 只有淡入淡出转场，没有擦除 / 滑动 / 粒子。
 - 资源为松散文件，未做加密或压缩。
-- 脚本错误只输出控制台警告，没有可视化报错面板。
+- 脚本警告已汇总到播放器内面板，但暂未带 `scene.yaml` 行号；错误与警告仍未分级。
+- 渲染异常由 ErrorBoundary 兜底，暂未把运行日志落盘到 `userData`。
 - 占位美术 / 音频由 `scripts/generate-assets.mjs` 生成，用于验证流程；可直接替换为正式素材。

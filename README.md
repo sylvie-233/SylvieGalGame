@@ -10,6 +10,8 @@
 
 项目实现了一期完整的视觉小说游玩闭环：标题页 → 序章 → 分支选择 → 变量驱动的剧情收敛 → 结局。业务逻辑集中在纯 TypeScript 的 `engine-core`，UI 与桌面能力分别位于 `player` 和 `electron`，剧情与素材则完全剥离到 `game-content`，改剧情不需要改代码。
 
+二期 M1 已补齐体验闭环：文本回滚、`{变量}` 插值、存档版本迁移、应用内确认框、自动存档减负、脚本警告面板与渲染错误边界。
+
 示例剧本《午后的回声》包含：
 
 - 4 个场景、2 条分支、2 次选择、2 个结局；
@@ -25,8 +27,10 @@
 - **业务逻辑抽离**：`engine-core` 不依赖 React / DOM，可脱离桌面端在 Node 中运行与测试；`player` 只消费快照和效果事件。
 - **分层渲染**：背景 → 多立绘 → CG → 对话 UI → 选项 → 菜单遮罩，支持 fade / none 转场。
 - **文本体验**：逐字打字、点击补全、Auto、Ctrl 跳过已读、未读自动停止、历史回看与语音回放。
+- **回滚与插值**：`PageUp` / 滚轮上滑回到最近 50 个阻塞点，完整恢复指针、变量、舞台与 BGM；`text` 支持 `{变量名}` 插值与 `{{` / `}}` 转义。
 - **音频管理**：BGM / SE / VO 独立音量与打断规则，进入场景预加载图片与音频。
-- **存档系统**：指针、变量、图层、BGM、已读标记、Backlog 与截图完整落盘；手动 / 自动 / 快速三类存档。
+- **存档系统**：指针、变量、图层、BGM、已读标记、Backlog 与截图完整落盘；手动 / 自动 / 快速三类存档，带版本号与内容版本提示，旧版存档自动迁移。
+- **诊断与兜底**：脚本警告汇总到播放器内面板，可复制诊断信息；覆盖 / 删除 / 返回标题使用应用内确认框；渲染异常由 ErrorBoundary 兜底，避免白屏。
 - **内容与代码分离**：打包时内容包被复制到 `resources/game`，替换资源即可更新剧情，无需重新编译。
 - **桌面交付**：Electron 自定义协议限制资源访问，关闭 Node 集成；Forge + NSIS 生成 Windows 安装包。
 - **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + localStorage 平台适配器在浏览器中运行，改 UI / 剧本即时热更新。
@@ -79,7 +83,7 @@ pwsh ./manage.ps1 make
 # 自动验证：ESLint + typecheck + 单元测试 + 剧本校验
 pwsh ./manage.ps1 verify
 
-# 启动打包产物，自动点到选项、存读档与设置并截图
+# 启动打包产物，自动验证回退、选项、存读档与设置并截图
 pwsh ./manage.ps1 smoke
 ```
 
@@ -155,6 +159,7 @@ docker compose -f scripts/docker-compose.yml up -d --build
 SylvieGalGame/
 ├── docs/
 │   ├── SylvieGalGame需求整理-v1.md   # 一期需求
+│   ├── SylvieGalGame需求整理-v2.md   # 二期需求与里程碑
 │   └── screenshots/                  # README 截图
 ├── galgame-monorepo/
 │   ├── apps/
@@ -203,12 +208,14 @@ pwsh ./manage.ps1 validate
 | 空格 / 回车 / 点击 | 打字中补全全文；等待中推进 |
 | `A` | Auto 开关 |
 | `Ctrl` | Skip 开关（遇到未读文本自动停止） |
+| `PageUp` / 滚轮上滑 | 回到上一个文本、选项或等待 |
 | `Esc` | 打开 / 关闭菜单 |
 | `Ctrl+S` / `Ctrl+L` | 快速存档 / 快速读档 |
 
 ## 文档
 
-- [需求整理](docs/SylvieGalGame需求整理-v1.md)：一期功能范围
+- [一期需求](docs/SylvieGalGame需求整理-v1.md)：一期功能范围
+- [二期需求](docs/SylvieGalGame需求整理-v2.md)：优化项、优先级与里程碑
 - [剧本格式](galgame-monorepo/docs/剧本格式.md)：清单、场景、全部指令与表达式
 - [工程说明](galgame-monorepo/README.md)：架构、数据流、开发与打包细节
 

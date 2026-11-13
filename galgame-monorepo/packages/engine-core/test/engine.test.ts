@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import { GameEngine } from '../src/engine';
 import { evaluateCondition, evaluateExpression, validateExpression } from '../src/expression';
+import { interpolateText, validateInterpolation } from '../src/interpolate';
 import { loadGame, parseManifest } from '../src/script';
+import { readSave } from '../src/storage';
 
 const GAME_YAML = `
 title: 测试游戏
@@ -95,9 +97,7 @@ function createHost(onWarning?: (message: string) => void): EngineHost {
   };
 }
 
-async function createEngine(
-  onWarning: (message: string) => void = () => {},
-): Promise<GameEngine> {
+async function createEngine(onWarning: (message: string) => void = () => {}): Promise<GameEngine> {
   const engine = new GameEngine({ host: createHost(onWarning) });
   await engine.initialize();
   return engine;
@@ -112,23 +112,43 @@ describe('expression', () => {
 
   it('supports variables, strings and comparisons', () => {
     expect(evaluateExpression('affection + 1', { affection: 2 })).toBe(3);
-    expect(evaluateCondition('affection >= 2 && name == "Sylvie"', { affection: 2, name: 'Sylvie' })).toBe(true);
+    expect(
+      evaluateCondition('affection >= 2 && name == "Sylvie"', { affection: 2, name: 'Sylvie' }),
+    ).toBe(true);
     expect(evaluateCondition('name != "Sylvie"', { name: 'Sylvie' })).toBe(false);
   });
 
   it('reports syntax errors during validation', () => {
-    expect(validateExpression('affection >=', )).not.toBeNull();
+    expect(validateExpression('affection >=')).not.toBeNull();
     expect(validateExpression('(affection >= 1')).not.toBeNull();
     expect(validateExpression('affection >= 1 && name == "x"')).toBeNull();
+  });
+});
+
+describe('interpolation', () => {
+  it('replaces variables and supports escaped braces', () => {
+    expect(
+      interpolateText('{player_name}，好感 {affection}。', { player_name: '旅人', affection: 3 }),
+    ).toBe('旅人，好感 3。');
+    expect(interpolateText('字面量 {{affection}}', {})).toBe('字面量 {affection}');
+  });
+
+  it('validates placeholder syntax and missing variables', () => {
+    expect(validateInterpolation('{player_name}')).toBeNull();
+    expect(validateInterpolation('{bad-name}')).not.toBeNull();
+    expect(validateInterpolation('{unclosed')).not.toBeNull();
+
+    const warnings: string[] = [];
+    expect(interpolateText('{missing}', {}, (message) => warnings.push(message))).toBe('{missing}');
+    expect(warnings).toHaveLength(1);
   });
 });
 
 describe('script loading', () => {
   it('parses manifest defaults', () => {
     const warnings: string[] = [];
-    const manifest = parseManifest(
-      'start: foo\nvariables:\n  bad: [1, 2]\n',
-      (message) => warnings.push(message),
+    const manifest = parseManifest('start: foo\nvariables:\n  bad: [1, 2]\n', (message) =>
+      warnings.push(message),
     );
     expect(manifest.start).toBe('foo');
     expect(manifest.title).toBe('Sylvie Galgame');
@@ -150,8 +170,7 @@ describe('script loading', () => {
     expect(warnings).toHaveLength(0);
 
     const files = createFiles();
-    files['scripts/scenes/start.yaml'] =
-      'imports: [shared]\ncommands:\n  - jump: shared#missing\n';
+    files['scripts/scenes/start.yaml'] = 'imports: [shared]\ncommands:\n  - jump: shared#missing\n';
     const missingWarnings: string[] = [];
     await loadGame(createAssets(files), (message) => missingWarnings.push(message));
     expect(missingWarnings.some((message) => message.includes('找不到 label "missing"'))).toBe(
@@ -264,5 +283,94 @@ commands:
     expect(waiting.waitMs).toBe(500);
     engine.resumeWait();
     expect(engine.getSnapshot().dialogue?.text).toBe('等待之后');
+  });
+
+  it('interpolates variables when the text blocks', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - text: "{player_name}的好感是 {affection}。"
+  - set: { var: affection, op: "+=", value: 2 }
+  - text: "{player_name}的好感是 {affection}。"
+`;
+    const engine = new GameEngine({
+      host: { assets: createAssets(files), storage: createStorage() },
+    });
+    await engine.initialize();
+    engine.start();
+    expect(engine.getSnapshot().dialogue?.text).toBe('旅人的好感是 0。');
+    engine.advance();
+    expect(engine.getSnapshot().dialogue?.text).toBe('旅人的好感是 2。');
+  });
+
+  it('emits checkpoints with blocking kind and chapter', async () => {
+    const engine = await createEngine();
+    const checkpoints: Array<{ block: string; chapter: string }> = [];
+    engine.onEffect((effect) => {
+      if (effect.type === 'checkpoint') {
+        checkpoints.push({ block: effect.block, chapter: effect.chapter });
+      }
+    });
+    engine.start();
+    engine.advance();
+    engine.advance();
+    expect(checkpoints).toEqual([
+      { block: 'text', chapter: 'begin' },
+      { block: 'text', chapter: 'begin' },
+      { block: 'choice', chapter: 'begin' },
+    ]);
+  });
+
+  it('rolls back text and choice states without duplicating backlog', async () => {
+    const engine = await createEngine();
+    engine.start();
+    expect(engine.getSnapshot().dialogue?.text).toBe('第一句话。');
+    expect(engine.canRollback()).toBe(false);
+
+    engine.advance();
+    expect(engine.getSnapshot().dialogue?.text).toBe('第二句话。');
+    expect(engine.getSnapshot().variables.affection).toBe(2);
+    expect(engine.canRollback()).toBe(true);
+
+    engine.rollback();
+    const first = engine.getSnapshot();
+    expect(first.dialogue?.text).toBe('第一句话。');
+    expect(first.variables.affection).toBe(0);
+    expect(first.backlog).toHaveLength(1);
+    expect(engine.canRollback()).toBe(false);
+
+    engine.advance();
+    engine.advance();
+    expect(engine.getSnapshot().phase).toBe('choice');
+    engine.rollback();
+    expect(engine.getSnapshot().dialogue?.text).toBe('第二句话。');
+    expect(engine.getSnapshot().phase).toBe('text');
+
+    engine.advance();
+    engine.choose(0);
+    expect(engine.getSnapshot().dialogue?.text).toBe('你选择了微笑。');
+    engine.rollback();
+    const backToChoice = engine.getSnapshot();
+    expect(backToChoice.phase).toBe('choice');
+    expect(backToChoice.choice?.options).toHaveLength(2);
+    expect(backToChoice.variables.affection).toBe(2);
+    expect(backToChoice.backlog).toHaveLength(2);
+  });
+
+  it('saves content version and migrates v1 saves', async () => {
+    const engine = await createEngine();
+    engine.start();
+    const save = engine.createSave();
+    expect(save.contentVersion).toBe('1.0.0');
+
+    const legacy = { ...save, version: 1 } as Record<string, unknown>;
+    delete legacy.contentVersion;
+
+    const storage = createStorage();
+    await storage.set('save:legacy', JSON.stringify(legacy));
+    const migrated = await readSave(storage, 'save:legacy');
+    expect(migrated?.version).toBe(2);
+    expect(migrated?.contentVersion).toBe('');
+    expect(migrated?.variables.affection).toBe(0);
   });
 });

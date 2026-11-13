@@ -15,6 +15,7 @@ export type Overlay =
   | { kind: 'saves'; mode: 'save' | 'load'; origin: Origin }
   | { kind: 'settings'; origin: Origin }
   | { kind: 'backlog' }
+  | { kind: 'warnings' }
   | { kind: 'end' }
   | null;
 
@@ -29,6 +30,7 @@ export interface PlayerState {
   skip: boolean;
   auto: boolean;
   toast: string | null;
+  warnings: string[];
 
   setSnapshot: (snapshot: GameSnapshot) => void;
   setManifest: (manifest: GameManifest) => void;
@@ -43,6 +45,8 @@ export interface PlayerState {
   toggleAuto: () => void;
   showToast: (message: string) => void;
   clearToast: () => void;
+  addWarning: (message: string) => void;
+  clearWarnings: () => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -59,6 +63,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   skip: false,
   auto: false,
   toast: null,
+  warnings: [],
 
   setSnapshot: (snapshot) => set({ snapshot }),
   setManifest: (manifest) => set({ manifest }),
@@ -81,4 +86,11 @@ export const usePlayerStore = create<PlayerState>((set) => ({
     toastTimer = null;
     set({ toast: null });
   },
+  addWarning: (message) =>
+    set((state) =>
+      state.warnings.includes(message)
+        ? state
+        : { warnings: [...state.warnings, message].slice(-200) },
+    ),
+  clearWarnings: () => set({ warnings: [] }),
 }));
