@@ -18,7 +18,7 @@
 - `galgame-monorepo/docs/script.schema.json`：编辑器 YAML Schema；根目录与 monorepo 内的 `.vscode/settings.json` 已映射 `game.yaml` 与 `scenes/*.yaml`。新增指令时必须同步更新 Schema。
 - 根目录 `manage.ps1` + `scripts/docker-compose.yml`：开发、校验、打包、冒烟测试与 Web 容器运维入口。
 - `.github/workflows/ci.yml`：push / PR 执行 lint、typecheck、test、validate、Web 构建与 `pnpm smoke:web`，并上传冒烟截图。
-- `.github/workflows/release.yml`：推送 `v*` tag 或手动 Run workflow（填写 tag）时校验 tag / 版本号，跑校验，在 Windows 上打包 + 冒烟 + NSIS，上传 zip / 安装包 / SHA256。发布流水线不构建 Docker 镜像，Web 容器仍由 `manage.ps1 docker:*` 或 compose 手动构建。
+- `.github/workflows/release.yml`：推送 `v*` tag 或手动 Run workflow（填写 tag；代码来源默认 main）时校验 tag / 版本号，跑校验，在 Windows 上打包 + 冒烟 + NSIS，上传 zip / 安装包 / SHA256。发布流水线不构建 Docker 镜像，Web 容器仍由 `manage.ps1 docker:*` 或 compose 手动构建。
 - 根目录 `CHANGELOG.md`：Keep a Changelog 格式，发版前把 `Unreleased` 改为目标版本。
 
 ## 常用命令

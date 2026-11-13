@@ -8,8 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '要发布或重跑的 tag，例如 v0.1.0'
+        description: '要发布或重跑的 tag，例如 v0.1.0（可新建）'
         required: true
+        type: string
+      ref:
+        description: '代码来源（分支 / tag / commit），默认 main'
+        required: false
+        default: main
         type: string
 
 permissions:
@@ -28,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -73,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
