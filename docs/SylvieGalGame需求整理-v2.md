@@ -190,7 +190,8 @@
 - **C2 YAML Schema**：已完成。新增 `docs/script.schema.json`，覆盖清单、全部指令与常用字段；根目录与 monorepo 内的 `.vscode/settings.json` 已配置映射。
 - **C3 内容体检**：已完成。`pnpm validate` 增加未引用资源、不可达场景、资源体积 / 命名 / 扩展名检查，并输出资源、场景与语音覆盖统计。
 - **E5 演出指令**：已完成。新增 `shake` / `flash` 指令；`bg` / `sprite` / `cg` 支持 `dissolve` / `slide-left` / `slide-right` / `wipe` 转场与逐条 `ease`；立绘新增 `flip`，移动 / 缩放 / 层级由 `position` / `scale` / `z` 控制，未知参数加载期告警。
-- 其余 M2 项（A3、V6）仍待实现。
+- **V6 Web 存储升级**：已完成。Web 端优先使用 IndexedDB 并请求 `navigator.storage.persist()`，localStorage 作为回退；启动时自动迁移旧 `sylvie:` 键，调试 API 改为异步。
+- 其余 M2 项（A3 预加载预算）仍待实现。
 
 ## 十四、验收总则
 

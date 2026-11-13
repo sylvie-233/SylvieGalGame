@@ -30,7 +30,7 @@ galgame-monorepo/
 │  │  ├─ forge.config.ts       # Forge + NSIS + extraResource
 │  │  └─ assets/               # 应用图标（png / ico）
 │  └─ web/                     # Web 预览壳：Vite + /game 资源中间件，用于浏览器调试
-│     ├─ src/platform.ts       # fetch / localStorage / 浏览器截图 / Fullscreen 适配
+│     ├─ src/platform.ts       # fetch / IndexedDB（localStorage 回退）/ 截图 / Fullscreen 适配
 │     ├─ src/renderer.tsx      # 注入 Web 能力并挂载播放器
 │     ├─ vite.config.ts        # 源码别名 + 内容目录服务与构建复制
 │     ├─ Dockerfile            # Node 22 构建 + Nginx 运行的多阶段镜像
@@ -61,7 +61,7 @@ galgame-monorepo/
 - `engine-core` 不依赖 React / DOM，只接收 `AssetHost` 与 `KeyValueStorage`，可在 Node 中直接跑（`validate-content.mjs` 就是这么做的）。
 - `player` 只消费引擎快照与效果事件，UI 状态集中在 Zustand。
 - `electron` 只负责桌面能力和资源加载，不包含剧情逻辑。
-- `web` 只是预览壳：把同一套 `PlayerPlatform` 用 HTTP + localStorage 实现，便于浏览器 HMR 与 DevTools 调试，不作为交付形态。
+- `web` 只是预览壳：把同一套 `PlayerPlatform` 用 HTTP + IndexedDB（localStorage 回退）实现，便于浏览器 HMR 与 DevTools 调试，不作为交付形态。
 - `game-content` 不含代码；替换整个目录即可换一款游戏。
 
 ## 数据流
@@ -73,7 +73,7 @@ game-content/game (YAML + 资源)
 engine-core ──快照/效果──▶ player（Zustand + React + Motion）
         │                        │
         └──存档/设置──▶ KeyValueStorage（Electron: IPC → userData/game-storage.json
-                                          Web: localStorage，键前缀 sylvie:）
+                                          Web: IndexedDB / localStorage 回退）
 ```
 
 引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。
@@ -125,7 +125,7 @@ docker compose -f scripts/docker-compose.yml down
 - 构建阶段使用 Node 22 + pnpm，只复制 Web 所需的 workspace 清单，避免安装 Electron 依赖；
 - 运行阶段使用 Nginx，托管 `dist/`（其中包含 Vite 构建时复制的 `game/`）；
 - `/assets/` 采用内容哈希长期缓存，`/game/` 设置 `no-store`，替换剧本后无需清缓存；
-- 容器无状态，Web 存档保存在浏览器 `localStorage`，`docker compose down` 不会丢档；
+- 容器无状态，Web 存档保存在浏览器 IndexedDB（不支持时回退 `localStorage`），`docker compose down` 不会丢档；
 - 存档按 origin 隔离，修改 `WEB_PORT` 后会进入一套新的存档空间；
 - 端口与依赖源可在 `scripts/.env` 中覆盖（参考 `scripts/.env.example`）。
 
@@ -171,7 +171,7 @@ pnpm validate
 - 存档版本为 `3`；`version: 1` / `2` 自动迁移并补齐 `contentVersion`、`bgmPosition`，迁移失败不会覆盖原数据。读取到不同内容版本的存档时会提示剧情可能已变化。读档后 BGM 会从存档记录的位置继续播放。
 - 自动存档在到达文本 / 选项时触发，900ms 防抖；截图只在选项或章节变化时重新抓取，普通文本复用上一张缩略图。
 - 桌面端统一写入 `userData/game-storage.json`（Windows 下通常位于 `%APPDATA%\SylvieGalGame\`）。
-- Web 预览写入 `localStorage`，统一加 `sylvie:` 前缀；存档缩略图使用 JPEG 压缩，避免 20+ 槽位顶满浏览器配额。控制台可用 `window.sylvieWeb.resetStorage()` 清空预览存档，`storageDelete(key)` 可按原始键删除单条（自动加前缀）。
+- Web 预览优先写入 IndexedDB，并请求 `navigator.storage.persist()`；不支持或打开失败时回退 `localStorage`（`sylvie:` 前缀），旧版 `sylvie:` 数据首次启动会自动迁移进 IndexedDB。存档缩略图使用 JPEG 压缩。控制台可用 `await window.sylvieWeb.resetStorage()` 清空预览存档，`await window.sylvieWeb.storageKeys()` 列出键名，`storageDelete(key)` 按原始键删除单条。
 
 ## 当前边界
 

@@ -8,9 +8,9 @@ const GAME_BASE = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/game`;
 export interface SylvieWebDebugApi {
   platform: 'web';
   gameBaseUrl: string;
-  storageKeys: () => string[];
-  storageDelete: (key: string) => void;
-  resetStorage: () => void;
+  storageKeys: () => Promise<string[]>;
+  storageDelete: (key: string) => Promise<void>;
+  resetStorage: () => Promise<void>;
 }
 
 declare global {
@@ -43,11 +43,143 @@ function isQuotaError(error: unknown): boolean {
   );
 }
 
+const DB_NAME = 'sylvie-web';
+const DB_VERSION = 1;
+const STORE_NAME = 'kv';
+
+let databasePromise: Promise<IDBDatabase | null> | null = null;
+
+function idbGet(db: IDBDatabase, key: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(key);
+    request.onsuccess = () => resolve(typeof request.result === 'string' ? request.result : null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function idbSet(db: IDBDatabase, key: string, value: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    transaction.objectStore(STORE_NAME).put(value, key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+}
+
+function idbDelete(db: IDBDatabase, key: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    transaction.objectStore(STORE_NAME).delete(key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function idbKeys(db: IDBDatabase): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAllKeys();
+    request.onsuccess = () =>
+      resolve(request.result.filter((key): key is string => typeof key === 'string'));
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function idbClear(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    transaction.objectStore(STORE_NAME).clear();
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+/** 把旧版本写在 localStorage 的 sylvie: 键迁移进 IndexedDB，成功后删除旧副本。 */
+async function migrateLegacyStorage(db: IDBDatabase): Promise<void> {
+  const keys: string[] = [];
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(STORAGE_PREFIX)) keys.push(key);
+  }
+  for (const storageKey of keys) {
+    const value = window.localStorage.getItem(storageKey);
+    if (value === null) continue;
+    try {
+      await idbSet(db, storageKey.slice(STORAGE_PREFIX.length), value);
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // 迁移失败时保留 localStorage 副本，下次启动继续尝试。
+    }
+  }
+}
+
+function openDatabase(): Promise<IDBDatabase | null> {
+  if (databasePromise) return databasePromise;
+  databasePromise = new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') {
+      resolve(null);
+      return;
+    }
+    let settled = false;
+    const finish = (db: IDBDatabase | null) => {
+      if (settled) return;
+      settled = true;
+      // 打开失败时清空缓存，下一次读写可以重新尝试。
+      if (!db) databasePromise = null;
+      resolve(db);
+    };
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => db.close();
+      // 迁移完成后再放行，避免首次读写时旧数据正好被移走。
+      void migrateLegacyStorage(db).finally(() => finish(db));
+    };
+    request.onerror = () => finish(null);
+    request.onblocked = () => finish(null);
+  });
+  return databasePromise;
+}
+
+async function requestPersistentStorage(): Promise<void> {
+  try {
+    if (navigator.storage?.persist) {
+      const granted = await navigator.storage.persist();
+      if (!granted) console.info('[Web 存储] 浏览器未授予持久化存储，清理站点数据时可能丢失存档');
+    }
+  } catch {
+    // 持久化申请失败不影响继续使用 IndexedDB / localStorage。
+  }
+}
+
 const storage = {
   async get(key: string): Promise<string | null> {
+    const db = await openDatabase();
+    if (db) {
+      try {
+        const value = await idbGet(db, key);
+        if (value !== null) return value;
+      } catch (error) {
+        console.warn('[Web 存储] IndexedDB 读取失败，回退 localStorage', error);
+      }
+    }
     return window.localStorage.getItem(`${STORAGE_PREFIX}${key}`);
   },
   async set(key: string, value: string): Promise<void> {
+    const db = await openDatabase();
+    if (db) {
+      try {
+        await idbSet(db, key, value);
+        window.localStorage.removeItem(`${STORAGE_PREFIX}${key}`);
+        return;
+      } catch (error) {
+        console.warn('[Web 存储] IndexedDB 写入失败，回退 localStorage', error);
+      }
+    }
     try {
       window.localStorage.setItem(`${STORAGE_PREFIX}${key}`, value);
     } catch (error) {
@@ -58,9 +190,51 @@ const storage = {
     }
   },
   async delete(key: string): Promise<void> {
+    const db = await openDatabase();
+    if (db) {
+      try {
+        await idbDelete(db, key);
+      } catch (error) {
+        console.warn('[Web 存储] IndexedDB 删除失败', error);
+      }
+    }
     window.localStorage.removeItem(`${STORAGE_PREFIX}${key}`);
   },
 };
+
+async function storageKeys(): Promise<string[]> {
+  const keys = new Set<string>();
+  const db = await openDatabase();
+  if (db) {
+    try {
+      for (const key of await idbKeys(db)) keys.add(key);
+    } catch (error) {
+      console.warn('[Web 存储] IndexedDB 枚举失败', error);
+    }
+  }
+  for (let index = 0; index < window.localStorage.length; index += 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(STORAGE_PREFIX)) keys.add(key.slice(STORAGE_PREFIX.length));
+  }
+  return [...keys];
+}
+
+async function resetStorage(): Promise<void> {
+  const db = await openDatabase();
+  if (db) {
+    try {
+      await idbClear(db);
+    } catch (error) {
+      console.warn('[Web 存储] IndexedDB 清空失败', error);
+    }
+  }
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(STORAGE_PREFIX)) window.localStorage.removeItem(key);
+  }
+}
+
+void requestPersistentStorage();
 
 function nextFrames(): Promise<void> {
   return new Promise((resolve) => {
@@ -75,7 +249,7 @@ async function captureScreenshot(): Promise<string | null> {
     await nextFrames();
     // 与 Electron 存档缩略图（640px 宽）保持一致的清晰度。
     const pixelRatio = Math.min(1, 640 / window.innerWidth);
-    // localStorage 有容量上限，存档缩略图用 JPEG 压缩，20+ 槽位仍能安全存放。
+    // 存档缩略图用 JPEG 压缩：IndexedDB 空间更宽裕，回退 localStorage 时也更安全。
     return await toJpeg(root, {
       pixelRatio,
       quality: 0.6,
@@ -164,18 +338,7 @@ export const webPlatform: PlayerPlatform = {
 window.sylvieWeb = {
   platform: 'web',
   gameBaseUrl: GAME_BASE,
-  storageKeys: () => {
-    const keys: string[] = [];
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
-      if (key?.startsWith(STORAGE_PREFIX)) keys.push(key);
-    }
-    return keys;
-  },
-  storageDelete: (key) => void storage.delete(key),
-  resetStorage: () => {
-    for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith(STORAGE_PREFIX)) window.localStorage.removeItem(key);
-    }
-  },
+  storageKeys: () => storageKeys(),
+  storageDelete: (key) => storage.delete(key),
+  resetStorage: () => resetStorage(),
 };

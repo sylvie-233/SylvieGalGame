@@ -64,13 +64,13 @@ game-content/game (YAML + 图片 + 音频)
         ▼
 engine-core ──快照 + 效果事件──▶ player（Zustand + React + Motion）
         │                              │
-        └──存档 / 设置──▶ KeyValueStorage（Electron: JSON 文件 / Web: localStorage）
+        └──存档 / 设置──▶ KeyValueStorage（Electron: JSON 文件 / Web: IndexedDB + localStorage 回退）
 ```
 
 - **engine-core**：解析 manifest 与递归 imports，按 `label` / `jump` / `choice` / `if` 等指令推进；采用指针 + 阻塞模型，`text` / `choice` / `wait` 阻塞，其余即时执行。`phase` 为 `idle | text | choice | wait | ended`，每次推进产生不可变 `GameSnapshot`，并通过 effect 事件通知 UI 播放 BGM / SE / 语音、预加载资源。每个阻塞点会记录最多 50 个完整状态快照供 `rollback()` 使用；`text` 的 `{变量}` 插值在阻塞时求值；到达文本 / 选项时发出 `checkpoint` 效果，供播放器节流自动存档。文本已读 id 默认按“块名 + 内容哈希”生成并兼容旧版 `block#下标`，显式 `id` 优先；`set` 支持 `expr`，`choice` 选项可带 `set` / `actions`，选中后先赋值再跳转。manifest 的 `chapters` / `endings` / `titleScreen` 由引擎解析，`ending` 指令结束本局并在快照中带出 `chapterName` 与 `ending`；`sprite` 支持 `scale` / `z` / `flip`。转场为 `fade | dissolve | slide-left | slide-right | wipe | none`，每条指令可带 `ease`；`shake` / `flash` 通过效果事件交给播放器一次性播放，不写入快照。
 - **player**：`GameApp` 只消费快照与事件；启动时必须先调用 `configurePlayer(PlayerPlatform)` 注入平台能力。UI 状态集中在 Zustand（`packages/player/src/store.ts`），音频由 `AudioManager` 管理。`player` 不直接访问 `window.sylvieGame`、`localStorage` 或任何文件系统 API。覆盖 / 删除 / 返回标题统一走 `useConfirm()` 应用内确认框，不要恢复原生 `window.confirm`；脚本警告汇总到 Zustand 的 `warnings` 并由 `WarningsPanel` 展示；宿主入口用 `ErrorBoundary` 包住 `GameApp`。图鉴解锁由 `GameApp` 监听快照（CG / BGM / 结局）后写入 `meta:gallery`，`GalleryPanel` 只读展示并提供 BGM 试听。
 - **Electron**：`main.ts` 注册 `app://sylvie/index.html` 与 `game://assets/...`，资源访问经过 `resolveInside` 防目录穿越；`preload.ts` 通过 `contextBridge` 暴露受控 API；存档写入 `userData/game-storage.json`。渲染进程的 CSP 禁止外部脚本，截图通过 `capturePage` 生成 640px 宽缩略图。
-- **Web**：`apps/web/src/platform.ts` 将同一套 `PlayerPlatform` 映射为 `fetch` + `localStorage` + `html-to-image` + Fullscreen API。Vite 配置把共享包别名到源码，开发期中间件把 `game-content/game` 挂到 `/game`（支持 HEAD / Range）；构建时把内容复制到 `dist/game`。`quit` 刻意不实现，播放器会自动隐藏“退出游戏”。
+- **Web**：`apps/web/src/platform.ts` 将同一套 `PlayerPlatform` 映射为 `fetch` + IndexedDB（localStorage 回退，启动时迁移旧 `sylvie:` 键并请求 `navigator.storage.persist()`）+ `html-to-image` + Fullscreen API。Vite 配置把共享包别名到源码，开发期中间件把 `game-content/game` 挂到 `/game`（支持 HEAD / Range）；构建时把内容复制到 `dist/game`。`quit` 刻意不实现，播放器会自动隐藏“退出游戏”。
 - **Docker**：`scripts/docker-compose.yml` → `apps/web/Dockerfile` 多阶段构建（Node 22 构建、Nginx 运行），只安装 Web 所需 workspace 依赖，不把 Electron 装进镜像。容器无状态，存档在访问者浏览器中。
 
 ## 代码约定
@@ -92,7 +92,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - 自动存档由 `checkpoint` 效果触发（900ms 防抖），写入 `save:auto` 并把旧档轮换到 `save:auto:2` / `save:auto:3`；截图只在选项节点或章节变化时重新抓取，普通文本复用上一张，避免每条台词都 `capturePage`。「继续游戏」通过 `readLatestSave()` 读取自动 / 快速 / 手动存档中最新的一份。
 - 存档导出格式为 `{ format: 'sylvie-save-export', version: 1, exportedAt, saves }`；导入时只接受白名单键（存档、已读、设置、图鉴），未知键与非字符串值直接跳过，格式错误不得写入任何数据。
 - Electron 落盘在 `%APPDATA%\SylvieGalGame\game-storage.json`。
-- Web 的 `localStorage` 统一加 `sylvie:` 前缀；缩略图使用 JPEG（640px）以控制配额。容量不足时提示执行 `window.sylvieWeb.resetStorage()`；`window.sylvieWeb.storageDelete(key)` 按原始键删除单条。
+- Web 优先使用 IndexedDB（库 `sylvie-web`，store `kv`，键为原始键）；localStorage 仅作回退，键统一加 `sylvie:` 前缀。启动时把旧 `sylvie:` 键迁移进 IndexedDB 后删除旧副本。缩略图使用 JPEG（640px）控制体积。容量不足时提示执行 `await window.sylvieWeb.resetStorage()`；`storageKeys()` / `storageDelete(key)` / `resetStorage()` 均已改为异步。
 - Web 存档按 origin 隔离；修改 `WEB_PORT` 会进入新的存档空间，`docker compose down` 不会丢档。
 
 ## 校验与提交

@@ -39,7 +39,7 @@
 - **诊断与兜底**：脚本警告汇总到播放器内面板，可复制诊断信息；覆盖 / 删除 / 返回标题使用应用内确认框；渲染异常由 ErrorBoundary 兜底，避免白屏。
 - **内容与代码分离**：打包时内容包被复制到 `resources/game`，替换资源即可更新剧情，无需重新编译。
 - **桌面交付**：Electron 自定义协议限制资源访问，关闭 Node 集成；Forge + NSIS 生成 Windows 安装包。
-- **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + localStorage 平台适配器在浏览器中运行，改 UI / 剧本即时热更新。
+- **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + IndexedDB（localStorage 回退）平台适配器在浏览器中运行，改 UI / 剧本即时热更新。
 
 ## 页面预览
 
@@ -105,7 +105,7 @@ pwsh ./manage.ps1 smoke
 
 ## Web 容器化
 
-`scripts/docker-compose.yml` 只包含一个 `web` 服务：多阶段构建 `apps/web`，再把静态产物交给 Nginx。容器本身无状态，存档仍在访问者浏览器的 `localStorage` 中。
+`scripts/docker-compose.yml` 只包含一个 `web` 服务：多阶段构建 `apps/web`，再把静态产物交给 Nginx。容器本身无状态，存档仍在访问者浏览器的 IndexedDB 中（不支持时回退 `localStorage`）。
 
 ```powershell
 # 一键构建并启动
@@ -155,7 +155,7 @@ docker compose -f scripts/docker-compose.yml up -d --build
 - **引擎内核**：纯 TypeScript，YAML 解析、指针 + 阻塞调度、变量与条件表达式、已读标记、存档序列化
 - **播放器**：React 19、Tailwind CSS v4、Motion 12、Zustand 5、Howler.js
 - **桌面端**：Electron 45、Electron Forge 8、Vite 8、NSIS
-- **Web 预览**：Vite 8 + React 19（源码别名热更新、`/game` 资源中间件、localStorage 存档）
+- **Web 预览**：Vite 8 + React 19（源码别名热更新、`/game` 资源中间件、IndexedDB 存档 + localStorage 回退）
 - **Web 容器化**：Docker Compose + Node 22 多阶段构建 + Nginx 静态托管
 - **工程**：pnpm workspace + Turborepo、ESLint 9 平面配置、Vitest、TypeScript strict
 
@@ -238,7 +238,7 @@ pwsh ./manage.ps1 validate
 - 资源为松散文件，未加密或压缩。
 - 美术与音频为程序生成的占位素材，可直接替换为正式资源。
 - 安装包未签名，Windows SmartScreen 可能提示。
-- 本地存档：桌面端写入 `%APPDATA%\SylvieGalGame\game-storage.json`；Web 预览写入 `localStorage`（`sylvie:` 前缀），缩略图存为 JPEG 以控制容量。
+- 本地存档：桌面端写入 `%APPDATA%\SylvieGalGame\game-storage.json`；Web 预览优先写入 IndexedDB，不支持时回退 `localStorage`（`sylvie:` 前缀），缩略图存为 JPEG 以控制容量。
 - Web 预览若提示存储空间不足，可在控制台执行 `window.sylvieWeb.resetStorage()` 清空预览存档。
 - Docker 容器本身无状态；更换 `WEB_PORT` 会改变浏览器 origin，旧存档不会随之迁移。
 - Web 预览壳只用于调试与静态预览，正式交付仍以 Electron 打包产物为准。
