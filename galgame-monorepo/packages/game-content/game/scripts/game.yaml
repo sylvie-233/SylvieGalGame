@@ -1,18 +1,19 @@
-title: 午后的回声
-windowTitle: 午后的回声 · SylvieGalGame
+title: 一百二十日元的回声
+windowTitle: 一百二十日元的回声 · SylvieGalGame
 version: 0.1.0
 start: prologue
 
 titleScreen:
   background: images/bg/title.svg
-  bgm: audio/bgm/afternoon.wav
-  subtitle: 一段由 YAML 写成的午后相遇
+  bgm: audio/bgm/night.wav
+  subtitle: 一枚硬币，两个失眠的人，和一辆不会来的末班车
   showVersion: true
 
 scenes:
   - prologue
   - smile_route
   - book_route
+  - silence_route
   - common
 
 variables:
@@ -22,29 +23,47 @@ variables:
   route: ""
 
 chapters:
-  prologue_start: "序章 · 午后的图书馆"
-  smile_start: "第一章 · 热茶与窗边"
-  book_start: "第一章 · 书页之间"
-  common_start: "第二章 · 黄昏之前"
-  smile_epilogue: "第二章 · 未说完的话"
-  book_epilogue: "第二章 · 蓝封面的书"
-  common_tail: "第二章 · 黄昏"
-  melody_ending: "尾声 · 旋律的休止符"
-  quiet_ending: "尾声 · 安静的黄昏"
+  prologue_start: "序章 · 一百二十元的夜"
+  book_start: "第一章 · 一人一半"
+  book_music_room: "第一章 · 旧音乐教室"
+  smile_start: "第一章 · 热的，什么都行"
+  smile_library: "第一章 · 算利息"
+  smile_rooftop: "第一章 · 第二个秘密"
+  silence_start: "第一章 · 没说出口"
+  silence_next_day: "第一章 · 还回来的本子"
+  common_start: "第二章 · 走的前一天"
+  book_epilogue: "第二章 · 夹在最后一页"
+  smile_epilogue: "第二章 · 换我请"
+  silence_epilogue: "第二章 · 留一把伞"
+  common_tail: "第二章 · 末班车之后"
+  melody_ending: "尾声 · 找零"
+  quiet_ending: "尾声 · 末班车"
+  echo_ending: "尾声 · 回声之外"
   common_end: "尾声"
 
 endings:
   - id: melody
-    title: "旋律的休止符"
-    description: "你们在闭馆铃里哼完那段旋律，故事落下了第一个休止符。"
+    title: "找零"
+    description: "她把十元硬币塞回你手心，说下次再还。可第二天，她就离开了。"
   - id: quiet
-    title: "安静的黄昏"
-    description: "你们把书一本本收好，约好明天还来。故事在一个普通的黄昏翻页。"
+    title: "末班车"
+    description: "最后一班车已经开走。你们沿着河边走回去，谁也没有提明天。"
+  - id: echo
+    title: "回声之外"
+    description: "你们约好明年同一台售货机再见。春天来临时，回信和一枚十元硬币一起抵达。"
 
 gallery:
   cgs:
-    - { id: book_glow, image: images/cg/book_glow.svg, title: "书页微光" }
-    - { id: tea_steam, image: images/cg/tea_steam.svg, title: "热茶的白汽" }
+    - { id: book_glow, image: images/cg/book_glow.svg, title: "蓝色笔记本" }
+    - { id: tea_steam, image: images/cg/tea_steam.svg, title: "算利息的热茶" }
+    - { id: piano_keys, image: images/cg/piano_keys.svg, title: "未完成的琴键" }
+    - { id: rooftop_sky, image: images/cg/rooftop_sky.svg, title: "第二个秘密" }
+    - { id: letter_spring, image: images/cg/letter_spring.svg, title: "春天的回信" }
   bgms:
+    - { id: night, track: audio/bgm/night.wav, title: "售货机的白光" }
     - { id: afternoon, track: audio/bgm/afternoon.wav, title: "午后" }
     - { id: sunset, track: audio/bgm/sunset.wav, title: "黄昏" }
+    - { id: music_box, track: audio/bgm/music_box.wav, title: "旧音乐盒" }
+    - { id: rooftop, track: audio/bgm/rooftop.wav, title: "屋顶的风" }
+    - { id: rain, track: audio/bgm/rain.wav, title: "雨前的图书馆" }
+    - { id: river, track: audio/bgm/river.wav, title: "沿河的路" }

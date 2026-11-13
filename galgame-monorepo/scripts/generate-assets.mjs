@@ -27,7 +27,9 @@ const ensure = async (...segments) => {
 /** 写入文件（自动建目录）并打印相对仓库根的输出路径。 */
 const write = async (file, data) => {
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, data);
+  // SVG / 文本去掉行尾空白，避免 git diff --check 反复报错。
+  const normalized = typeof data === 'string' ? data.replace(/[ 	]+$/gm, '') : data;
+  await writeFile(file, normalized);
   console.log(`  · ${path.relative(ROOT, file)}`);
 };
 
@@ -110,6 +112,19 @@ function libraryScene({ skyTop, skyBottom, wallTop, wallBottom, glow, beam, floo
       <rect x="1010" y="760" width="640" height="42" rx="10" fill="#2b2130" opacity="0.92"/>
       <rect x="1046" y="802" width="24" height="230" fill="#241c29"/>
       <rect x="1584" y="802" width="24" height="230" fill="#241c29"/>`;
+  } else if (variant === 'evening') {
+    props = `
+      <g transform="translate(1290 800)">
+        <rect x="-110" y="0" width="220" height="22" rx="4" fill="#3a2f39"/>
+        <rect x="-92" y="-18" width="184" height="18" rx="3" fill="#4d3a4a"/>
+        <rect x="-70" y="-34" width="140" height="16" rx="3" fill="#3f5068"/>
+        <ellipse cx="0" cy="6" rx="120" ry="14" fill="#ffcf9e" opacity="0.08"/>
+      </g>
+      <g transform="translate(1500 690)">
+        <rect x="-8" y="0" width="16" height="120" fill="#2a2230"/>
+        <path d="M-58 0 Q0 -46 58 0 L40 16 Q0 -12 -40 16 Z" fill="#e8c9a0" opacity="0.8"/>
+        <ellipse cx="0" cy="22" rx="70" ry="26" fill="#ffcf9e" opacity="0.16"/>
+      </g>`;
   } else if (variant === 'sunset') {
     props = `
       <g opacity="0.9">
@@ -207,73 +222,216 @@ function libraryScene({ skyTop, skyBottom, wallTop, wallBottom, glow, beam, floo
 </svg>`;
 }
 
-// 标题画面：拱形长窗、书架剪影与窗边少女，与游戏主色调一致。
+/** 夜色城市剪影：按固定公式生成楼体与零星窗灯，避免随机布局造成 diff 波动。 */
+function nightSkyline(baseY, seed) {
+  const rng = mulberry32(seed);
+  let content = '';
+  let cursor = -40;
+  while (cursor < 1960) {
+    const width = 90 + Math.floor(rng() * 170);
+    const height = 180 + Math.floor(rng() * 420);
+    const top = baseY - height;
+    content += `<rect x="${cursor}" y="${top}" width="${width}" height="${height}" fill="#0c101d"/>`;
+    const columns = Math.floor(width / 28);
+    const rows = Math.floor(height / 38);
+    for (let column = 0; column < columns; column += 1) {
+      for (let row = 0; row < rows; row += 1) {
+        if (rng() < 0.72) continue;
+        content += `<rect x="${cursor + 12 + column * 28}" y="${top + 16 + row * 38}" width="7" height="10" fill="#ffd9a0" opacity="${(0.12 + rng() * 0.25).toFixed(2)}"/>`;
+      }
+    }
+    cursor += width + 12;
+  }
+  return content;
+}
+
+/** 夜间街道：便利店、自动售货机与末班车站牌，故事的主舞台。 */
+const streetNightArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#080b16"/>
+      <stop offset="0.6" stop-color="#151b2e"/>
+      <stop offset="1" stop-color="#2a2334"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1d28"/>
+      <stop offset="1" stop-color="#07080d"/>
+    </linearGradient>
+    <radialGradient id="store" cx="1500" cy="700" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e9f4ff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#e9f4ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vend" cx="1010" cy="720" r="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#bfe3ff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#bfe3ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <g fill="#ffe9c8" opacity="0.5">
+    <circle cx="240" cy="140" r="2"/><circle cx="520" cy="90" r="1.5"/><circle cx="860" cy="170" r="2"/>
+    <circle cx="1180" cy="110" r="1.5"/><circle cx="1620" cy="150" r="2"/><circle cx="1800" cy="90" r="1.5"/>
+  </g>
+  <circle cx="1640" cy="170" r="46" fill="#f2ead7" opacity="0.25"/>
+  ${nightSkyline(760, 121)}
+  <rect y="760" width="1920" height="320" fill="url(#road)"/>
+  <rect y="742" width="1920" height="18" fill="#2a2d3a"/>
+  <g stroke="#4a4d5a" stroke-width="6" opacity="0.4">
+    <path d="M120 900 H420"/><path d="M760 900 H1060"/><path d="M1400 900 H1700"/>
+  </g>
+
+  <!-- 便利店 -->
+  <g>
+    <rect x="1260" y="560" width="600" height="240" fill="#10151f"/>
+    <rect x="1260" y="560" width="600" height="44" fill="#1d2635"/>
+    <rect x="1290" y="620" width="540" height="120" fill="#e7f3e8" opacity="0.82"/>
+    <rect x="1290" y="620" width="540" height="120" fill="none" stroke="#d5e7d8" stroke-width="4" opacity="0.6"/>
+    <rect x="1290" y="560" width="540" height="44" fill="#eae3d4" opacity="0.9"/>
+    <text x="1320" y="594" font-family="sans-serif" font-size="28" letter-spacing="8" fill="#3b4a58">24 H</text>
+    <rect x="1288" y="760" width="544" height="20" fill="#202633"/>
+    <rect x="1300" y="780" width="60" height="210" fill="#171c26"/>
+    <rect x="1740" y="780" width="60" height="210" fill="#171c26"/>
+  </g>
+  <rect width="1920" height="1080" fill="url(#store)"/>
+
+  <!-- 自动售货机 -->
+  <g transform="translate(980 620)">
+    <rect x="-90" y="0" width="180" height="300" rx="10" fill="#1a2233"/>
+    <rect x="-72" y="18" width="144" height="170" rx="6" fill="#dff0ff" opacity="0.8"/>
+    <g opacity="0.8">
+      ${Array.from({ length: 12 }, (_, index) => {
+        const column = index % 4;
+        const row = Math.floor(index / 4);
+        return `<rect x="${-58 + column * 32}" y="${30 + row * 38}" width="20" height="26" rx="4" fill="${['#d9a15e', '#8a6d62', '#c9c2b4', '#6d8fa8'][index % 4]}" opacity="0.85"/>`;
+      }).join('')}
+    </g>
+    <rect x="-72" y="200" width="144" height="24" fill="#0d121b"/>
+    <rect x="-58" y="236" width="70" height="16" rx="4" fill="#2a3446"/>
+    <circle cx="52" cy="244" r="10" fill="#8fc3e8" opacity="0.8"/>
+    <rect x="-90" y="300" width="180" height="16" fill="#0d111a"/>
+  </g>
+  <rect width="1920" height="1080" fill="url(#vend)"/>
+
+  <!-- 站牌与路灯 -->
+  <g>
+    <rect x="420" y="560" width="8" height="360" fill="#2a2d38"/>
+    <rect x="356" y="560" width="140" height="58" rx="6" fill="#1b2230" stroke="#3a4356" stroke-width="3"/>
+    <text x="382" y="596" font-family="sans-serif" font-size="22" fill="#c9d4e3">BUS</text>
+    <rect x="260" y="520" width="6" height="400" fill="#2b2e3a"/>
+    <path d="M263 520 Q340 500 400 520" fill="none" stroke="#2b2e3a" stroke-width="8"/>
+    <circle cx="263" cy="516" r="16" fill="#ffe0a8" opacity="0.9"/>
+    <path d="M279 520 L520 700 L520 760 L240 560 Z" fill="#ffe0a8" opacity="0.055"/>
+  </g>
+  <ellipse cx="960" cy="1000" rx="820" ry="60" fill="#03040a" opacity="0.5"/>
+</svg>`;
+
+/** 末班车站：长椅、雨棚与远处便利店的光，用于夜晚收束与结局。 */
+const busStopNightArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#070a14"/>
+      <stop offset="0.7" stop-color="#141a2b"/>
+      <stop offset="1" stop-color="#2b2432"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#191c26"/>
+      <stop offset="1" stop-color="#06070c"/>
+    </linearGradient>
+    <radialGradient id="light" cx="1360" cy="700" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9ecff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#d9ecff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  ${nightSkyline(780, 211)}
+  <rect y="780" width="1920" height="300" fill="url(#road)"/>
+  <rect y="762" width="1920" height="18" fill="#282b37"/>
+  <g stroke="#434653" stroke-width="5" opacity="0.35">
+    <path d="M180 930 H520"/><path d="M860 930 H1200"/><path d="M1540 930 H1880"/>
+  </g>
+  <rect width="1920" height="1080" fill="url(#light)"/>
+
+  <!-- 候车亭 -->
+  <g>
+    <rect x="300" y="470" width="720" height="26" rx="8" fill="#232a38"/>
+    <rect x="316" y="496" width="12" height="330" fill="#1d2430"/>
+    <rect x="992" y="496" width="12" height="330" fill="#1d2430"/>
+    <rect x="330" y="520" width="650" height="220" fill="#c9d8e8" opacity="0.06"/>
+    <rect x="360" y="742" width="580" height="24" rx="6" fill="#2a3040"/>
+    <rect x="378" y="766" width="18" height="90" fill="#202633"/>
+    <rect x="900" y="766" width="18" height="90" fill="#202633"/>
+    <rect x="300" y="440" width="8" height="80" fill="#2a3242"/>
+    <circle cx="304" cy="438" r="22" fill="#ffe3ae" opacity="0.8"/>
+  </g>
+
+  <!-- 站牌 -->
+  <g transform="translate(1120 470)">
+    <rect x="-6" y="0" width="12" height="360" fill="#2a2e3a"/>
+    <rect x="-90" y="-6" width="180" height="66" rx="8" fill="#e8e3d6"/>
+    <text x="-58" y="28" font-family="sans-serif" font-size="20" fill="#3a424f">末班</text>
+    <text x="-58" y="52" font-family="sans-serif" font-size="16" fill="#6a7280">23:30</text>
+  </g>
+
+  <!-- 远处售货机 -->
+  <g transform="translate(1660 700)" opacity="0.9">
+    <rect x="-70" y="0" width="140" height="230" rx="8" fill="#182030"/>
+    <rect x="-54" y="16" width="108" height="120" fill="#d9ecff" opacity="0.72"/>
+    <rect x="-54" y="150" width="108" height="16" fill="#0e141d"/>
+    <ellipse cx="0" cy="236" rx="90" ry="18" fill="#cfe6ff" opacity="0.12"/>
+  </g>
+  <ellipse cx="700" cy="1000" rx="760" ry="54" fill="#03040a" opacity="0.5"/>
+</svg>`;
+
+// 标题画面：深夜的自动售货机与等人的少女，呼应 120 日元的故事。
 const titleArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1c1a2e"/>
-      <stop offset="0.55" stop-color="#6a4356"/>
-      <stop offset="1" stop-color="#e5a58c"/>
+      <stop offset="0" stop-color="#070a14"/>
+      <stop offset="0.65" stop-color="#141a2c"/>
+      <stop offset="1" stop-color="#312638"/>
     </linearGradient>
-    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#141522"/>
-      <stop offset="1" stop-color="#070810"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="1260" cy="420" r="760" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffd7b0" stop-opacity="0.8"/>
-      <stop offset="0.5" stop-color="#f3a98f" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#f3a98f" stop-opacity="0"/>
+    <radialGradient id="vend" cx="1380" cy="600" r="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9ecff" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#a8c9ec" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#a8c9ec" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffe6c8" stop-opacity="0.3"/>
-      <stop offset="1" stop-color="#ffe6c8" stop-opacity="0"/>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1d28"/>
+      <stop offset="1" stop-color="#05060b"/>
     </linearGradient>
   </defs>
-  <rect width="1920" height="1080" fill="url(#wall)"/>
-  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  ${nightSkyline(720, 311)}
+  <rect y="720" width="1920" height="360" fill="url(#road)"/>
+  <rect y="706" width="1920" height="16" fill="#282b37"/>
+  <rect width="1920" height="1080" fill="url(#vend)"/>
 
-  <!-- 拱形长窗 -->
-  <g>
-    <rect x="1010" y="86" width="760" height="820" rx="28" fill="#0b0d16"/>
-    <path d="M1042 906 L1042 360 Q1042 130 1390 118 Q1738 130 1738 360 L1738 906 Z" fill="url(#sky)"/>
-    <path d="M1042 906 L1042 360 Q1042 130 1390 118 Q1738 130 1738 360 L1738 906 Z" fill="none" stroke="#2a2433" stroke-width="14"/>
-    <rect x="1382" y="118" width="16" height="788" fill="#1a1826" opacity="0.86"/>
-    <rect x="1042" y="470" width="696" height="14" fill="#1a1826" opacity="0.86"/>
-    <rect x="1042" y="700" width="696" height="12" fill="#1a1826" opacity="0.7"/>
-    <circle cx="1280" cy="300" r="86" fill="#ffe0bd" opacity="0.2"/>
-    <path d="M1080 720 Q1200 660 1340 700 T1700 668" fill="none" stroke="#fff3e2" stroke-width="4" opacity="0.14"/>
-  </g>
-  <polygon points="1120,140 1500,140 1330,1080 800,1080" fill="url(#beam)" opacity="0.8"/>
-
-  <!-- 书架剪影 -->
-  <g opacity="0.72">
-    ${bookshelf(120, 250, 300, 610, 73)}
-    ${bookshelf(500, 300, 260, 560, 91)}
-    <rect x="840" y="620" width="120" height="240" fill="#12141f"/>
-  </g>
-
-  <!-- 桌与书 -->
-  <polygon points="700,820 1560,820 1650,872 610,872" fill="#15131f"/>
-  <rect x="640" y="872" width="1040" height="28" fill="#0e0d18"/>
-  <g transform="translate(1150 800)">
-    <rect x="-120" y="0" width="240" height="20" rx="4" fill="#6b4b58"/>
-    <rect x="-96" y="-18" width="192" height="18" rx="3" fill="#8d5b6d"/>
-    <rect x="-64" y="-34" width="128" height="16" rx="3" fill="#5b6d8d"/>
-  </g>
-  <ellipse cx="1200" cy="1010" rx="640" ry="70" fill="#05060a" opacity="0.34"/>
-
-  <!-- 窗边立读的少女剪影 -->
-  <g transform="translate(1500 400)" opacity="0.92">
-    <ellipse cx="0" cy="10" rx="92" ry="108" fill="#1a1520"/>
-    <path d="M-96 120 Q-150 220 -130 520 L130 520 Q150 220 96 120 Z" fill="#1a1520"/>
-    <path d="M80 470 L210 430 L208 448 L86 492 Z" fill="#1a1520"/>
-    <path d="M80 250 L230 140" stroke="#1a1520" stroke-width="38" stroke-linecap="round"/>
-    <path d="M-60 120 Q-30 40 10 66 Q60 30 74 120 Q72 260 0 292 Q-70 260 -60 120 Z" fill="#1a1520"/>
-    <path d="M-42 96 Q-8 62 34 96 Q8 150 -34 142 Z" fill="#2a2230" opacity="0.5"/>
+  <!-- 自动售货机 -->
+  <g transform="translate(1390 520)">
+    <rect x="-150" y="0" width="300" height="520" rx="14" fill="#1a2233"/>
+    <rect x="-122" y="28" width="244" height="290" rx="8" fill="#e2f2ff" opacity="0.86"/>
+    <g opacity="0.85">
+      ${Array.from({ length: 20 }, (_, index) => {
+        const column = index % 5;
+        const row = Math.floor(index / 5);
+        return `<rect x="${-104 + column * 45}" y="${48 + row * 58}" width="28" height="38" rx="5" fill="${['#d9a15e', '#8a6d62', '#c9c2b4', '#6d8fa8', '#a87b86'][index % 5]}" opacity="0.9"/>`;
+      }).join('')}
+    </g>
+    <rect x="-122" y="340" width="244" height="34" fill="#0c111a"/>
+    <rect x="-100" y="396" width="120" height="22" rx="5" fill="#2a3446"/>
+    <circle cx="88" cy="408" r="14" fill="#8fc3e8" opacity="0.85"/>
+    <rect x="-150" y="520" width="300" height="20" fill="#0c1018"/>
+    <ellipse cx="0" cy="548" rx="210" ry="34" fill="#05060a" opacity="0.5"/>
   </g>
 
-  ${dust(17, 64, 1920, 900)}
-  <rect y="950" width="1920" height="130" fill="#05060a" opacity="0.55"/>
+  <!-- 等人的少女剪影 -->
+  <g transform="translate(880 640)" opacity="0.94">
+    <ellipse cx="0" cy="0" rx="70" ry="86" fill="#0f1119"/>
+    <path d="M-74 90 Q-118 180 -102 420 L102 420 Q118 180 74 90 Z" fill="#0f1119"/>
+    <path d="M-52 96 Q-18 58 22 96 Q10 158 -32 150 Z" fill="#1b1d2a" opacity="0.65"/>
+    <path d="M60 60 Q120 120 118 220" fill="none" stroke="#0f1119" stroke-width="26" stroke-linecap="round"/>
+    <rect x="-110" y="420" width="220" height="12" rx="6" fill="#0b0d14"/>
+  </g>
+  <ellipse cx="960" cy="1030" rx="860" ry="60" fill="#03040a" opacity="0.5"/>
 </svg>`;
 
 // 热茶 CG：暖色茶杯与蒸汽，对应“热茶”分支的氛围。
@@ -374,18 +532,304 @@ const bookCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" 
   ${dust(31, 40, 1920, 900)}
 </svg>`;
 
+/** 生成一段透视键盘：白键等宽，黑键按 2-3 分组排布。 */
+function pianoKeys(x, y, width, height, whiteCount = 24) {
+  const whiteWidth = width / whiteCount;
+  let content = `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#f0e6d8"/>`;
+  for (let index = 1; index < whiteCount; index += 1) {
+    content += `<rect x="${x + index * whiteWidth}" y="${y}" width="2" height="${height}" fill="#b9a894"/>`;
+  }
+  const blackOffsets = [0, 1, 3, 4, 5];
+  for (let index = 0; index < whiteCount - 1; index += 1) {
+    if (!blackOffsets.includes(index % 7)) continue;
+    content += `<rect x="${x + (index + 0.68) * whiteWidth}" y="${y}" width="${whiteWidth * 0.58}" height="${height * 0.62}" rx="2" fill="#1c1720"/>`;
+  }
+  return content;
+}
+
+// 旧音乐教室：黄昏、落灰的谱架与擦得很干净的钢琴，对应「书页」分支。
+const musicRoomArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241d2b"/>
+      <stop offset="1" stop-color="#0c0a12"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a3550"/>
+      <stop offset="0.65" stop-color="#c47a78"/>
+      <stop offset="1" stop-color="#f0b98e"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#231a22"/>
+      <stop offset="1" stop-color="#08070c"/>
+    </linearGradient>
+    <radialGradient id="lamp" cx="620" cy="520" r="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd7a4" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffd7a4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#wall)"/>
+  <rect y="760" width="1920" height="320" fill="url(#floor)"/>
+  <rect width="1920" height="1080" fill="url(#lamp)"/>
+
+  <!-- 高窗与黄昏 -->
+  <g>
+    <rect x="150" y="90" width="760" height="700" rx="18" fill="#0b0a12"/>
+    <rect x="172" y="112" width="716" height="656" rx="10" fill="url(#sky)"/>
+    <rect x="522" y="112" width="14" height="656" fill="#14101b"/>
+    <rect x="172" y="420" width="716" height="12" fill="#14101b"/>
+    <path d="M172 560 Q330 520 522 574 T888 548" fill="none" stroke="#fff2e2" stroke-width="3" opacity="0.1"/>
+    <path d="M172 650 Q340 612 522 664 T888 638" fill="none" stroke="#fff2e2" stroke-width="3" opacity="0.08"/>
+  </g>
+  <polygon points="420,150 760,150 1180,1080 620,1080" fill="#ffe4c2" opacity="0.06"/>
+  ${dust(61, 60, 1920, 820)}
+
+  <!-- 谱架与椅子 -->
+  <g opacity="0.85">
+    <rect x="330" y="700" width="8" height="220" fill="#241d27"/>
+    <path d="M286 700 L402 700 L386 640 L302 640 Z" fill="#2c2431"/>
+    <rect x="300" y="650" width="88" height="6" fill="#cfc0aa" opacity="0.5"/>
+    <rect x="470" y="780" width="150" height="18" rx="6" fill="#2c2230"/>
+    <rect x="486" y="798" width="14" height="120" fill="#241c28"/>
+    <rect x="590" y="798" width="14" height="120" fill="#241c28"/>
+    <rect x="860" y="740" width="8" height="180" fill="#241d27"/>
+    <path d="M816 740 L932 740 L916 684 L832 684 Z" fill="#2c2431"/>
+  </g>
+
+  <!-- 擦得很干净的钢琴 -->
+  <g transform="translate(1280 500)">
+    <path d="M-360 160 L-360 300 Q0 380 360 300 L360 160 Z" fill="#17121c"/>
+    <path d="M-340 172 L-340 -40 Q0 -120 340 -40 L340 172 Z" fill="#211a27"/>
+    <path d="M-340 -40 Q0 -120 340 -40 L340 10 Q0 -70 -340 10 Z" fill="#2b2233"/>
+    <path d="M-300 172 L-300 84 L300 84 L300 172 Q0 236 -300 172 Z" fill="#f0e6d8"/>
+    ${pianoKeys(-290, 92, 580, 70, 24)}
+    <rect x="-330" y="176" width="660" height="16" fill="#100d14"/>
+    <rect x="-250" y="300" width="24" height="180" fill="#141019"/>
+    <rect x="226" y="300" width="24" height="180" fill="#141019"/>
+    <rect x="-210" y="330" width="420" height="18" rx="5" fill="#2a2030"/>
+    <rect x="-180" y="348" width="16" height="130" fill="#241c2a"/>
+    <rect x="164" y="348" width="16" height="130" fill="#241c2a"/>
+  </g>
+  <ellipse cx="1280" cy="840" rx="420" ry="50" fill="#000" opacity="0.28"/>
+  <rect y="1010" width="1920" height="70" fill="#05060a" opacity="0.5"/>
+</svg>`;
+
+// 天台黄昏：栏杆、城市天际线与将暗未暗的天空，对应「热茶」分支。
+const rooftopArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f2b4a"/>
+      <stop offset="0.45" stop-color="#7d5468"/>
+      <stop offset="0.75" stop-color="#d98b78"/>
+      <stop offset="1" stop-color="#f3c49a"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#332b36"/>
+      <stop offset="1" stop-color="#121017"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="620" cy="640" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe3bd" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#ffe3bd" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#sun)"/>
+  <path d="M0 430 Q280 360 560 420 T1120 400 T1680 430 T1920 410 L1920 0 L0 0 Z" fill="#3a3452" opacity="0.28"/>
+  <g opacity="0.65">
+    <path d="M180 700 L260 700 L260 620 Q220 586 180 620 Z" fill="#2a2538"/>
+    <path d="M420 720 L520 720 L520 590 Q470 544 420 590 Z" fill="#2a2538"/>
+    <path d="M640 730 L780 730 L780 560 Q710 500 640 560 Z" fill="#2a2538"/>
+    <path d="M960 740 L1080 740 L1080 610 Q1020 566 960 610 Z" fill="#2a2538"/>
+    <path d="M1240 750 L1400 750 L1400 580 Q1320 520 1240 580 Z" fill="#2a2538"/>
+    <path d="M1540 760 L1720 760 L1720 600 Q1630 540 1540 600 Z" fill="#2a2538"/>
+  </g>
+  <rect y="760" width="1920" height="320" fill="url(#floor)"/>
+  <g opacity="0.5" fill="#ffe6c2">
+    <rect x="300" y="700" width="7" height="7"/>
+    <rect x="620" y="660" width="6" height="6"/>
+    <rect x="900" y="690" width="8" height="8"/>
+    <rect x="1180" y="650" width="5" height="5"/>
+    <rect x="1480" y="700" width="7" height="7"/>
+    <rect x="1700" y="670" width="6" height="6"/>
+  </g>
+  <!-- 栏杆 -->
+  <g>
+    <rect x="0" y="780" width="1920" height="14" fill="#1b1721"/>
+    <rect x="0" y="900" width="1920" height="8" fill="#1b1721" opacity="0.8"/>
+    ${Array.from({ length: 17 }, (_, index) => `<rect x="${index * 120 + 40}" y="780" width="10" height="140" fill="#1b1721"/>`).join('')}
+  </g>
+  <path d="M80 300 Q360 250 640 300 T1180 280 T1660 310" fill="none" stroke="#fff" stroke-width="3" opacity="0.08"/>
+  <ellipse cx="960" cy="1020" rx="760" ry="60" fill="#05060a" opacity="0.4"/>
+</svg>`;
+
+// 琴键 CG：暖灯下的键盘、谱纸与落灰，对应书页分支的旧音乐教室。
+const pianoKeysCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <radialGradient id="warm" cx="980" cy="420" r="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffdcb0" stop-opacity="0.5"/>
+      <stop offset="0.6" stop-color="#5a3a3e" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#05060a"/>
+    </radialGradient>
+    <linearGradient id="key" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff8ee"/>
+      <stop offset="0.7" stop-color="#eadccb"/>
+      <stop offset="1" stop-color="#c8b5a1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#warm)"/>
+  <rect x="0" y="700" width="1920" height="380" fill="#1a131a" opacity="0.8"/>
+  <!-- 谱纸 -->
+  <g transform="translate(960 360) rotate(-4)">
+    <rect x="-330" y="-220" width="660" height="440" rx="6" fill="#f4ead9" opacity="0.94"/>
+    <g stroke="#9b7f70" stroke-width="3" opacity="0.5">
+      <path d="M-280 -150 H280"/><path d="M-280 -120 H280"/><path d="M-280 -90 H280"/>
+      <path d="M-280 -60 H280"/><path d="M-280 -30 H280"/>
+      <path d="M-280 40 H280"/><path d="M-280 70 H280"/><path d="M-280 100 H280"/>
+      <path d="M-280 130 H280"/><path d="M-280 160 H280"/>
+    </g>
+    <g fill="#5a3a44">
+      <ellipse cx="-170" cy="-122" rx="14" ry="10"/><rect x="-158" y="-190" width="5" height="70"/>
+      <ellipse cx="-80" cy="-92" rx="14" ry="10"/><rect x="-68" y="-160" width="5" height="70"/>
+      <ellipse cx="40" cy="-62" rx="14" ry="10"/><rect x="52" y="-130" width="5" height="70"/>
+      <ellipse cx="150" cy="-32" rx="14" ry="10"/><rect x="162" y="-100" width="5" height="70"/>
+      <ellipse cx="90" cy="128" rx="14" ry="10"/><rect x="102" y="60" width="5" height="70"/>
+    </g>
+    <path d="M-270 180 Q-100 150 80 184 T280 170" fill="none" stroke="#8a6a60" stroke-width="4" opacity="0.35"/>
+  </g>
+  <!-- 键盘 -->
+  <g transform="translate(960 880)">
+    <rect x="-760" y="-110" width="1520" height="24" fill="#100d14"/>
+    <rect x="-760" y="-86" width="1520" height="220" fill="#0f0c12"/>
+    ${pianoKeys(-760, -86, 1520, 220, 36)}
+    <rect x="-760" y="-86" width="1520" height="14" fill="#2a1e28" opacity="0.8"/>
+    <ellipse cx="0" cy="170" rx="760" ry="50" fill="#000" opacity="0.35"/>
+  </g>
+  <g fill="#ffe4bc" opacity="0.4">
+    <circle cx="300" cy="260" r="4"/><circle cx="1520" cy="340" r="3"/>
+    <circle cx="420" cy="500" r="2.5"/><circle cx="1640" cy="180" r="3.5"/>
+    <circle cx="1280" cy="220" r="2"/><circle cx="700" cy="180" r="3"/>
+  </g>
+</svg>`;
+
+// 天台天空 CG：被风吹开的云、栏杆与城市灯光，对应「热茶」分支。
+const rooftopSkyCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262445"/>
+      <stop offset="0.4" stop-color="#6e4d68"/>
+      <stop offset="0.72" stop-color="#d68a78"/>
+      <stop offset="1" stop-color="#f4c79c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="1240" cy="520" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe5c2" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#ffe5c2" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <g fill="#2c2946" opacity="0.35">
+    <path d="M0 320 Q260 250 520 310 T1040 290 T1540 320 T1920 300 L1920 0 L0 0 Z"/>
+    <path d="M0 520 Q300 450 620 510 T1240 490 T1920 520 L1920 420 Q1600 470 1240 440 T620 470 T0 440 Z" opacity="0.6"/>
+  </g>
+  <g fill="#fff1de" opacity="0.1">
+    <path d="M420 380 Q560 320 700 380 Q560 410 420 380 Z"/>
+    <path d="M1100 300 Q1260 230 1420 300 Q1260 340 1100 300 Z"/>
+    <path d="M760 500 Q900 450 1040 500 Q900 530 760 500 Z"/>
+  </g>
+  <!-- 远处城市 -->
+  <g fill="#1d1a2b" opacity="0.85">
+    <rect x="0" y="800" width="240" height="280"/>
+    <rect x="280" y="740" width="180" height="340"/>
+    <rect x="500" y="820" width="260" height="260"/>
+    <rect x="800" y="700" width="220" height="380"/>
+    <rect x="1060" y="800" width="180" height="280"/>
+    <rect x="1280" y="730" width="260" height="350"/>
+    <rect x="1580" y="790" width="340" height="290"/>
+  </g>
+  <g fill="#ffe0ae" opacity="0.55">
+    ${Array.from({ length: 40 }, (_, index) => {
+      const x = 40 + ((index * 233) % 1840);
+      const y = 760 + ((index * 97) % 260);
+      return `<rect x="${x}" y="${y}" width="6" height="6"/>`;
+    }).join('')}
+  </g>
+  <!-- 栏杆与风 -->
+  <rect x="0" y="900" width="1920" height="16" fill="#15121c"/>
+  <rect x="0" y="1010" width="1920" height="10" fill="#15121c" opacity="0.7"/>
+  ${Array.from({ length: 19 }, (_, index) => `<rect x="${index * 108 + 36}" y="900" width="9" height="120" fill="#15121c"/>`).join('')}
+  <path d="M120 260 Q420 210 720 260 T1320 240 T1800 270" fill="none" stroke="#fff" stroke-width="3" opacity="0.1"/>
+  <path d="M0 980 Q480 940 960 976 T1920 960" fill="none" stroke="#fff" stroke-width="2" opacity="0.06"/>
+</svg>`;
+
+// 春天回信 CG：明信片、蓝色书与压在纸上的叶子，对应真结局。
+const letterSpringCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="room" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2230"/>
+      <stop offset="1" stop-color="#0b0910"/>
+    </linearGradient>
+    <radialGradient id="light" cx="1180" cy="420" r="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe6bf" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ffe6bf" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7ea"/>
+      <stop offset="1" stop-color="#e9d9c4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#room)"/>
+  <rect width="1920" height="1080" fill="url(#light)"/>
+  <polygon points="1180,0 1920,0 1920,1080 760,1080" fill="#ffe6bf" opacity="0.05"/>
+  <!-- 桌面 -->
+  <polygon points="0,780 1920,720 1920,1080 0,1080" fill="#221a21"/>
+  <polygon points="0,780 1920,720 1920,760 0,828" fill="#362a32"/>
+  <!-- 蓝色书 -->
+  <g transform="translate(520 760) rotate(-6)">
+    <rect x="-240" y="-120" width="480" height="220" rx="8" fill="#2c3c58"/>
+    <rect x="-240" y="-120" width="480" height="220" rx="8" fill="none" stroke="#182438" stroke-width="6"/>
+    <rect x="-224" y="-104" width="448" height="188" rx="4" fill="#3c5374" opacity="0.55"/>
+    <path d="M-200 -40 H200" stroke="#c9b98f" stroke-width="3" opacity="0.65"/>
+    <path d="M-200 -10 H120" stroke="#c9b98f" stroke-width="2" opacity="0.45"/>
+    <path d="M-200 20 H160" stroke="#c9b98f" stroke-width="2" opacity="0.35"/>
+    <text x="-210" y="64" font-family="serif" font-size="34" fill="#e9dcc1" opacity="0.8">回声</text>
+  </g>
+  <!-- 明信片 -->
+  <g transform="translate(1230 560) rotate(4)">
+    <rect x="-330" y="-230" width="660" height="460" rx="8" fill="url(#card)"/>
+    <rect x="-300" y="-200" width="270" height="250" fill="#b9cfd8" opacity="0.55"/>
+    <path d="M-300 -40 Q-180 -110 -60 -60 T-30 50 Q-170 40 -300 50 Z" fill="#8faec0" opacity="0.7"/>
+    <circle cx="60" cy="-140" r="34" fill="#f3c48f" opacity="0.6"/>
+    <g stroke="#9b7f70" stroke-width="2.5" opacity="0.55">
+      <path d="M20 40 H290"/><path d="M20 74 H250"/><path d="M20 108 H290"/><path d="M20 142 H210"/>
+    </g>
+    <path d="M20 180 Q120 160 220 184" fill="none" stroke="#8a6a60" stroke-width="3" opacity="0.4"/>
+    <!-- 压平的叶子 -->
+    <path d="M250 -60 Q330 -130 390 -60 Q340 10 250 -60 Z" fill="#7d8f5e" opacity="0.8"/>
+    <path d="M255 -58 Q320 -70 380 -62" fill="none" stroke="#55633f" stroke-width="2" opacity="0.7"/>
+  </g>
+  ${dust(83, 48, 1920, 780)}
+  <rect y="1000" width="1920" height="80" fill="#05060a" opacity="0.45"/>
+</svg>`;
+
 // 后发：画在头部之前，只露出轮廓与两侧长发，避免遮住脸。
+// 配色参考经典日式短篇里的银灰发少女，但服装与轮廓为原创设计。
 const spriteHairBack = `
-  <path d="M198 660 Q128 336 232 178 Q308 66 400 58 Q492 66 568 178 Q672 336 602 660 Q636 824 596 986 L520 912 Q540 780 514 660 L286 660 Q260 780 280 912 L204 986 Q164 824 198 660 Z" fill="#b78aa2"/>
-  <path d="M238 640 Q196 380 280 236 Q250 440 262 660 Z" fill="#8f667d" opacity="0.45"/>
-  <path d="M562 640 Q604 380 520 236 Q550 440 538 660 Z" fill="#8f667d" opacity="0.45"/>`;
+  <path d="M198 660 Q128 336 232 178 Q308 66 400 58 Q492 66 568 178 Q672 336 602 660 Q636 824 596 986 L520 912 Q540 780 514 660 L286 660 Q260 780 280 912 L204 986 Q164 824 198 660 Z" fill="#6e6c79"/>
+  <path d="M238 640 Q196 380 280 236 Q250 440 262 660 Z" fill="#4d4b58" opacity="0.5"/>
+  <path d="M562 640 Q604 380 520 236 Q550 440 538 660 Z" fill="#4d4b58" opacity="0.5"/>
+  <path d="M236 330 Q400 250 564 330" fill="none" stroke="#a7a4b0" stroke-width="14" opacity="0.18"/>`;
 
 // 刘海与侧发：画在脸部之后，只覆盖额头与脸颊边缘。
 const spriteBangs = `
-  <path d="M260 414 Q262 304 332 260 Q400 230 468 258 Q538 302 540 414 Q512 350 470 344 Q430 390 400 350 Q370 390 330 344 Q288 350 260 414 Z" fill="#c497ad"/>
-  <path d="M300 240 Q400 160 500 240 Q450 210 400 232 Q352 208 300 240 Z" fill="#d8aec2" opacity="0.45"/>
-  <path d="M272 402 Q244 512 268 632 Q286 664 314 646 Q284 556 294 424 Z" fill="#b78aa2"/>
-  <path d="M528 402 Q556 512 532 632 Q514 664 486 646 Q516 556 506 424 Z" fill="#b78aa2"/>`;
+  <path d="M260 414 Q262 304 332 260 Q400 230 468 258 Q538 302 540 414 Q512 350 470 344 Q430 390 400 350 Q370 390 330 344 Q288 350 260 414 Z" fill="#7c7987"/>
+  <path d="M300 240 Q400 160 500 240 Q450 210 400 232 Q352 208 300 240 Z" fill="#b1aeba" opacity="0.4"/>
+  <path d="M272 402 Q244 512 268 632 Q286 664 314 646 Q284 556 294 424 Z" fill="#6e6c79"/>
+  <path d="M528 402 Q556 512 532 632 Q514 664 486 646 Q516 556 506 424 Z" fill="#6e6c79"/>
+  <!-- 两侧的暗红色发带，呼应售货机夜晚的暖光 -->
+  <path d="M268 342 Q228 318 218 356 Q248 368 274 352 Z" fill="#a84452"/>
+  <path d="M532 342 Q572 318 582 356 Q552 368 526 352 Z" fill="#a84452"/>
+  <circle cx="268" cy="346" r="7" fill="#7d2f3c"/>
+  <circle cx="532" cy="346" r="7" fill="#7d2f3c"/>`;
 
 /**
  * 生成 800×1200 的立绘：neutral 为睁眼，smile / blush 为眯眼，
@@ -399,56 +843,68 @@ function sprite(variant) {
       : '';
   const eyes =
     variant === 'smile' || variant === 'blush'
-      ? `<path d="M294 494 Q330 464 366 494" fill="none" stroke="#3b2a35" stroke-width="9" stroke-linecap="round"/>
-         <path d="M434 494 Q470 464 506 494" fill="none" stroke="#3b2a35" stroke-width="9" stroke-linecap="round"/>`
-      : `<ellipse cx="330" cy="486" rx="35" ry="27" fill="#fbf3ee"/>
-         <path d="M295 470 Q330 448 365 472" fill="none" stroke="#4a3341" stroke-width="7" stroke-linecap="round"/>
-         <circle cx="330" cy="489" r="17" fill="#8a5f74"/>
-         <circle cx="330" cy="489" r="8" fill="#3b2a35"/>
+      ? `<path d="M294 494 Q330 464 366 494" fill="none" stroke="#2f313a" stroke-width="9" stroke-linecap="round"/>
+         <path d="M434 494 Q470 464 506 494" fill="none" stroke="#2f313a" stroke-width="9" stroke-linecap="round"/>`
+      : variant === 'sad'
+        ? `<path d="M296 492 Q330 516 364 492" fill="none" stroke="#2f313a" stroke-width="8" stroke-linecap="round"/>
+           <path d="M436 492 Q470 516 504 492" fill="none" stroke="#2f313a" stroke-width="8" stroke-linecap="round"/>
+           <path d="M300 474 Q330 462 360 474" fill="none" stroke="#5e5b68" stroke-width="4" opacity="0.55"/>
+           <path d="M440 474 Q470 462 500 474" fill="none" stroke="#5e5b68" stroke-width="4" opacity="0.55"/>`
+        : `<ellipse cx="330" cy="486" rx="35" ry="27" fill="#f8f3ee"/>
+         <path d="M295 470 Q330 448 365 472" fill="none" stroke="#46434f" stroke-width="7" stroke-linecap="round"/>
+         <circle cx="330" cy="489" r="17" fill="#7b7d88"/>
+         <circle cx="330" cy="489" r="8" fill="#2f313a"/>
          <circle cx="324" cy="481" r="6" fill="#ffffff" opacity="0.85"/>
-         <ellipse cx="470" cy="486" rx="35" ry="27" fill="#fbf3ee"/>
-         <path d="M435 472 Q470 448 505 470" fill="none" stroke="#4a3341" stroke-width="7" stroke-linecap="round"/>
-         <circle cx="470" cy="489" r="17" fill="#8a5f74"/>
-         <circle cx="470" cy="489" r="8" fill="#3b2a35"/>
+         <ellipse cx="470" cy="486" rx="35" ry="27" fill="#f8f3ee"/>
+         <path d="M435 472 Q470 448 505 470" fill="none" stroke="#46434f" stroke-width="7" stroke-linecap="round"/>
+         <circle cx="470" cy="489" r="17" fill="#7b7d88"/>
+         <circle cx="470" cy="489" r="8" fill="#2f313a"/>
          <circle cx="464" cy="481" r="6" fill="#ffffff" opacity="0.85"/>`;
   const mouth =
     variant === 'neutral'
       ? `<path d="M386 588 Q400 596 414 588" fill="none" stroke="#9d5f6b" stroke-width="5" stroke-linecap="round"/>`
-      : `<path d="M378 584 Q400 606 422 584" fill="none" stroke="#9d5f6b" stroke-width="6" stroke-linecap="round"/>`;
+      : variant === 'sad'
+        ? `<path d="M382 600 Q400 588 418 600" fill="none" stroke="#9d5f6b" stroke-width="5" stroke-linecap="round"/>`
+        : `<path d="M378 584 Q400 606 422 584" fill="none" stroke="#9d5f6b" stroke-width="6" stroke-linecap="round"/>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" width="800" height="1200">
   <g>
-    <!-- 身体与外套 -->
-    <path d="M260 1200 L262 900 Q266 810 340 782 L460 782 Q534 810 538 900 L540 1200 Z" fill="#1b2338"/>
-    <path d="M340 782 L400 900 L460 782 L430 742 L370 742 Z" fill="#f3eee8"/>
-    <path d="M376 790 L400 860 L424 790 L400 774 Z" fill="#e69ab4"/>
-    <path d="M370 742 L330 806 L378 810 Z" fill="#252f49"/>
-    <path d="M430 742 L470 806 L422 810 Z" fill="#252f49"/>
-    <path d="M262 900 L214 1000 L240 1200 L282 1200 L276 1000 Z" fill="#161d2f"/>
-    <path d="M538 900 L586 1000 L560 1200 L518 1200 L524 1000 Z" fill="#161d2f"/>
-    <path d="M300 1200 L302 940 L356 918 L356 1200 Z" fill="#161d2f" opacity="0.7"/>
-    <path d="M500 1200 L498 940 L444 918 L444 1200 Z" fill="#161d2f" opacity="0.7"/>
+    <!-- 脖颈先画，随后由衣领覆盖根部，避免出现悬空的细长脖子 -->
+    <path d="M352 620 Q400 690 448 620 L448 800 Q400 820 352 800 Z" fill="#f0d8cf"/>
+    <path d="M360 664 Q400 702 440 664 Q400 692 360 664 Z" fill="#d9b3a8" opacity="0.35"/>
 
-    <!-- 脖颈 -->
-    <path d="M356 702 Q400 742 444 702 L444 780 Q400 806 356 780 Z" fill="#efc7b8"/>
+    <!-- 身体与外套 -->
+    <path d="M260 1200 L262 900 Q266 742 300 700 L500 700 Q534 742 538 900 L540 1200 Z" fill="#2b2a33"/>
+    <path d="M340 782 L400 900 L460 782 L430 742 L370 742 Z" fill="#f3eee8"/>
+    <path d="M376 790 L400 860 L424 790 L400 774 Z" fill="#a84452"/>
+    <path d="M370 742 L330 806 L378 810 Z" fill="#3a3742"/>
+    <path d="M430 742 L470 806 L422 810 Z" fill="#3a3742"/>
+    <path d="M262 900 L214 1000 L240 1200 L282 1200 L276 1000 Z" fill="#1d1c24"/>
+    <path d="M538 900 L586 1000 L560 1200 L518 1200 L524 1000 Z" fill="#1d1c24"/>
+    <path d="M300 1200 L302 940 L356 918 L356 1200 Z" fill="#1d1c24" opacity="0.7"/>
+    <path d="M500 1200 L498 940 L444 918 L444 1200 Z" fill="#1d1c24" opacity="0.7"/>
 
     <!-- 后发（位于头部之后） -->
     ${spriteHairBack}
 
+    <!-- 高领肩线：补住后发与脖子之间的空隙，避免头身像断开 -->
+    <path d="M282 660 L352 660 L352 792 L268 766 Z" fill="#2b2a33"/>
+    <path d="M448 660 L518 660 L532 766 L448 792 Z" fill="#2b2a33"/>
+
     <!-- 头部与耳朵 -->
-    <ellipse cx="400" cy="470" rx="158" ry="196" fill="#f6ddd2"/>
-    <ellipse cx="400" cy="470" rx="158" ry="196" fill="none" stroke="#d9ad9e" stroke-width="3" opacity="0.5"/>
-    <ellipse cx="246" cy="492" rx="22" ry="38" fill="#efc7b8"/>
-    <ellipse cx="554" cy="492" rx="22" ry="38" fill="#efc7b8"/>
+    <ellipse cx="400" cy="470" rx="158" ry="196" fill="#f6e1d9"/>
+    <ellipse cx="400" cy="470" rx="158" ry="196" fill="none" stroke="#d8b9ae" stroke-width="3" opacity="0.5"/>
+    <ellipse cx="246" cy="492" rx="22" ry="38" fill="#f0d8cf"/>
+    <ellipse cx="554" cy="492" rx="22" ry="38" fill="#f0d8cf"/>
 
     <!-- 面部红润与刘海 -->
-    <ellipse cx="304" cy="548" rx="42" ry="24" fill="#efb9b4" opacity="0.3"/>
-    <ellipse cx="496" cy="548" rx="42" ry="24" fill="#efb9b4" opacity="0.3"/>
+    <ellipse cx="304" cy="548" rx="42" ry="24" fill="#e8b3b6" opacity="0.3"/>
+    <ellipse cx="496" cy="548" rx="42" ry="24" fill="#e8b3b6" opacity="0.3"/>
     ${spriteBangs}
 
     <!-- 眉毛 -->
-    <path d="M292 438 Q330 418 368 432" fill="none" stroke="#7c566a" stroke-width="6" stroke-linecap="round"/>
-    <path d="M432 432 Q470 418 508 438" fill="none" stroke="#7c566a" stroke-width="6" stroke-linecap="round"/>
+    <path d="M292 438 Q330 418 368 432" fill="none" stroke="#5e5b68" stroke-width="6" stroke-linecap="round"/>
+    <path d="M432 432 Q470 418 508 438" fill="none" stroke="#5e5b68" stroke-width="6" stroke-linecap="round"/>
 
     ${eyes}
     <path d="M398 512 Q388 550 400 558 Q414 550 404 512" fill="none" stroke="#d1a190" stroke-width="4" opacity="0.7"/>
@@ -456,9 +912,17 @@ function sprite(variant) {
     ${mouth}
     <path d="M352 612 Q400 634 448 612" fill="none" stroke="#e8bfb2" stroke-width="3" opacity="0.35"/>
 
-    <!-- 领口装饰 -->
+    <!-- 领口装饰：白色荷叶边与暗红蝴蝶结 -->
     <path d="M370 780 Q340 806 350 846 Q378 824 400 842 Q422 824 450 846 Q460 806 430 780 Z" fill="#f3eee8"/>
     <path d="M400 790 L400 842" stroke="#d9cfc6" stroke-width="3" opacity="0.5"/>
+    <circle cx="358" cy="806" r="7" fill="#f7f2ea"/>
+    <circle cx="378" cy="820" r="7" fill="#f7f2ea"/>
+    <circle cx="422" cy="820" r="7" fill="#f7f2ea"/>
+    <circle cx="442" cy="806" r="7" fill="#f7f2ea"/>
+    <path d="M400 838 L356 816 Q342 848 374 862 Z" fill="#a84452"/>
+    <path d="M400 838 L444 816 Q458 848 426 862 Z" fill="#a84452"/>
+    <path d="M382 850 Q400 866 418 850 L414 878 Q400 888 386 878 Z" fill="#8f3743"/>
+    <circle cx="400" cy="844" r="8" fill="#7d2f3c"/>
   </g>
 </svg>`;
 }
@@ -542,6 +1006,68 @@ function seSample(kind) {
     const strike = Math.exp(-progress * 8) * Math.sin(TAU * 1850 * t) * 0.22;
     const second = Math.exp(-Math.max(0, progress - 0.32) * 12) * Math.sin(TAU * 2360 * t) * 0.14;
     return strike + second;
+  };
+}
+
+/** 雨声：低通白噪声铺底，叠加缓慢的低音与偶尔的滴水声。 */
+function rainSample(seed) {
+  const rng = mulberry32(seed);
+  let low = 0;
+  let drip = 0;
+  let nextDrip = 0;
+  return (t) => {
+    const white = rng() * 2 - 1;
+    low = low * 0.985 + white * 0.015;
+    if (t > nextDrip) {
+      drip = 1;
+      nextDrip = t + 0.4 + rng() * 1.8;
+    }
+    drip *= 0.996;
+    const pad = Math.sin(TAU * 110 * t) * 0.016 + Math.sin(TAU * 164.81 * t) * 0.01;
+    return low * 0.55 + pad + Math.sin(TAU * 1200 * t) * drip * 0.015;
+  };
+}
+
+/** 闭馆铃：基频 + 两个泛音，指数衰减，尾音留一点拍频。 */
+function bellSample() {
+  return (t) => {
+    const envelope = Math.exp(-t * 1.1);
+    const value =
+      Math.sin(TAU * 880 * t) + 0.45 * Math.sin(TAU * 1320 * t) + 0.22 * Math.sin(TAU * 1760 * t);
+    return value * envelope * 0.16 + Math.sin(TAU * 0.5 * t) * 0.004;
+  };
+}
+
+/** 硬币落掌：两个高频金属脉冲，第二个略低，模拟两枚硬币相碰。 */
+function coinSample() {
+  return (t) => {
+    const first = Math.exp(-t * 18) * Math.sin(TAU * 3100 * t) * 0.18;
+    const second = t < 0.08 ? 0 : Math.exp(-(t - 0.08) * 22) * Math.sin(TAU * 2550 * (t - 0.08)) * 0.13;
+    return first + second;
+  };
+}
+
+/** 易拉罐：拉环轻响 + 一点气泡噪声。 */
+function canSample() {
+  const rng = mulberry32(37);
+  const noise = () => rng() * 2 - 1;
+  return (t, i, frames) => {
+    const progress = i / frames;
+    const pull = Math.exp(-progress * 20) * Math.sin(TAU * 1800 * t) * 0.16;
+    const fizz = Math.exp(-progress * 4) * noise() * 0.02;
+    return pull + fizz;
+  };
+}
+
+/** 椅子轻响：短促的噪声摩擦 + 一次低频闷响。 */
+function chairSample() {
+  const rng = mulberry32(29);
+  const noise = () => rng() * 2 - 1;
+  return (t, i, frames) => {
+    const progress = i / frames;
+    const scrape = noise() * Math.sin(Math.PI * Math.min(1, progress * 1.4)) * 0.08;
+    const thump = Math.exp(-progress * 9) * Math.sin(TAU * 120 * t) * 0.16;
+    return scrape + thump;
   };
 }
 
@@ -769,13 +1295,35 @@ async function main() {
       variant: 'sunset',
     }),
   );
+  await write(
+    path.join(bgDir, 'library_evening.svg'),
+    libraryScene({
+      skyTop: '#34304d',
+      skyBottom: '#8a6474',
+      wallTop: '#1b1828',
+      wallBottom: '#09080f',
+      glow: '#d8b6a6',
+      beam: '#e4cbb8',
+      floor: '#15111a',
+      accent: '#9c8aa8',
+      seed: 91,
+      variant: 'evening',
+    }),
+  );
+  await write(path.join(bgDir, 'music_room.svg'), musicRoomArt);
+  await write(path.join(bgDir, 'rooftop_sunset.svg'), rooftopArt);
+  await write(path.join(bgDir, 'street_night.svg'), streetNightArt);
+  await write(path.join(bgDir, 'bus_stop_night.svg'), busStopNightArt);
 
-  for (const variant of ['neutral', 'smile', 'blush']) {
+  for (const variant of ['neutral', 'smile', 'blush', 'sad']) {
     await write(path.join(spriteDir, `sylvie_${variant}.svg`), sprite(variant));
   }
 
   await write(path.join(cgDir, 'tea_steam.svg'), teaCg);
   await write(path.join(cgDir, 'book_glow.svg'), bookCg);
+  await write(path.join(cgDir, 'piano_keys.svg'), pianoKeysCg);
+  await write(path.join(cgDir, 'rooftop_sky.svg'), rooftopSkyCg);
+  await write(path.join(cgDir, 'letter_spring.svg'), letterSpringCg);
 
   console.log('生成音频…');
   const afternoon = [261.63, 329.63, 392.0, 440.0, 329.63, 392.0, 523.25, 440.0];
@@ -788,6 +1336,30 @@ async function main() {
     path.join(bgmDir, 'sunset.wav'),
     writeWav({ seconds: 16, sample: bgmSample(sunset, 16, 202) }),
   );
+  const musicBox = [523.25, 659.25, 783.99, 659.25, 587.33, 493.88, 523.25, 392.0];
+  await write(
+    path.join(bgmDir, 'music_box.wav'),
+    writeWav({ seconds: 16, sample: bgmSample(musicBox, 16, 303) }),
+  );
+  const rooftop = [293.66, 369.99, 440.0, 369.99, 329.63, 415.3, 493.88, 415.3];
+  await write(
+    path.join(bgmDir, 'rooftop.wav'),
+    writeWav({ seconds: 16, sample: bgmSample(rooftop, 16, 404) }),
+  );
+  await write(
+    path.join(bgmDir, 'rain.wav'),
+    writeWav({ seconds: 16, sample: rainSample(505) }),
+  );
+  const night = [196.0, 246.94, 293.66, 329.63, 246.94, 293.66, 369.99, 329.63];
+  await write(
+    path.join(bgmDir, 'night.wav'),
+    writeWav({ seconds: 16, sample: bgmSample(night, 16, 606) }),
+  );
+  const river = [174.61, 220.0, 261.63, 329.63, 261.63, 220.0, 196.0, 174.61];
+  await write(
+    path.join(bgmDir, 'river.wav'),
+    writeWav({ seconds: 16, sample: bgmSample(river, 16, 707) }),
+  );
 
   await write(
     path.join(seDir, 'page_turn.wav'),
@@ -797,13 +1369,19 @@ async function main() {
     path.join(seDir, 'tea_cup.wav'),
     writeWav({ seconds: 0.6, sample: seSample('cup') }),
   );
+  await write(path.join(seDir, 'bell.wav'), writeWav({ seconds: 2.8, sample: bellSample() }));
+  await write(path.join(seDir, 'chair.wav'), writeWav({ seconds: 0.52, sample: chairSample() }));
+  await write(path.join(seDir, 'coin.wav'), writeWav({ seconds: 0.36, sample: coinSample() }));
+  await write(path.join(seDir, 'can.wav'), writeWav({ seconds: 0.5, sample: canSample() }));
 
   const voices = [
     ['sylvie_01.wav', 11, 218],
     ['sylvie_02.wav', 22, 232],
     ['sylvie_03.wav', 33, 208],
     ['sylvie_04.wav', 44, 226],
+    ['sylvie_05.wav', 66, 214],
     ['narrator_01.wav', 55, 164],
+    ['narrator_02.wav', 77, 152],
   ];
   for (const [file, seed, baseFreq] of voices) {
     await write(path.join(voiceDir, file), writeWav({ seconds: 2.4, sample: voiceSample(seed, baseFreq) }));

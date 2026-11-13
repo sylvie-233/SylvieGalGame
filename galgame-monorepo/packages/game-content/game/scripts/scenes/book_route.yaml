@@ -12,56 +12,198 @@ commands:
   - set:
       var: curiosity
       op: "+="
-      value: 2
+      value: 3
+  - set:
+      var: affection
+      op: "+="
+      value: 1
+
+  - se:
+      sound: audio/se/coin.wav
+      volume: 0.7
+
+  - text:
+      speaker: 旁白
+      text: "我把十元硬币放进她手心。金属碰在一起，响了一声，很轻，像有人在空教室里敲了一下琴键。"
+
+  - text:
+      speaker: 希尔维
+      text: "……谢谢。"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 旁白
+      text: "她投币，按下最上面那罐黑咖啡。机器轰隆一声，罐子滚出来，她却没有马上拿。"
+
+  - text:
+      speaker: 希尔维
+      text: "这罐算我们一人一半。"
+      voice: audio/voice/sylvie_01.wav
+  - text:
+      speaker: 我
+      text: "一百二十元怎么一人一半？"
+  - text:
+      speaker: 希尔维
+      text: "你喝第一口，我喝剩下的。"
+      voice: audio/voice/sylvie_03.wav
+
+  - text:
+      speaker: 旁白
+      text: "她拉开拉环，递给我。咖啡是苦的，罐身却烫得让人舍不得松手。我们站在路灯下，一人一口，谁也没有说话。"
+
+  - text:
+      speaker: 希尔维
+      text: "你也是三年级？"
+      voice: audio/voice/sylvie_05.wav
+  - text:
+      speaker: 我
+      text: "嗯。三班。"
+  - text:
+      speaker: 希尔维
+      text: "我在二班。隔着一堵墙，难怪没见过。"
+      voice: audio/voice/sylvie_02.wav
+
+  - text:
+      speaker: 旁白
+      text: "她把空罐捏扁，放进包侧袋。包里露出一本蓝色封面的笔记本，边角被翻得很软。"
+
+  - text:
+      speaker: 我
+      text: "那是什么？"
+  - text:
+      speaker: 希尔维
+      text: "……没什么。几首没写完的歌。"
+      voice: audio/voice/sylvie_05.wav
+
+  - text:
+      speaker: 旁白
+      text: "她停了一下，把本子抽出来。扉页上写着一个名字，又被涂掉了，只剩一团深深的蓝。"
+
+  - label: book_music_room
+
+  - bg:
+      image: images/bg/library_evening.svg
+      transition: dissolve
+      duration: 1000
+  - bgm:
+      track: audio/bgm/music_box.wav
+      fade: 900
+      loop: true
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_neutral.svg
+      position: left
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "学校后门没锁。图书馆这个点也没人。你要不要……听一首？"
+      voice: audio/voice/sylvie_01.wav
+  - text:
+      speaker: 我
+      text: "听一首要多少钱？"
+  - text:
+      speaker: 希尔维
+      text: "一百二十元。已经付过了。"
+      voice: audio/voice/sylvie_03.wav
+
+  - text:
+      speaker: 旁白
+      text: "我们绕过黑暗的走廊，从图书馆侧门进去。她熟门熟路地打开旧音乐教室，像打开一个只属于自己的抽屉。"
+
+  - bg:
+      image: images/bg/music_room.svg
+      transition: dissolve
+      duration: 1000
+  - se:
+      sound: audio/se/chair.wav
+      volume: 0.5
+
+  - text:
+      speaker: 旁白
+      text: "钢琴上落着一层薄灰，琴盖却被擦得很亮。她坐下，手指悬在琴键上方，停了很久。"
+
+  - cg:
+      image: images/cg/book_glow.svg
+      transition: fade
+      duration: 800
+
+  - text:
+      speaker: 旁白
+      text: "蓝色笔记本摊在谱架上。每一页都写得很满，只有最后一行空着，像一句没有说出口的话。"
+
+  - cg:
+      image: images/cg/piano_keys.svg
+      transition: dissolve
+      duration: 900
+  - text:
+      speaker: 旁白
+      text: "她弹了八个音符。很慢，慢到每个音之间都能听见窗外的风。"
+  - text:
+      speaker: 希尔维
+      text: "这首叫《回声》。写完的时候，音乐社已经解散了。"
+      voice: audio/voice/sylvie_02.wav
+
+  - text:
+      speaker: 我
+      text: "为什么解散？"
+  - text:
+      speaker: 希尔维
+      text: "人走了。毕业的毕业，转学的转学。最后只剩我一个，钥匙也没人收回去。"
+      voice: audio/voice/sylvie_05.wav
+
+  - text:
+      speaker: 旁白
+      text: "她弹到第九小节，停了。手指还按在琴键上，肩膀却慢慢塌下去。"
+
+  - text:
+      speaker: 希尔维
+      text: "每次到这里，我就想不起来下一句。"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 我
+      text: "那就先停在这里。"
+  - text:
+      speaker: 希尔维
+      text: "停下来的人，是不是很没用？"
+      voice: audio/voice/sylvie_05.wav
+
+  - text:
+      speaker: 旁白
+      text: "我没有立刻回答。转学来这座城市之前，我也停过一年。那一年里，我把所有课本都包上书皮，却一页也没翻开。"
+
+  - text:
+      speaker: 我
+      text: "我停过。后来发现，停下来的地方，也可以种点东西。"
+  - text:
+      speaker: 希尔维
+      text: "……你说话真奇怪。"
+      voice: audio/voice/sylvie_03.wav
+
   - set:
       var: knows_melody
       op: "="
       value: true
 
-  - text:
-      speaker: 旁白
-      text: "我指了指她压在手肘下的书。蓝色封面，烫金的书名已经磨得只剩半行。"
-
-  - se: audio/se/page_turn.wav
-
-  - text:
-      speaker: 希尔维
-      text: "你也读这一本？"
-      voice: audio/voice/sylvie_01.wav
-
   - sprite:
       id: sylvie
-      image: images/sprite/sylvie_neutral.svg
-      position: center
-      duration: 400
-
-  - text:
-      speaker: 我
-      text: "翻到第三乐章那页。那里夹着一张手写的谱子。"
-
-  - text:
-      speaker: 旁白
-      text: "她沉默了一会儿，指尖在书脊上轻轻敲了两下。窗外的光正好落在那一小节上。"
-
-  - se:
-      sound: audio/se/tea_cup.wav
-      volume: 0.4
-
-  - wait: 600
-
-  - cg:
-      image: images/cg/book_glow.svg
-      transition: fade
-      duration: 900
+      image: images/sprite/sylvie_smile.svg
+      position: left
+      duration: 500
 
   - text:
       speaker: 希尔维
-      text: "这段旋律，我只在很旧的一张唱片里听过。"
-      voice: audio/voice/sylvie_02.wav
+      text: "那最后一小节，你帮我记着。等我想起来，再向你要。"
+      voice: audio/voice/sylvie_01.wav
+  - text:
+      speaker: 我
+      text: "要是我忘了呢？"
+  - text:
+      speaker: 希尔维
+      text: "那我就再请你喝一罐。还是一百二十元。"
+      voice: audio/voice/sylvie_04.wav
 
-  - cg:
-      transition: fade
-      duration: 700
-      visible: false
+  - cg: hide
+  - wait: 400
 
   - jump: "common#common_start"

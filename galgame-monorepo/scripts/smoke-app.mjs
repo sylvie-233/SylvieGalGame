@@ -220,7 +220,7 @@ async function main() {
     await shot('rollback');
 
     // 推进到选项
-    for (let step = 0; step < 40; step += 1) {
+    for (let step = 0; step < 120; step += 1) {
       const current = await state();
       if (current.choice) break;
       await pressSpace();
@@ -231,11 +231,11 @@ async function main() {
     await shot('choice');
     console.log('选项按钮：', atChoice.buttons.filter((text) => text !== '◆').join(' | '));
 
-    await clickButton('问她手中的那本书');
+    await clickButton('把十元硬币放进她手心');
     await sleep(900);
     await shot('branch-text');
 
-    for (let step = 0; step < 40; step += 1) {
+    for (let step = 0; step < 120; step += 1) {
       const current = await state();
       if (current.choice) break;
       await pressSpace();
@@ -244,7 +244,7 @@ async function main() {
     const secondChoice = await state();
     if (!secondChoice.choice) throw new Error('未能到达第二个选项界面');
     console.log('第二组选项：', secondChoice.buttons.filter((text) => text !== '◆').join(' | '));
-    await clickButton('把刚才那段旋律哼给她听');
+    await clickButton('把《回声》哼给她听');
     await sleep(900);
     await shot('after-choice');
 

@@ -2,58 +2,104 @@ name: prologue
 imports:
   - smile_route
   - book_route
+  - silence_route
 
 commands:
   - label: prologue_start
 
   - bg:
-      image: images/bg/library_afternoon.svg
+      image: images/bg/street_night.svg
       transition: fade
       duration: 900
   - bgm:
-      track: audio/bgm/afternoon.wav
+      track: audio/bgm/night.wav
       fade: 800
       loop: true
 
-  - text: "九月的风穿过图书馆的长窗，把窗帘吹成一面缓慢起伏的帆。"
   - text:
       speaker: 旁白
-      text: "我抱着三本已经到期的书，停在靠窗的长桌旁。"
+      text: "二十三时四十七分。末班车在十七分钟前开走，站牌下只剩我、一盏路灯，和自动售货机的白光。"
+      voice: audio/voice/narrator_01.wav
+  - text:
+      speaker: 我
+      text: "……又错过了。"
+  - text:
+      speaker: 旁白
+      text: "口袋里的硬币只剩一枚。一百二十元，刚好够一罐热咖啡。我每天经过这里，却很少真的买。"
+
+  - text:
+      speaker: 旁白
+      text: "售货机前站着一个人。深色外套，头发被风吹得有些乱。她把硬币一枚一枚放进掌心，数了两遍。"
 
   - sprite:
       id: sylvie
-      image: images/sprite/sylvie_neutral.svg
-      position: center
+      image: images/sprite/sylvie_sad.svg
+      position: left
       duration: 700
 
   - text:
       speaker: 希尔维
-      text: "……你也听见了吗？刚才那段旋律。"
-      voice: audio/voice/sylvie_01.wav
-
-  - sprite:
-      id: sylvie
-      image: images/sprite/sylvie_smile.svg
-      position: center
-      transition: dissolve
-      ease: easeOut
-      duration: 500
-
+      text: "一百一。"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 旁白
+      text: "她没有回头，声音却明显是对我说的。"
   - text:
       speaker: 希尔维
-      text: "别站在那儿装没听见。你的耳朵都红了。"
-      voice: audio/voice/sylvie_02.wav
+      text: "你有一百二十元吗？……不，十元就好。"
+      voice: audio/voice/sylvie_01.wav
 
-  - se:
-      sound: audio/se/page_turn.wav
-      volume: 0.8
+  - text:
+      speaker: 我
+      text: "你要买什么？"
+  - text:
+      speaker: 希尔维
+      text: "热的。什么都行。"
+      voice: audio/voice/sylvie_03.wav
 
   - text:
       speaker: 旁白
-      text: "她把摊开的书轻轻合上。封面是一片褪色的蓝，边角被翻得柔软。"
+      text: "售货机里亮着一排罐子。最上面那罐黑咖啡标价一百二十元，和这附近所有的夜晚一样，便宜、安静、没有人在意。"
 
-  - shake: { intensity: 4, duration: 220 }
-  - flash: { color: white, opacity: 0.22, duration: 420 }
+  - text:
+      speaker: 希尔维
+      text: "我每天都来。有时候买得起，有时候差一点。"
+      voice: audio/voice/sylvie_05.wav
+  - text:
+      speaker: 我
+      text: "为什么是这里？"
+  - text:
+      speaker: 希尔维
+      text: "因为这里亮。"
+      voice: audio/voice/sylvie_02.wav
+
+  - text:
+      speaker: 旁白
+      text: "她说这句话的时候，眼睛没有看售货机，也没有看我。远处的高架桥偶尔有车经过，声音像一阵很远的雨。"
+
+  - text:
+      speaker: 希尔维
+      text: "你在等谁吗？"
+      voice: audio/voice/sylvie_01.wav
+  - text:
+      speaker: 我
+      text: "等一辆已经开走的车。"
+  - text:
+      speaker: 希尔维
+      text: "真巧。我在等一个不会来的人。"
+      voice: audio/voice/sylvie_03.wav
+
+  - text:
+      speaker: 旁白
+      text: "她把硬币重新攥紧，指节被夜风吹得发白。我忽然想起，学校里也有一个总坐在窗边的女生，书包上挂着同一枚褪色的蓝色徽章。"
+
+  - shake: { intensity: 3, duration: 180 }
+  - flash: { color: white, opacity: 0.14, duration: 360 }
+
+  - text:
+      speaker: 希尔维
+      text: "算了。你走吧。反正车也不会来了。"
+      voice: audio/voice/sylvie_05.wav
 
   - set:
       var: route
@@ -61,9 +107,11 @@ commands:
       value: ""
 
   - choice:
-      prompt: "我该怎样回应她？"
+      prompt: "我兜里的 120 元，该怎么花？"
       options:
-        - text: "问她手中的那本书"
+        - text: "把十元硬币放进她手心"
           jump: "book_route#book_start"
-        - text: "先递给她一杯热茶"
+        - text: "替她买一罐热咖啡"
           jump: "smile_route#smile_start"
+        - text: "说没有，转身走向车站"
+          jump: "silence_route#silence_start"

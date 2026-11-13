@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262445"/>
+      <stop offset="0.4" stop-color="#6e4d68"/>
+      <stop offset="0.72" stop-color="#d68a78"/>
+      <stop offset="1" stop-color="#f4c79c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="1240" cy="520" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe5c2" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#ffe5c2" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <g fill="#2c2946" opacity="0.35">
+    <path d="M0 320 Q260 250 520 310 T1040 290 T1540 320 T1920 300 L1920 0 L0 0 Z"/>
+    <path d="M0 520 Q300 450 620 510 T1240 490 T1920 520 L1920 420 Q1600 470 1240 440 T620 470 T0 440 Z" opacity="0.6"/>
+  </g>
+  <g fill="#fff1de" opacity="0.1">
+    <path d="M420 380 Q560 320 700 380 Q560 410 420 380 Z"/>
+    <path d="M1100 300 Q1260 230 1420 300 Q1260 340 1100 300 Z"/>
+    <path d="M760 500 Q900 450 1040 500 Q900 530 760 500 Z"/>
+  </g>
+  <!-- 远处城市 -->
+  <g fill="#1d1a2b" opacity="0.85">
+    <rect x="0" y="800" width="240" height="280"/>
+    <rect x="280" y="740" width="180" height="340"/>
+    <rect x="500" y="820" width="260" height="260"/>
+    <rect x="800" y="700" width="220" height="380"/>
+    <rect x="1060" y="800" width="180" height="280"/>
+    <rect x="1280" y="730" width="260" height="350"/>
+    <rect x="1580" y="790" width="340" height="290"/>
+  </g>
+  <g fill="#ffe0ae" opacity="0.55">
+    <rect x="40" y="760" width="6" height="6"/><rect x="273" y="857" width="6" height="6"/><rect x="506" y="954" width="6" height="6"/><rect x="739" y="791" width="6" height="6"/><rect x="972" y="888" width="6" height="6"/><rect x="1205" y="985" width="6" height="6"/><rect x="1438" y="822" width="6" height="6"/><rect x="1671" y="919" width="6" height="6"/><rect x="64" y="1016" width="6" height="6"/><rect x="297" y="853" width="6" height="6"/><rect x="530" y="950" width="6" height="6"/><rect x="763" y="787" width="6" height="6"/><rect x="996" y="884" width="6" height="6"/><rect x="1229" y="981" width="6" height="6"/><rect x="1462" y="818" width="6" height="6"/><rect x="1695" y="915" width="6" height="6"/><rect x="88" y="1012" width="6" height="6"/><rect x="321" y="849" width="6" height="6"/><rect x="554" y="946" width="6" height="6"/><rect x="787" y="783" width="6" height="6"/><rect x="1020" y="880" width="6" height="6"/><rect x="1253" y="977" width="6" height="6"/><rect x="1486" y="814" width="6" height="6"/><rect x="1719" y="911" width="6" height="6"/><rect x="112" y="1008" width="6" height="6"/><rect x="345" y="845" width="6" height="6"/><rect x="578" y="942" width="6" height="6"/><rect x="811" y="779" width="6" height="6"/><rect x="1044" y="876" width="6" height="6"/><rect x="1277" y="973" width="6" height="6"/><rect x="1510" y="810" width="6" height="6"/><rect x="1743" y="907" width="6" height="6"/><rect x="136" y="1004" width="6" height="6"/><rect x="369" y="841" width="6" height="6"/><rect x="602" y="938" width="6" height="6"/><rect x="835" y="775" width="6" height="6"/><rect x="1068" y="872" width="6" height="6"/><rect x="1301" y="969" width="6" height="6"/><rect x="1534" y="806" width="6" height="6"/><rect x="1767" y="903" width="6" height="6"/>
+  </g>
+  <!-- 栏杆与风 -->
+  <rect x="0" y="900" width="1920" height="16" fill="#15121c"/>
+  <rect x="0" y="1010" width="1920" height="10" fill="#15121c" opacity="0.7"/>
+  <rect x="36" y="900" width="9" height="120" fill="#15121c"/><rect x="144" y="900" width="9" height="120" fill="#15121c"/><rect x="252" y="900" width="9" height="120" fill="#15121c"/><rect x="360" y="900" width="9" height="120" fill="#15121c"/><rect x="468" y="900" width="9" height="120" fill="#15121c"/><rect x="576" y="900" width="9" height="120" fill="#15121c"/><rect x="684" y="900" width="9" height="120" fill="#15121c"/><rect x="792" y="900" width="9" height="120" fill="#15121c"/><rect x="900" y="900" width="9" height="120" fill="#15121c"/><rect x="1008" y="900" width="9" height="120" fill="#15121c"/><rect x="1116" y="900" width="9" height="120" fill="#15121c"/><rect x="1224" y="900" width="9" height="120" fill="#15121c"/><rect x="1332" y="900" width="9" height="120" fill="#15121c"/><rect x="1440" y="900" width="9" height="120" fill="#15121c"/><rect x="1548" y="900" width="9" height="120" fill="#15121c"/><rect x="1656" y="900" width="9" height="120" fill="#15121c"/><rect x="1764" y="900" width="9" height="120" fill="#15121c"/><rect x="1872" y="900" width="9" height="120" fill="#15121c"/><rect x="1980" y="900" width="9" height="120" fill="#15121c"/>
+  <path d="M120 260 Q420 210 720 260 T1320 240 T1800 270" fill="none" stroke="#fff" stroke-width="3" opacity="0.1"/>
+  <path d="M0 980 Q480 940 960 976 T1920 960" fill="none" stroke="#fff" stroke-width="2" opacity="0.06"/>
+</svg>

@@ -1,61 +1,80 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1200" width="800" height="1200">
   <g>
-    <!-- 身体与外套 -->
-    <path d="M260 1200 L262 900 Q266 810 340 782 L460 782 Q534 810 538 900 L540 1200 Z" fill="#1b2338"/>
-    <path d="M340 782 L400 900 L460 782 L430 742 L370 742 Z" fill="#f3eee8"/>
-    <path d="M376 790 L400 860 L424 790 L400 774 Z" fill="#e69ab4"/>
-    <path d="M370 742 L330 806 L378 810 Z" fill="#252f49"/>
-    <path d="M430 742 L470 806 L422 810 Z" fill="#252f49"/>
-    <path d="M262 900 L214 1000 L240 1200 L282 1200 L276 1000 Z" fill="#161d2f"/>
-    <path d="M538 900 L586 1000 L560 1200 L518 1200 L524 1000 Z" fill="#161d2f"/>
-    <path d="M300 1200 L302 940 L356 918 L356 1200 Z" fill="#161d2f" opacity="0.7"/>
-    <path d="M500 1200 L498 940 L444 918 L444 1200 Z" fill="#161d2f" opacity="0.7"/>
+    <!-- 脖颈先画，随后由衣领覆盖根部，避免出现悬空的细长脖子 -->
+    <path d="M352 620 Q400 690 448 620 L448 800 Q400 820 352 800 Z" fill="#f0d8cf"/>
+    <path d="M360 664 Q400 702 440 664 Q400 692 360 664 Z" fill="#d9b3a8" opacity="0.35"/>
 
-    <!-- 脖颈 -->
-    <path d="M356 702 Q400 742 444 702 L444 780 Q400 806 356 780 Z" fill="#efc7b8"/>
+    <!-- 身体与外套 -->
+    <path d="M260 1200 L262 900 Q266 742 300 700 L500 700 Q534 742 538 900 L540 1200 Z" fill="#2b2a33"/>
+    <path d="M340 782 L400 900 L460 782 L430 742 L370 742 Z" fill="#f3eee8"/>
+    <path d="M376 790 L400 860 L424 790 L400 774 Z" fill="#a84452"/>
+    <path d="M370 742 L330 806 L378 810 Z" fill="#3a3742"/>
+    <path d="M430 742 L470 806 L422 810 Z" fill="#3a3742"/>
+    <path d="M262 900 L214 1000 L240 1200 L282 1200 L276 1000 Z" fill="#1d1c24"/>
+    <path d="M538 900 L586 1000 L560 1200 L518 1200 L524 1000 Z" fill="#1d1c24"/>
+    <path d="M300 1200 L302 940 L356 918 L356 1200 Z" fill="#1d1c24" opacity="0.7"/>
+    <path d="M500 1200 L498 940 L444 918 L444 1200 Z" fill="#1d1c24" opacity="0.7"/>
 
     <!-- 后发（位于头部之后） -->
-    
-  <path d="M198 660 Q128 336 232 178 Q308 66 400 58 Q492 66 568 178 Q672 336 602 660 Q636 824 596 986 L520 912 Q540 780 514 660 L286 660 Q260 780 280 912 L204 986 Q164 824 198 660 Z" fill="#b78aa2"/>
-  <path d="M238 640 Q196 380 280 236 Q250 440 262 660 Z" fill="#8f667d" opacity="0.45"/>
-  <path d="M562 640 Q604 380 520 236 Q550 440 538 660 Z" fill="#8f667d" opacity="0.45"/>
+
+  <path d="M198 660 Q128 336 232 178 Q308 66 400 58 Q492 66 568 178 Q672 336 602 660 Q636 824 596 986 L520 912 Q540 780 514 660 L286 660 Q260 780 280 912 L204 986 Q164 824 198 660 Z" fill="#6e6c79"/>
+  <path d="M238 640 Q196 380 280 236 Q250 440 262 660 Z" fill="#4d4b58" opacity="0.5"/>
+  <path d="M562 640 Q604 380 520 236 Q550 440 538 660 Z" fill="#4d4b58" opacity="0.5"/>
+  <path d="M236 330 Q400 250 564 330" fill="none" stroke="#a7a4b0" stroke-width="14" opacity="0.18"/>
+
+    <!-- 高领肩线：补住后发与脖子之间的空隙，避免头身像断开 -->
+    <path d="M282 660 L352 660 L352 792 L268 766 Z" fill="#2b2a33"/>
+    <path d="M448 660 L518 660 L532 766 L448 792 Z" fill="#2b2a33"/>
 
     <!-- 头部与耳朵 -->
-    <ellipse cx="400" cy="470" rx="158" ry="196" fill="#f6ddd2"/>
-    <ellipse cx="400" cy="470" rx="158" ry="196" fill="none" stroke="#d9ad9e" stroke-width="3" opacity="0.5"/>
-    <ellipse cx="246" cy="492" rx="22" ry="38" fill="#efc7b8"/>
-    <ellipse cx="554" cy="492" rx="22" ry="38" fill="#efc7b8"/>
+    <ellipse cx="400" cy="470" rx="158" ry="196" fill="#f6e1d9"/>
+    <ellipse cx="400" cy="470" rx="158" ry="196" fill="none" stroke="#d8b9ae" stroke-width="3" opacity="0.5"/>
+    <ellipse cx="246" cy="492" rx="22" ry="38" fill="#f0d8cf"/>
+    <ellipse cx="554" cy="492" rx="22" ry="38" fill="#f0d8cf"/>
 
     <!-- 面部红润与刘海 -->
-    <ellipse cx="304" cy="548" rx="42" ry="24" fill="#efb9b4" opacity="0.3"/>
-    <ellipse cx="496" cy="548" rx="42" ry="24" fill="#efb9b4" opacity="0.3"/>
-    
-  <path d="M260 414 Q262 304 332 260 Q400 230 468 258 Q538 302 540 414 Q512 350 470 344 Q430 390 400 350 Q370 390 330 344 Q288 350 260 414 Z" fill="#c497ad"/>
-  <path d="M300 240 Q400 160 500 240 Q450 210 400 232 Q352 208 300 240 Z" fill="#d8aec2" opacity="0.45"/>
-  <path d="M272 402 Q244 512 268 632 Q286 664 314 646 Q284 556 294 424 Z" fill="#b78aa2"/>
-  <path d="M528 402 Q556 512 532 632 Q514 664 486 646 Q516 556 506 424 Z" fill="#b78aa2"/>
+    <ellipse cx="304" cy="548" rx="42" ry="24" fill="#e8b3b6" opacity="0.3"/>
+    <ellipse cx="496" cy="548" rx="42" ry="24" fill="#e8b3b6" opacity="0.3"/>
+
+  <path d="M260 414 Q262 304 332 260 Q400 230 468 258 Q538 302 540 414 Q512 350 470 344 Q430 390 400 350 Q370 390 330 344 Q288 350 260 414 Z" fill="#7c7987"/>
+  <path d="M300 240 Q400 160 500 240 Q450 210 400 232 Q352 208 300 240 Z" fill="#b1aeba" opacity="0.4"/>
+  <path d="M272 402 Q244 512 268 632 Q286 664 314 646 Q284 556 294 424 Z" fill="#6e6c79"/>
+  <path d="M528 402 Q556 512 532 632 Q514 664 486 646 Q516 556 506 424 Z" fill="#6e6c79"/>
+  <!-- 两侧的暗红色发带，呼应售货机夜晚的暖光 -->
+  <path d="M268 342 Q228 318 218 356 Q248 368 274 352 Z" fill="#a84452"/>
+  <path d="M532 342 Q572 318 582 356 Q552 368 526 352 Z" fill="#a84452"/>
+  <circle cx="268" cy="346" r="7" fill="#7d2f3c"/>
+  <circle cx="532" cy="346" r="7" fill="#7d2f3c"/>
 
     <!-- 眉毛 -->
-    <path d="M292 438 Q330 418 368 432" fill="none" stroke="#7c566a" stroke-width="6" stroke-linecap="round"/>
-    <path d="M432 432 Q470 418 508 438" fill="none" stroke="#7c566a" stroke-width="6" stroke-linecap="round"/>
+    <path d="M292 438 Q330 418 368 432" fill="none" stroke="#5e5b68" stroke-width="6" stroke-linecap="round"/>
+    <path d="M432 432 Q470 418 508 438" fill="none" stroke="#5e5b68" stroke-width="6" stroke-linecap="round"/>
 
-    <ellipse cx="330" cy="486" rx="35" ry="27" fill="#fbf3ee"/>
-         <path d="M295 470 Q330 448 365 472" fill="none" stroke="#4a3341" stroke-width="7" stroke-linecap="round"/>
-         <circle cx="330" cy="489" r="17" fill="#8a5f74"/>
-         <circle cx="330" cy="489" r="8" fill="#3b2a35"/>
+    <ellipse cx="330" cy="486" rx="35" ry="27" fill="#f8f3ee"/>
+         <path d="M295 470 Q330 448 365 472" fill="none" stroke="#46434f" stroke-width="7" stroke-linecap="round"/>
+         <circle cx="330" cy="489" r="17" fill="#7b7d88"/>
+         <circle cx="330" cy="489" r="8" fill="#2f313a"/>
          <circle cx="324" cy="481" r="6" fill="#ffffff" opacity="0.85"/>
-         <ellipse cx="470" cy="486" rx="35" ry="27" fill="#fbf3ee"/>
-         <path d="M435 472 Q470 448 505 470" fill="none" stroke="#4a3341" stroke-width="7" stroke-linecap="round"/>
-         <circle cx="470" cy="489" r="17" fill="#8a5f74"/>
-         <circle cx="470" cy="489" r="8" fill="#3b2a35"/>
+         <ellipse cx="470" cy="486" rx="35" ry="27" fill="#f8f3ee"/>
+         <path d="M435 472 Q470 448 505 470" fill="none" stroke="#46434f" stroke-width="7" stroke-linecap="round"/>
+         <circle cx="470" cy="489" r="17" fill="#7b7d88"/>
+         <circle cx="470" cy="489" r="8" fill="#2f313a"/>
          <circle cx="464" cy="481" r="6" fill="#ffffff" opacity="0.85"/>
     <path d="M398 512 Q388 550 400 558 Q414 550 404 512" fill="none" stroke="#d1a190" stroke-width="4" opacity="0.7"/>
-    
+
     <path d="M386 588 Q400 596 414 588" fill="none" stroke="#9d5f6b" stroke-width="5" stroke-linecap="round"/>
     <path d="M352 612 Q400 634 448 612" fill="none" stroke="#e8bfb2" stroke-width="3" opacity="0.35"/>
 
-    <!-- 领口装饰 -->
+    <!-- 领口装饰：白色荷叶边与暗红蝴蝶结 -->
     <path d="M370 780 Q340 806 350 846 Q378 824 400 842 Q422 824 450 846 Q460 806 430 780 Z" fill="#f3eee8"/>
     <path d="M400 790 L400 842" stroke="#d9cfc6" stroke-width="3" opacity="0.5"/>
+    <circle cx="358" cy="806" r="7" fill="#f7f2ea"/>
+    <circle cx="378" cy="820" r="7" fill="#f7f2ea"/>
+    <circle cx="422" cy="820" r="7" fill="#f7f2ea"/>
+    <circle cx="442" cy="806" r="7" fill="#f7f2ea"/>
+    <path d="M400 838 L356 816 Q342 848 374 862 Z" fill="#a84452"/>
+    <path d="M400 838 L444 816 Q458 848 426 862 Z" fill="#a84452"/>
+    <path d="M382 850 Q400 866 418 850 L414 878 Q400 888 386 878 Z" fill="#8f3743"/>
+    <circle cx="400" cy="844" r="8" fill="#7d2f3c"/>
   </g>
 </svg>

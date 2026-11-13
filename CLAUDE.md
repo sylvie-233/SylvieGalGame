@@ -33,7 +33,7 @@ pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
 pnpm test         # Vitest：engine-core 32 个 + player 8 个用例
-pnpm validate     # 加载真实剧本、内容体检、跑通两条分支、检查资源与脚本警告
+pnpm validate     # 加载真实剧本、内容体检、跑通全部分支与结局、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
 pnpm make         # NSIS 安装包 apps/electron/out/make/

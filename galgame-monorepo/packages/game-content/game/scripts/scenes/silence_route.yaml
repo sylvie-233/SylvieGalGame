@@ -1,0 +1,130 @@
+name: silence_route
+imports:
+  - common
+
+commands:
+  - label: silence_start
+
+  - set:
+      var: route
+      op: "="
+      value: "silence"
+  - set:
+      var: curiosity
+      op: "+="
+      value: 1
+  - set:
+      var: affection
+      op: "+="
+      value: 1
+
+  - text:
+      speaker: 旁白
+      text: "我说没有，低头从她身边走过去。她没有拦我。身后传来硬币落回口袋的声音，很轻，像一句被咽回去的话。"
+
+  - bg:
+      image: images/bg/street_night.svg
+      transition: fade
+      duration: 800
+
+  - text:
+      speaker: 旁白
+      text: "车站空无一人。我在长椅上坐到十二点，末班车没有来，她也没有。"
+
+  - bg:
+      image: images/bg/library_afternoon.svg
+      transition: fade
+      duration: 900
+  - bgm:
+      track: audio/bgm/rain.wav
+      fade: 900
+      loop: true
+
+  - text:
+      speaker: 旁白
+      text: "第二天下午，图书馆靠窗的位置空着。桌上放着一本蓝色笔记本，压在一枚一百二十元硬币下面。"
+
+  - se:
+      sound: audio/se/page_turn.wav
+      volume: 0.6
+
+  - text:
+      speaker: 旁白
+      text: "扉页上有一行很淡的铅笔字：给昨晚那个没带伞的人。后面是八小节旋律，最后两小节被橡皮擦得发白。"
+  - text:
+      speaker: 我
+      text: "……她怎么知道我没带伞。"
+  - text:
+      speaker: 旁白
+      text: "窗外开始下雨。我把笔记本合上，又打开，最后带着它去了那台售货机。"
+
+  - set:
+      var: knows_melody
+      op: "="
+      value: true
+
+  - label: silence_next_day
+
+  - bg:
+      image: images/bg/bus_stop_night.svg
+      transition: fade
+      duration: 900
+  - bgm:
+      track: audio/bgm/night.wav
+      fade: 900
+      loop: true
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_sad.svg
+      position: left
+      duration: 600
+
+  - text:
+      speaker: 旁白
+      text: "她果然在那里。还是那件深色外套，还是数着硬币，只是这次没有投币。"
+
+  - text:
+      speaker: 希尔维
+      text: "……你来了。"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 我
+      text: "你的本子。"
+  - text:
+      speaker: 希尔维
+      text: "我知道。我故意放在那里的。"
+      voice: audio/voice/sylvie_05.wav
+
+  - text:
+      speaker: 旁白
+      text: "她接过本子，没有翻开，只把硬币从封面上拿下来，放回我手里。"
+
+  - text:
+      speaker: 希尔维
+      text: "一百二十元。听一首，够了。"
+      voice: audio/voice/sylvie_03.wav
+  - text:
+      speaker: 我
+      text: "我还没听。"
+  - text:
+      speaker: 希尔维
+      text: "那你现在听。"
+      voice: audio/voice/sylvie_01.wav
+
+  - text:
+      speaker: 旁白
+      text: "她没有弹琴，只是轻轻哼了八小节。声音很小，被夜风和车流削得很薄，却刚好够穿过我们之间那一步的距离。"
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_neutral.svg
+      position: left
+      duration: 400
+
+  - text:
+      speaker: 希尔维
+      text: "最后两小节还是空的。等你想起来，再还给我。"
+      voice: audio/voice/sylvie_02.wav
+
+  - jump: "common#common_start"

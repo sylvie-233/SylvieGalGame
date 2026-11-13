@@ -1,8 +1,8 @@
-# 午后的回声 · SylvieGalGame
+# 一百二十日元的回声 · SylvieGalGame
 
 一期目标（见 [需求整理](../docs/SylvieGalGame需求整理-v1.md)）：**无编辑器、纯 YAML 脚本驱动、React + Electron、仅播放器**，跑通线性 + 分支视觉小说流程，并可打包为 Windows exe。
 
-当前仓库已包含一个可玩的竖切版本：标题页 → 序章 → 两个分支 → 两次选择 → 两个结局，含立绘 / CG / BGM / SE / 语音、打字机、Auto、Skip（仅已读）、Backlog、20 个手动存档 + 自动/快速存档、设置面板与打包配置。二期 M1 另已加入回滚、文本插值、存档迁移、应用内确认框、警告面板与错误边界；M2 已加入稳定已读 id、`set` 表达式、选项赋值动作、选项键盘操作、自动存档轮换与章节 / 结局元数据。
+当前仓库已包含一个可玩的竖切版本《一百二十日元的回声》：深夜售货机前的相遇 → 三条分支 → 三个结局，共 142 句文本，含立绘 / CG / BGM / SE / 语音、打字机、Auto、Skip（仅已读）、Backlog、20 个手动存档 + 自动/快速存档、设置与图鉴。二期 M1 另已加入回滚、文本插值、存档迁移、应用内确认框、警告面板与错误边界；M2 已加入稳定已读 id、`set` 表达式、选项赋值动作、选项键盘操作、自动存档轮换与章节 / 结局元数据。
 
 ## 技术栈
 
@@ -101,7 +101,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
 | `pnpm test` | 单元测试（Vitest）：引擎 31 个 + 播放器状态 / 存档工具 8 个 |
-| `pnpm validate` | 加载真实剧本、内容体检、跑通两条分支、检查资源与版本一致性 |
+| `pnpm validate` | 加载真实剧本、内容体检、跑通全部分支与结局、检查资源与版本一致性 |
 | `pnpm version:check` | 检查根 / Electron / Web / 内容包 / `game.yaml` 版本是否一致 |
 | `pnpm version:set <版本>` | 以根 `package.json` 为基准统一写入全部版本号 |
 | `pnpm assets` | 重新生成占位美术与音频 |
@@ -159,7 +159,7 @@ docker compose -f scripts/docker-compose.yml down
 pnpm validate
 ```
 
-它会解析所有场景、检查 `label` / 跳转 / 表达式 / 资源存在性，做内容体检（未引用资源、不可达场景、超大资源、命名规范），并实际走通两条分支；诊断带 `scene.yaml:行号` 并区分错误与警告，有任何一条都会以非零码退出。
+它会解析所有场景、检查 `label` / 跳转 / 表达式 / 资源存在性，做内容体检（未引用资源、不可达场景、超大资源、命名规范），并实际走通全部分支与结局；诊断带 `scene.yaml:行号` 并区分错误与警告，有任何一条都会以非零码退出。
 
 编辑器补全由 `docs/script.schema.json` 提供，`.vscode/settings.json` 已映射 `game.yaml` 与 `scenes/*.yaml`；安装 YAML 插件即可使用。
 

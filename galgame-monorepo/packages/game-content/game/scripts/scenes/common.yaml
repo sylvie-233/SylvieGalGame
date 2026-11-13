@@ -14,31 +14,22 @@ commands:
 
   - text:
       speaker: 旁白
-      text: "窗外的光开始变低。书架投下长长的影子，像一排安静的音符。"
+      text: "她走的前一天，学校提前放了学。图书馆的窗帘半拉着，光从缝隙里落下来，把桌面切成一条一条的黄昏。"
+  - text:
+      speaker: 旁白
+      text: "她把蓝色笔记本还给我，说里面的歌已经抄完了。最后两小节空着，像专门留给谁。"
 
   - if:
       condition: 'route == "smile"'
       then: "smile_epilogue"
+      else: "check_silence"
+
+  - label: check_silence
+
+  - if:
+      condition: 'route == "silence"'
+      then: "silence_epilogue"
       else: "book_epilogue"
-
-  - label: smile_epilogue
-
-  - sprite:
-      id: sylvie
-      image: images/sprite/sylvie_blush.svg
-      position: center
-      duration: 500
-
-  - text:
-      speaker: 希尔维
-      text: "下次……茶可以带。但别让管理员看见。"
-      voice: audio/voice/sylvie_03.wav
-
-  - text:
-      speaker: 旁白
-      text: "她说完就把脸转向窗外，耳尖却还留在灯光里。"
-
-  - jump: common_tail
 
   - label: book_epilogue
 
@@ -50,37 +41,223 @@ commands:
 
   - text:
       speaker: 希尔维
-      text: "如果你愿意，我可以把那段旋律借给你听。只借一个下午。"
-      voice: audio/voice/sylvie_04.wav
-
+      text: "最后两小节，我想好了。不过先不告诉你。"
+      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 旁白
-      text: "她把书往我这边推了一点，像推过来一个只有我们知道的秘密。"
+      text: "她把一枚一百二十元硬币夹进最后一页，合上书，推到我这边。像把一件很轻的东西交给我。"
+  - text:
+      speaker: 希尔维
+      text: "等我走了再看。"
+      voice: audio/voice/sylvie_02.wav
+
+  - jump: common_tail
+
+  - label: smile_epilogue
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_blush.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "明天……不用带咖啡了。"
+      voice: audio/voice/sylvie_03.wav
+  - text:
+      speaker: 旁白
+      text: "她说这话时没看我，只把空罐转了一圈。拉环已经被她抠得发亮，像一枚很小的戒指。"
+  - text:
+      speaker: 我
+      text: "为什么？"
+  - text:
+      speaker: 希尔维
+      text: "因为明天开始，换我请。"
+      voice: audio/voice/sylvie_04.wav
+
+  - jump: common_tail
+
+  - label: silence_epilogue
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_sad.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "雨停了。"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 旁白
+      text: "她把伞留在桌边，说反正明天还会来。伞柄上缠着一圈旧胶带，颜色已经褪成很浅的黄。"
+  - text:
+      speaker: 我
+      text: "明天会下雨吗？"
+  - text:
+      speaker: 希尔维
+      text: "不知道。带着吧。"
+      voice: audio/voice/sylvie_05.wav
 
   - jump: common_tail
 
   - label: common_tail
 
+  - bg:
+      image: images/bg/bus_stop_night.svg
+      transition: fade
+      duration: 1000
+  - bgm:
+      track: audio/bgm/night.wav
+      fade: 900
+      loop: true
+
+  - text:
+      speaker: 旁白
+      text: "晚上十一点半，我们又站在那台售货机前。站牌上的末班车还是二十三时三十分，还是已经开走。"
+  - text:
+      speaker: 旁白
+      text: "我口袋里只剩最后一枚一百二十元硬币。她手里也握着一枚，被体温焐得发亮。"
+
   - choice:
-      prompt: "黄昏正在把书页染成金色。"
+      prompt: "最后一枚 120 元，该怎么花？"
       options:
-        - text: "把刚才那段旋律哼给她听"
+        - text: "把《回声》哼给她听"
           jump: "melody_ending"
           condition: "knows_melody"
-        - text: "安静地陪她把书收好"
+        - text: "买两罐咖啡，陪她走到天亮"
           jump: "quiet_ending"
+        - text: "把硬币放进她手心，约明年同一台售货机"
+          jump: "echo_ending"
+          condition: "knows_melody && curiosity >= 3"
 
   - label: melody_ending
 
   - bgm: stop
+  - se: audio/se/bell.wav
 
   - text:
       speaker: 旁白
-      text: "我哼得很轻，甚至有些跑调。她没有笑，只是闭上眼，跟着节拍轻轻点了一下头。"
+      text: "我把硬币投进售货机，却没有按任何按钮，只是轻轻哼起那首《回声》。"
+  - text:
+      speaker: 旁白
+      text: "她闭上眼睛，跟着节拍点了一下头。哼到第八小节，我停下来，把最后两小节留给了夜风。"
 
   - text:
       speaker: 希尔维
-      text: "……和你听到的，不太一样。但是，还不错。"
+      text: "……比唱片里慢。"
+      voice: audio/voice/sylvie_01.wav
+  - text:
+      speaker: 我
+      text: "因为不想那么快结束。"
+  - text:
+      speaker: 希尔维
+      text: "那你可以再慢一点。"
+      voice: audio/voice/sylvie_05.wav
+
+  - text:
+      speaker: 旁白
+      text: "售货机吐出两枚找零，一枚十元，一枚五元。她把那枚十元硬币放进我手心，说还差一百一十元，下次再还。"
+  - text:
+      speaker: 旁白
+      text: "可她第二天就走了。那枚十元硬币我一直留着，和一百二十元的夜晚一起，放在抽屉最里面。"
+
+  - sprite:
+      id: sylvie
+      hide: true
+      duration: 900
+
+  - text:
+      speaker: 旁白
+      text: "后来我路过那台售货机，总会下意识掏口袋。一百二十元能买一罐热咖啡，却买不回那天晚上，她把找零塞进我手心时，没有说完的那半句话。"
+
+  - ending: melody
+
+  - label: quiet_ending
+
+  - bgm:
+      track: audio/bgm/river.wav
+      fade: 1200
+      loop: true
+
+  - text:
+      speaker: 旁白
+      text: "我把最后一枚硬币投进去，买了两罐热咖啡。一罐给她，一罐给自己。"
+  - text:
+      speaker: 希尔维
+      text: "末班车已经走了。"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 我
+      text: "我知道。"
+  - text:
+      speaker: 希尔维
+      text: "那你还买两罐？"
+      voice: audio/voice/sylvie_03.wav
+  - text:
+      speaker: 我
+      text: "因为路很远。"
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_smile.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 旁白
+      text: "她笑了一下，没有拆穿我。我们沿着河边往回走，两罐咖啡在手里慢慢变凉，谁也没提明天。"
+  - text:
+      speaker: 旁白
+      text: "那天夜里没有末班车，也没有告别。只有两个人的脚步声，在空荡荡的人行道上，一前一后，走了很久。"
+
+  - ending: quiet
+
+  - label: echo_ending
+
+  - bgm:
+      track: audio/bgm/music_box.wav
+      fade: 900
+      loop: true
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_blush.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 旁白
+      text: "我把硬币放进她手心。她低头看了很久，像在确认那是一枚真的硬币，而不是一句太轻的承诺。"
+  - text:
+      speaker: 希尔维
+      text: "明年？"
+      voice: audio/voice/sylvie_02.wav
+  - text:
+      speaker: 我
+      text: "明年。同一台售货机，一百二十元。"
+  - text:
+      speaker: 希尔维
+      text: "要是我不来呢？"
+      voice: audio/voice/sylvie_05.wav
+  - text:
+      speaker: 我
+      text: "那我就等到末班车开走。"
+  - text:
+      speaker: 希尔维
+      text: "……你真的很会让人为难。"
+      voice: audio/voice/sylvie_03.wav
+
+  - se: audio/se/coin.wav
+
+  - text:
+      speaker: 旁白
+      text: "她把硬币收进口袋，又从包里摸出一枚十元硬币，塞回我手里。"
+  - text:
+      speaker: 希尔维
+      text: "找零。明年记得带够一百一十元。"
       voice: audio/voice/sylvie_01.wav
 
   - sprite:
@@ -90,34 +267,29 @@ commands:
 
   - text:
       speaker: 旁白
-      text: "那天傍晚，图书馆的闭馆铃响了三次。我们没有起身。故事在旋律里，慢慢落下了第一个休止符。"
+      text: "她走后的第一个冬天，那台售货机换了新的灯。我偶尔路过，会投一枚硬币，买一罐黑咖啡，坐在车站长椅上喝完。"
 
-  - ending: melody
-
-  - label: quiet_ending
-
-  - bgm:
-      track: audio/bgm/sunset.wav
-      fade: 1200
-      loop: true
+  - cg:
+      image: images/cg/letter_spring.svg
+      transition: dissolve
+      duration: 1200
 
   - text:
       speaker: 旁白
-      text: "我们一本一本地合上书，把椅子推回桌下。她走在我半步之前，影子被夕阳拉得很长。"
-
+      text: "第二年春天，我收到一张没有署名的明信片。正面是另一座城市的天空，背面用铅笔抄着那首曲子的最后两小节。"
+      voice: audio/voice/narrator_02.wav
   - text:
-      speaker: 希尔维
-      text: "明天还来吗？"
-      voice: audio/voice/sylvie_02.wav
+      speaker: 旁白
+      text: "谱子下面只有一句话：这次没有停。还有一枚用胶带粘住的十元硬币。"
 
   - text:
       speaker: 我
-      text: "来。书还没还完。"
+      text: "……嗯。我听见了。"
 
   - text:
       speaker: 旁白
-      text: "她笑了一下，没有拆穿我。故事在一个普通的黄昏里，安静地翻过了这一页。"
+      text: "有些回声不是回来，而是终于有人听见。那年春天，我把一百二十元硬币放进售货机，买了两罐咖啡，一罐放在长椅上，等到天亮。"
 
-  - ending: quiet
+  - ending: echo
 
   - label: common_end

@@ -247,7 +247,17 @@ async function play(engine, strategy) {
   return lines;
 }
 
-/** 校验入口：Schema → 引擎初始化 → 版本一致性 → 内容体检 → 两条分支 → 汇总诊断。 */
+/** 从可见选项中按文本关键词依次匹配，找不到时回退到第一项。 */
+function pickChoice(snapshot, ...keywords) {
+  const options = snapshot.choice?.options ?? [];
+  for (const keyword of keywords) {
+    const found = options.find((option) => option.text.includes(keyword));
+    if (found) return found.optionIndex;
+  }
+  return options[0]?.optionIndex ?? 0;
+}
+
+/** 校验入口：Schema → 引擎初始化 → 版本一致性 → 内容体检 → 全部结局分支 → 汇总诊断。 */
 async function main() {
   await validateSchemaFiles();
 
@@ -274,22 +284,30 @@ async function main() {
 
   await inspectContent(manifest);
 
-  const bookLines = await play(engine, (snapshot) => snapshot.choice?.options[0]?.optionIndex ?? 0);
-  if (!bookLines.some((line) => line.includes('休止符'))) {
-    throw new Error('书页分支未到达旋律结局');
+  const bookLines = await play(engine, (snapshot) => pickChoice(snapshot, '十元', '哼'));
+  if (!bookLines.some((line) => line.includes('抽屉最里面'))) {
+    throw new Error('硬币分支未到达「找零」结局');
   }
 
-  // 选择最后一个可见选项；choose() 接收的是原始选项下标（view.optionIndex）。
-  const smileLines = await play(engine, (snapshot) => {
-    const options = snapshot.choice?.options ?? [];
-    return options[options.length - 1]?.optionIndex ?? 0;
-  });
-  if (!smileLines.some((line) => line.includes('普通的黄昏'))) {
-    throw new Error('热茶分支未到达安静结局');
+  const smileLines = await play(engine, (snapshot) => pickChoice(snapshot, '热咖啡', '两罐'));
+  if (!smileLines.some((line) => line.includes('沿着河边'))) {
+    throw new Error('咖啡分支未到达「末班车」结局');
   }
 
-  console.log(`书页分支：${bookLines.length} 句，到达旋律结局`);
-  console.log(`热茶分支：${smileLines.length} 句，到达安静结局`);
+  const silenceLines = await play(engine, (snapshot) => pickChoice(snapshot, '说没有', '两罐'));
+  if (!silenceLines.some((line) => line.includes('我故意放在那里的'))) {
+    throw new Error('沉默分支未经过还本子的剧情');
+  }
+
+  const echoLines = await play(engine, (snapshot) => pickChoice(snapshot, '十元', '明年'));
+  if (!echoLines.some((line) => line.includes('终于有人听见'))) {
+    throw new Error('硬币分支未到达「回声之外」结局');
+  }
+
+  console.log(`硬币分支：${bookLines.length} 句，到达「找零」结局`);
+  console.log(`咖啡分支：${smileLines.length} 句，到达「末班车」结局`);
+  console.log(`沉默分支：${silenceLines.length} 句，到达「末班车」结局`);
+  console.log(`约定分支：${echoLines.length} 句，到达「回声之外」结局`);
 
   if (printDiagnostics() > 0) {
     process.exitCode = 1;
