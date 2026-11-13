@@ -1,0 +1,67 @@
+name: book_route
+imports:
+  - common
+
+commands:
+  - label: book_start
+
+  - set:
+      var: route
+      op: "="
+      value: "book"
+  - set:
+      var: curiosity
+      op: "+="
+      value: 2
+  - set:
+      var: knows_melody
+      op: "="
+      value: true
+
+  - text:
+      speaker: 旁白
+      text: "我指了指她压在手肘下的书。蓝色封面，烫金的书名已经磨得只剩半行。"
+
+  - se: audio/se/page_turn.wav
+
+  - text:
+      speaker: 希尔维
+      text: "你也读这一本？"
+      voice: audio/voice/sylvie_01.wav
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_neutral.svg
+      position: center
+      duration: 400
+
+  - text:
+      speaker: 我
+      text: "翻到第三乐章那页。那里夹着一张手写的谱子。"
+
+  - text:
+      speaker: 旁白
+      text: "她沉默了一会儿，指尖在书脊上轻轻敲了两下。窗外的光正好落在那一小节上。"
+
+  - se:
+      sound: audio/se/tea_cup.wav
+      volume: 0.4
+
+  - wait: 600
+
+  - cg:
+      image: images/cg/book_glow.svg
+      transition: fade
+      duration: 900
+
+  - text:
+      speaker: 希尔维
+      text: "这段旋律，我只在很旧的一张唱片里听过。"
+      voice: audio/voice/sylvie_02.wav
+
+  - cg:
+      transition: fade
+      duration: 700
+      visible: false
+
+  - jump: "common#common_start"

@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+
+/* 组件类名在编译产物中，显式声明扫描目录 */
+@source '../dist';
+
+@theme {
+  --color-sg-bg: #06070c;
+  --color-sg-ink: #f3eee8;
+  --color-sg-muted: #aaa2a2;
+  --color-sg-dim: #726c74;
+  --color-sg-accent: #e69ab4;
+  --color-sg-accent-strong: #ffc4d8;
+  --color-sg-gold: #d9bd88;
+  --color-sg-panel: rgba(12, 15, 25, 0.88);
+  --color-sg-panel-soft: rgba(22, 26, 40, 0.72);
+  --color-sg-line: rgba(230, 154, 180, 0.28);
+  --color-sg-line-strong: rgba(230, 154, 180, 0.55);
+
+  --font-ui: 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-dialogue: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, serif;
+}
+
+[data-font='serif'] {
+  --font-ui: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, serif;
+  --font-dialogue: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, serif;
+}
+
+[data-font='sans'] {
+  --font-ui: 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-dialogue: 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+}
+
+[data-font='kai'] {
+  --font-ui: 'KaiTi', 'STKaiti', 'Kaiti SC', 'Noto Serif SC', serif;
+  --font-dialogue: 'KaiTi', 'STKaiti', 'Kaiti SC', 'Noto Serif SC', serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--color-sg-bg);
+    color: var(--color-sg-ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  button {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+}
+
+@utility sg-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(230, 154, 180, 0.28) transparent;
+  overscroll-behavior: contain;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: rgba(230, 154, 180, 0.28);
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(230, 154, 180, 0.45);
+  }
+}
+
+/* 截图时隐藏快捷栏、弹窗等界面元素，保持存档缩略图干净 */
+html[data-capture='true'] [data-ui-chrome] {
+  visibility: hidden !important;
+}

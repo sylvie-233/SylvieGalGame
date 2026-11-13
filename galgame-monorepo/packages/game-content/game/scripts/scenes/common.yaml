@@ -1,0 +1,121 @@
+name: common
+
+commands:
+  - label: common_start
+
+  - bg:
+      image: images/bg/library_sunset.svg
+      transition: fade
+      duration: 1000
+  - bgm:
+      track: audio/bgm/sunset.wav
+      fade: 900
+      loop: true
+
+  - text:
+      speaker: 旁白
+      text: "窗外的光开始变低。书架投下长长的影子，像一排安静的音符。"
+
+  - if:
+      condition: 'route == "smile"'
+      then: "smile_epilogue"
+      else: "book_epilogue"
+
+  - label: smile_epilogue
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_blush.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "下次……茶可以带。但别让管理员看见。"
+      voice: audio/voice/sylvie_03.wav
+
+  - text:
+      speaker: 旁白
+      text: "她说完就把脸转向窗外，耳尖却还留在灯光里。"
+
+  - jump: common_tail
+
+  - label: book_epilogue
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_smile.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "如果你愿意，我可以把那段旋律借给你听。只借一个下午。"
+      voice: audio/voice/sylvie_04.wav
+
+  - text:
+      speaker: 旁白
+      text: "她把书往我这边推了一点，像推过来一个只有我们知道的秘密。"
+
+  - jump: common_tail
+
+  - label: common_tail
+
+  - choice:
+      prompt: "黄昏正在把书页染成金色。"
+      options:
+        - text: "把刚才那段旋律哼给她听"
+          jump: "melody_ending"
+          condition: "knows_melody"
+        - text: "安静地陪她把书收好"
+          jump: "quiet_ending"
+
+  - label: melody_ending
+
+  - bgm: stop
+
+  - text:
+      speaker: 旁白
+      text: "我哼得很轻，甚至有些跑调。她没有笑，只是闭上眼，跟着节拍轻轻点了一下头。"
+
+  - text:
+      speaker: 希尔维
+      text: "……和你听到的，不太一样。但是，还不错。"
+      voice: audio/voice/sylvie_01.wav
+
+  - sprite:
+      id: sylvie
+      hide: true
+      duration: 900
+
+  - text:
+      speaker: 旁白
+      text: "那天傍晚，图书馆的闭馆铃响了三次。我们没有起身。故事在旋律里，慢慢落下了第一个休止符。"
+
+  - jump: common_end
+
+  - label: quiet_ending
+
+  - bgm:
+      track: audio/bgm/sunset.wav
+      fade: 1200
+      loop: true
+
+  - text:
+      speaker: 旁白
+      text: "我们一本一本地合上书，把椅子推回桌下。她走在我半步之前，影子被夕阳拉得很长。"
+
+  - text:
+      speaker: 希尔维
+      text: "明天还来吗？"
+      voice: audio/voice/sylvie_02.wav
+
+  - text:
+      speaker: 我
+      text: "来。书还没还完。"
+
+  - text:
+      speaker: 旁白
+      text: "她笑了一下，没有拆穿我。故事在一个普通的黄昏里，安静地翻过了这一页。"
+
+  - label: common_end

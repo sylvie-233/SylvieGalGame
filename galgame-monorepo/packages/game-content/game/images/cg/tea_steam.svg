@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="room" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241a24"/>
+      <stop offset="0.6" stop-color="#3d2730"/>
+      <stop offset="1" stop-color="#120e18"/>
+    </linearGradient>
+    <radialGradient id="warm" cx="900" cy="440" r="700" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd9b8" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffd9b8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cup" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7ef"/>
+      <stop offset="1" stop-color="#cdb6a8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#room)"/>
+  <rect width="1920" height="1080" fill="url(#warm)"/>
+  <rect x="1400" y="80" width="420" height="560" rx="16" fill="#f8c69a" opacity="0.1"/>
+  <rect x="1430" y="110" width="360" height="500" rx="10" fill="#f8c69a" opacity="0.14"/>
+  <polygon points="1460,120 1760,120 1600,980 1040,980" fill="#ffe2c4" opacity="0.07"/>
+
+  <rect x="0" y="760" width="1920" height="320" fill="#1a131b"/>
+  <polygon points="0,840 1920,760 1920,860 0,940" fill="#2c2028"/>
+  <ellipse cx="960" cy="872" rx="360" ry="56" fill="#05060a" opacity="0.42"/>
+
+  <g transform="translate(900 700)">
+    <ellipse cx="0" cy="190" rx="260" ry="42" fill="#05060a" opacity="0.38"/>
+    <ellipse cx="0" cy="118" rx="170" ry="34" fill="#b69c90" opacity="0.55"/>
+    <path d="M-148 112 Q-148 260 0 260 Q148 260 148 112 Z" fill="url(#cup)"/>
+    <ellipse cx="0" cy="112" rx="148" ry="34" fill="#efe4da"/>
+    <ellipse cx="0" cy="112" rx="122" ry="24" fill="#9a5f43"/>
+    <path d="M-168 142 Q-256 180 -190 236" fill="none" stroke="#efe4da" stroke-width="26" opacity="0.9"/>
+    <path d="M-44 54 Q-80 -30 0 -98 Q74 -160 10 -238" fill="none" stroke="#ffe9d6" stroke-width="16" opacity="0.2"/>
+    <path d="M44 44 Q86 -24 24 -82 Q-30 -132 32 -204" fill="none" stroke="#ffe9d6" stroke-width="11" opacity="0.14"/>
+  </g>
+
+  <g opacity="0.8">
+    <rect x="1300" y="720" width="220" height="26" rx="6" fill="#8d5b6d"/>
+    <rect x="1330" y="700" width="180" height="20" rx="4" fill="#5b6d8d"/>
+    <rect x="1360" y="682" width="130" height="18" rx="4" fill="#8d7a5b"/>
+  </g>
+
+  <circle cx="1710" cy="880" r="170" fill="#ffe2c4" opacity="0.04"/>
+  <rect y="980" width="1920" height="100" fill="#05060a" opacity="0.45"/>
+</svg>

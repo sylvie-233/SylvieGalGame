@@ -1,0 +1,10 @@
+node_modules
+.pnpm-store
+dist
+.vite
+out
+.turbo
+coverage
+scripts/.smoke
+*.log
+.DS_Store

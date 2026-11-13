@@ -1,0 +1,15 @@
+title: 午后的回声
+version: 0.1.0
+start: prologue
+
+scenes:
+  - prologue
+  - smile_route
+  - book_route
+  - common
+
+variables:
+  affection: 0
+  curiosity: 0
+  knows_melody: false
+  route: ""

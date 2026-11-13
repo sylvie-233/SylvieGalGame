@@ -1,0 +1,7 @@
+{
+  "name": "@sylvie/game-content",
+  "version": "0.1.0",
+  "private": true,
+  "description": "《午后的回声》剧本与美术/音频资源包（纯内容，无构建步骤）",
+  "files": ["game"]
+}

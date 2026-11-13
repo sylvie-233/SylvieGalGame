@@ -1,0 +1,64 @@
+name: prologue
+imports:
+  - smile_route
+  - book_route
+
+commands:
+  - label: prologue_start
+
+  - bg:
+      image: images/bg/library_afternoon.svg
+      transition: fade
+      duration: 900
+  - bgm:
+      track: audio/bgm/afternoon.wav
+      fade: 800
+      loop: true
+
+  - text: "九月的风穿过图书馆的长窗，把窗帘吹成一面缓慢起伏的帆。"
+  - text:
+      speaker: 旁白
+      text: "我抱着三本已经到期的书，停在靠窗的长桌旁。"
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_neutral.svg
+      position: center
+      duration: 700
+
+  - text:
+      speaker: 希尔维
+      text: "……你也听见了吗？刚才那段旋律。"
+      voice: audio/voice/sylvie_01.wav
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_smile.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "别站在那儿装没听见。你的耳朵都红了。"
+      voice: audio/voice/sylvie_02.wav
+
+  - se:
+      sound: audio/se/page_turn.wav
+      volume: 0.8
+
+  - text:
+      speaker: 旁白
+      text: "她把摊开的书轻轻合上。封面是一片褪色的蓝，边角被翻得柔软。"
+
+  - set:
+      var: route
+      op: "="
+      value: ""
+
+  - choice:
+      prompt: "我该怎样回应她？"
+      options:
+        - text: "问她手中的那本书"
+          jump: "book_route#book_start"
+        - text: "先递给她一杯热茶"
+          jump: "smile_route#smile_start"

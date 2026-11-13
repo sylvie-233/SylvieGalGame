@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <radialGradient id="dark" cx="960" cy="560" r="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b2a34"/>
+      <stop offset="0.55" stop-color="#160f1b"/>
+      <stop offset="1" stop-color="#05060a"/>
+    </radialGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffe6c8"/>
+      <stop offset="0.5" stop-color="#fff8ec"/>
+      <stop offset="1" stop-color="#ffe6c8"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd9a8" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ffd9a8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#dark)"/>
+  <rect x="760" y="140" width="400" height="700" fill="url(#glow)" opacity="0.36"/>
+  <ellipse cx="960" cy="720" rx="520" ry="260" fill="#ffd9a8" opacity="0.08"/>
+
+  <polygon points="360,720 1560,720 1660,780 260,780" fill="#1b131a"/>
+  <ellipse cx="960" cy="840" rx="520" ry="60" fill="#000" opacity="0.3"/>
+
+  <!-- 摊开的书 -->
+  <g transform="translate(960 620)">
+    <path d="M-470 40 Q-240 -80 0 -24 Q240 -80 470 40 Q240 84 0 60 Q-240 84 -470 40 Z" fill="#2b1d25"/>
+    <path d="M-442 26 Q-230 -58 0 -10 Q230 -58 442 26 Q230 62 0 42 Q-230 62 -442 26 Z" fill="url(#page)"/>
+    <path d="M0 42 L0 -10" stroke="#b69a86" stroke-width="3" opacity="0.5"/>
+    <path d="M-360 6 Q-230 -28 -60 -8" stroke="#8a6d62" stroke-width="4" opacity="0.35"/>
+    <path d="M-340 26 Q-230 0 -90 16" stroke="#8a6d62" stroke-width="3" opacity="0.25"/>
+    <path d="M70 6 Q230 -28 360 4" stroke="#8a6d62" stroke-width="4" opacity="0.35"/>
+    <path d="M90 24 Q230 -2 340 22" stroke="#8a6d62" stroke-width="3" opacity="0.25"/>
+
+    <g transform="translate(0 -30)" opacity="0.9">
+      <path d="M-120 0 Q-40 -30 40 0 T200 0" fill="none" stroke="#c28a76" stroke-width="4" opacity="0.6"/>
+      <path d="M-90 34 Q-20 4 50 34 T170 34" fill="none" stroke="#c28a76" stroke-width="3" opacity="0.4"/>
+    </g>
+  </g>
+
+  <!-- 漂浮音符 -->
+  <g fill="#ffe2b0" opacity="0.5">
+    <g transform="translate(620 400)"><circle cx="0" cy="0" r="16"/><rect x="12" y="-10" width="5" height="90" rx="2"/><path d="M17 -10 Q58 8 46 42" fill="none" stroke="#ffe2b0" stroke-width="4"/></g>
+    <g transform="translate(1260 340) scale(0.8)"><circle cx="0" cy="0" r="16"/><rect x="12" y="-10" width="5" height="90" rx="2"/><path d="M17 -10 Q58 8 46 42" fill="none" stroke="#ffe2b0" stroke-width="4"/></g>
+    <g transform="translate(1380 520) scale(1.2)"><circle cx="0" cy="0" r="16"/><rect x="12" y="-10" width="5" height="90" rx="2"/><path d="M17 -10 Q58 8 46 42" fill="none" stroke="#ffe2b0" stroke-width="4"/></g>
+  </g>
+  <circle cx="1290.7" cy="752.4" r="3.4" fill="#ffe9d6" opacity="0.09"/><circle cx="800.1" cy="311.1" r="1.2" fill="#ffe9d6" opacity="0.28"/><circle cx="1559.9" cy="597.2" r="2.0" fill="#ffe9d6" opacity="0.24"/><circle cx="1099.6" cy="379.7" r="3.3" fill="#ffe9d6" opacity="0.09"/><circle cx="1370.8" cy="684.3" r="3.7" fill="#ffe9d6" opacity="0.14"/><circle cx="1689.0" cy="749.9" r="3.5" fill="#ffe9d6" opacity="0.26"/><circle cx="1837.4" cy="589.5" r="3.0" fill="#ffe9d6" opacity="0.09"/><circle cx="332.1" cy="161.5" r="3.3" fill="#ffe9d6" opacity="0.14"/><circle cx="532.8" cy="606.3" r="3.1" fill="#ffe9d6" opacity="0.30"/><circle cx="1571.6" cy="750.6" r="3.8" fill="#ffe9d6" opacity="0.15"/><circle cx="736.6" cy="336.6" r="1.2" fill="#ffe9d6" opacity="0.26"/><circle cx="15.4" cy="365.7" r="1.1" fill="#ffe9d6" opacity="0.18"/><circle cx="1703.2" cy="876.7" r="3.1" fill="#ffe9d6" opacity="0.26"/><circle cx="1033.2" cy="347.2" r="1.5" fill="#ffe9d6" opacity="0.29"/><circle cx="1392.0" cy="866.4" r="3.6" fill="#ffe9d6" opacity="0.14"/><circle cx="1535.9" cy="367.2" r="3.8" fill="#ffe9d6" opacity="0.26"/><circle cx="1768.6" cy="424.9" r="2.2" fill="#ffe9d6" opacity="0.27"/><circle cx="430.2" cy="699.8" r="2.2" fill="#ffe9d6" opacity="0.26"/><circle cx="209.5" cy="834.0" r="1.5" fill="#ffe9d6" opacity="0.26"/><circle cx="1023.7" cy="840.8" r="2.5" fill="#ffe9d6" opacity="0.18"/><circle cx="924.3" cy="298.3" r="1.4" fill="#ffe9d6" opacity="0.21"/><circle cx="891.7" cy="464.4" r="2.6" fill="#ffe9d6" opacity="0.20"/><circle cx="350.1" cy="482.2" r="3.8" fill="#ffe9d6" opacity="0.18"/><circle cx="871.3" cy="721.1" r="2.9" fill="#ffe9d6" opacity="0.11"/><circle cx="628.1" cy="162.7" r="3.9" fill="#ffe9d6" opacity="0.16"/><circle cx="56.6" cy="299.3" r="3.0" fill="#ffe9d6" opacity="0.18"/><circle cx="780.9" cy="96.9" r="1.2" fill="#ffe9d6" opacity="0.23"/><circle cx="939.2" cy="513.2" r="2.5" fill="#ffe9d6" opacity="0.17"/><circle cx="1809.3" cy="554.3" r="2.5" fill="#ffe9d6" opacity="0.16"/><circle cx="1790.2" cy="615.9" r="1.0" fill="#ffe9d6" opacity="0.23"/><circle cx="396.1" cy="753.7" r="2.6" fill="#ffe9d6" opacity="0.24"/><circle cx="779.0" cy="240.3" r="1.6" fill="#ffe9d6" opacity="0.21"/><circle cx="109.2" cy="18.2" r="3.1" fill="#ffe9d6" opacity="0.22"/><circle cx="430.5" cy="793.1" r="3.5" fill="#ffe9d6" opacity="0.18"/><circle cx="27.2" cy="22.1" r="1.8" fill="#ffe9d6" opacity="0.14"/><circle cx="1141.3" cy="179.9" r="3.9" fill="#ffe9d6" opacity="0.30"/><circle cx="792.4" cy="309.7" r="2.5" fill="#ffe9d6" opacity="0.30"/><circle cx="304.0" cy="503.2" r="2.2" fill="#ffe9d6" opacity="0.21"/><circle cx="1404.5" cy="674.0" r="2.0" fill="#ffe9d6" opacity="0.10"/><circle cx="969.7" cy="123.7" r="2.6" fill="#ffe9d6" opacity="0.26"/>
+</svg>

@@ -1,0 +1,72 @@
+name: smile_route
+imports:
+  - common
+
+commands:
+  - label: smile_start
+
+  - set:
+      var: route
+      op: "="
+      value: "smile"
+  - set:
+      var: affection
+      op: "+="
+      value: 2
+
+  - bg:
+      image: images/bg/library_tea.svg
+      transition: fade
+      duration: 700
+
+  - text:
+      speaker: 旁白
+      text: "我把保温杯推过去。杯盖上贴着一只歪歪扭扭的小猫，是她上周随手画的。"
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_smile.svg
+      position: center
+      duration: 500
+
+  - text:
+      speaker: 希尔维
+      text: "……这算什么？图书馆里不准喝热茶。"
+      voice: audio/voice/sylvie_03.wav
+
+  - text:
+      speaker: 我
+      text: "那你就当它是暖手用的。"
+
+  - se:
+      sound: audio/se/tea_cup.wav
+      volume: 0.55
+
+  - sprite:
+      id: sylvie
+      image: images/sprite/sylvie_blush.svg
+      position: center
+      duration: 450
+
+  - text:
+      speaker: 希尔维
+      text: "真狡猾。"
+      voice: audio/voice/sylvie_04.wav
+
+  - wait: 700
+
+  - cg:
+      image: images/cg/tea_steam.svg
+      transition: fade
+      duration: 900
+
+  - text:
+      speaker: 旁白
+      text: "热气在午后的光里升起来，像一小段无人演奏的旋律。"
+      voice: audio/voice/narrator_01.wav
+
+  - cg: hide
+
+  - wait: 500
+
+  - jump: "common#common_start"

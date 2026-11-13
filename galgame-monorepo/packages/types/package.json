@@ -1,0 +1,27 @@
+{
+  "name": "@sylvie/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sylvie Galgame 共享类型：YAML 指令、运行时状态、存档与平台接口",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "devDependencies": {
+    "@sylvie/tsconfig": "workspace:*",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}
