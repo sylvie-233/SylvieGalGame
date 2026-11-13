@@ -1,7 +1,17 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  protocol,
+  screen,
+  shell,
+} from 'electron';
 
 const APP_SCHEME = 'app';
 const APP_HOST = 'sylvie';
@@ -342,12 +352,66 @@ function isExternalUrl(value: string): boolean {
   }
 }
 
+const WINDOW_STATE_FILE = 'window-state.json';
+const MIN_WINDOW_WIDTH = 960;
+const MIN_WINDOW_HEIGHT = 540;
+
+interface WindowState {
+  width: number;
+  height: number;
+  x: number | null;
+  y: number | null;
+  maximized: boolean;
+}
+
+function windowStatePath(): string {
+  return path.join(app.getPath('userData'), WINDOW_STATE_FILE);
+}
+
+function readWindowState(): WindowState | null {
+  try {
+    const raw: unknown = JSON.parse(readFileSync(windowStatePath(), 'utf8'));
+    if (typeof raw !== 'object' || raw === null) return null;
+    const record = raw as Record<string, unknown>;
+    const width = typeof record.width === 'number' ? Math.round(record.width) : 0;
+    const height = typeof record.height === 'number' ? Math.round(record.height) : 0;
+    if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT) return null;
+    return {
+      width: Math.min(7680, width),
+      height: Math.min(4320, height),
+      x: typeof record.x === 'number' ? Math.round(record.x) : null,
+      y: typeof record.y === 'number' ? Math.round(record.y) : null,
+      maximized: record.maximized === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 窗口位置必须与某个显示器工作区相交，避免拔出外接屏后窗口移到屏幕外。 */
+function boundsVisibleOnAnyDisplay(state: WindowState): boolean {
+  const { x, y } = state;
+  if (x === null || y === null) return false;
+  return screen.getAllDisplays().some((display) => {
+    const area = display.workArea;
+    return (
+      x < area.x + area.width &&
+      x + state.width > area.x &&
+      y < area.y + area.height &&
+      y + state.height > area.y
+    );
+  });
+}
+
 function buildWindow(): BrowserWindow {
+  const saved = readWindowState();
+  const usePosition = saved ? boundsVisibleOnAnyDisplay(saved) : false;
   const window = new BrowserWindow({
-    width: 1280,
-    height: 720,
-    minWidth: 960,
-    minHeight: 540,
+    width: saved?.width ?? 1280,
+    height: saved?.height ?? 720,
+    ...(usePosition && saved ? { x: saved.x ?? undefined, y: saved.y ?? undefined } : {}),
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#06070c',
@@ -363,6 +427,42 @@ function buildWindow(): BrowserWindow {
       devTools: !app.isPackaged,
     },
   });
+
+  let stateTimer: ReturnType<typeof setTimeout> | null = null;
+  const persistWindowState = () => {
+    try {
+      const bounds = window.getNormalBounds();
+      const state: WindowState = {
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
+        maximized: window.isMaximized(),
+      };
+      mkdirSync(path.dirname(windowStatePath()), { recursive: true });
+      writeFileSync(windowStatePath(), JSON.stringify(state), 'utf8');
+    } catch (error) {
+      console.warn('[窗口] 保存窗口状态失败', error);
+    }
+  };
+  const scheduleWindowState = () => {
+    if (stateTimer) clearTimeout(stateTimer);
+    stateTimer = setTimeout(() => {
+      stateTimer = null;
+      persistWindowState();
+    }, 400);
+  };
+  window.on('resize', scheduleWindowState);
+  window.on('move', scheduleWindowState);
+  window.on('close', () => {
+    if (stateTimer) clearTimeout(stateTimer);
+    stateTimer = null;
+    persistWindowState();
+  });
+
+  if (saved?.maximized) {
+    window.maximize();
+  }
 
   window.once('ready-to-show', () => {
     window.show();
