@@ -149,6 +149,76 @@ commands:
   - text:
       speaker: 希尔维
       text: "每次到这里，我就想不起来下一句。"
+
+  - text:
+      speaker: 旁白
+      text: "她的手还停在琴键上。那台旧钢琴走了一个音，像是在等谁接下去。"
+
+  - choice:
+      options:
+        - text: "把她弹过的八个音按回去。"
+          jump: "echo_try"
+        - text: "让她先停在这里。"
+          jump: "echo_decline"
+
+  - label: echo_try
+
+  - minigame:
+      id: echo
+      title: 回声
+      prompt: "把她刚才弹过的八个音，按原样还回去。"
+      result:
+        echoes: echo_echoes
+        cleared: echo_cleared
+      skip:
+        echoes: 0
+        cleared: false
+
+  - if:
+      condition: 'echo_cleared && echo_echoes >= 7'
+      then: "echo_remembered"
+      else: "echo_check"
+
+  - label: echo_check
+
+  - if:
+      condition: 'echo_cleared'
+      then: "echo_rough"
+      else: "echo_skipped"
+
+  - label: echo_remembered
+
+  - text:
+      speaker: 希尔维
+      text: "……你一个都没听错。"
+  - text:
+      speaker: 旁白
+      text: "她把手从琴键上收回去，像确认某样东西还在。"
+  - jump: "echo_resume"
+
+  - label: echo_rough
+
+  - text:
+      speaker: 希尔维
+      text: "你记住了大半。剩下的，大概是我弹得太轻了。"
+  - jump: "echo_resume"
+
+  - label: echo_skipped
+
+  - text:
+      speaker: 希尔维
+      text: "没关系。本来就是我没弹完。"
+  - jump: "echo_resume"
+
+  - label: echo_decline
+
+  - text:
+      speaker: 旁白
+      text: "她点点头，把手从琴键上收回去。"
+  - jump: "echo_resume"
+
+  - label: echo_resume
+
   - text:
       speaker: 我
       text: "那就先停在这里。"

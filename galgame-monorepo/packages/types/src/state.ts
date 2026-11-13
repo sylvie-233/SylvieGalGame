@@ -1,12 +1,13 @@
 import type { SpritePosition, Transition, TransitionEase } from './commands';
+import type { MinigameState } from './minigame';
 import type { EndingDefinition } from './script';
 import type { VariableTable } from './variables';
 
 /**
  * 引擎对外暴露的运行阶段。
- * `idle` 只出现在启动前或推进指令的瞬间；阻塞态为 text / choice / wait，结局为 ended。
+ * `idle` 只出现在启动前或推进指令的瞬间；阻塞态为 text / choice / wait / minigame，结局为 ended。
  */
-export type Phase = 'idle' | 'text' | 'choice' | 'wait' | 'ended';
+export type Phase = 'idle' | 'text' | 'choice' | 'wait' | 'minigame' | 'ended';
 
 /** 背景图层当前状态。 */
 export interface BackgroundState {
@@ -111,6 +112,8 @@ export interface GameSnapshot {
   stage: StageSnapshot;
   dialogue: DialogueSnapshot | null;
   choice: ChoiceSnapshot | null;
+  /** phase === 'minigame' 时当前小游戏的展示信息；否则为 null。 */
+  minigame: MinigameState | null;
   audio: AudioSnapshot;
   variables: VariableTable;
   backlog: BacklogEntry[];

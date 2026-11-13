@@ -393,11 +393,13 @@ function Show-Status {
 
     $engineDist = Join-Path $MonorepoRoot 'packages/engine-core/dist/index.js'
     $playerDist = Join-Path $MonorepoRoot 'packages/player/dist/index.js'
+    $minigamesDist = Join-Path $MonorepoRoot 'packages/minigames/dist/index.js'
     $webDist = Join-Path $MonorepoRoot 'apps/web/dist/index.html'
     Write-Host ''
     Write-Host '构建产物' -ForegroundColor Cyan
     Write-ArtifactStatus -Label '引擎' -Path $engineDist
     Write-ArtifactStatus -Label '播放器' -Path $playerDist
+    Write-ArtifactStatus -Label '小游戏' -Path $minigamesDist
     Write-ArtifactStatus -Label 'Web 预览' -Path $webDist
     Write-ArtifactStatus -Label '免安装版' -Path $PackagedExe
 

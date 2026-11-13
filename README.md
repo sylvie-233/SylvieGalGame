@@ -14,18 +14,19 @@
 
 示例剧本《一百二十日元的回声》受经典日式短篇 Galgame「120 円」系列启发，围绕一枚刚好够买一罐热咖啡的硬币，讲述两个失眠的人在深夜售货机前相遇、靠近、又各自离开的故事。它包含：
 
-- 5 个场景、3 条分支、3 个结局、共 142 句文本；
+- 5 个场景、3 条分支、3 个结局、共 149 句文本；
 - 9 张背景（夜间街道、末班车站、旧音乐教室、图书馆等）、5 张 CG、4 版立绘；
 - 2 首 BGM、6 个音效，支持图鉴试听与 CG 鉴赏；
 - 背景 / 立绘 / CG 分层舞台与淡入淡出、溶解、滑动、擦除转场；
 - BGM、音效与对话历史回放；
 - 打字机、Auto、仅跳过已读的 Skip、Backlog；
 - 自动存档保留最近 3 份轮换，快速存档、20 个手动存档位与截图缩略图；
-- 设置面板：三类音量、打字速度、自动等待、字体、全屏。
+- 设置面板：三类音量、打字速度、自动等待、字体、全屏；
+- 音乐教室里的 Phaser 小游戏「回声」：听希尔维弹八个音，再按原样还回去，结果会写回剧本变量并影响后续对话。
 
 ## 功能特性
 
-- **纯 YAML 驱动**：`label` / `jump` / `choice` / `set` / `if` / `wait` 等指令，跨场景跳转与条件显隐，启动时校验结构、目标与资源。
+- **纯 YAML 驱动**：`label` / `jump` / `choice` / `set` / `if` / `wait` / `minigame` 等指令，跨场景跳转与条件显隐，启动时校验结构、目标与资源。
 - **业务逻辑抽离**：`engine-core` 不依赖 React / DOM，可脱离桌面端在 Node 中运行与测试；`player` 只消费快照和效果事件。
 - **分层渲染**：背景 → 多立绘 → CG → 对话 UI → 选项 → 菜单遮罩，支持 fade / dissolve / slide / wipe 转场与逐条缓动；另提供 `shake` / `flash` 演出指令。
 - **文本体验**：逐字打字、点击补全、Auto、Ctrl 跳过已读、未读自动停止、历史回看与语音回放。
@@ -42,6 +43,7 @@
 - **内容与代码分离**：打包时内容包被复制到 `resources/game`，替换资源即可更新剧情，无需重新编译。
 - **桌面交付**：Electron 自定义协议限制资源访问，关闭 Node 集成；Forge + NSIS 生成 Windows 安装包；单实例运行并记忆窗口大小 / 位置。
 - **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + IndexedDB（localStorage 回退）平台适配器在浏览器中运行，改 UI / 剧本即时热更新；vendor、面板与截图库按需拆包。
+- **可拔插剧情小游戏**：剧本用通用 `minigame` 指令阻塞并映射结果；宿主按 id 注入 loader，具体玩法独立在 `@sylvie/minigames`，Phaser 只在玩家真正进入小游戏时懒加载。
 
 ## 页面预览
 
@@ -56,6 +58,12 @@
 | 游戏内菜单 | 对话历史 |
 | --- | --- |
 | ![菜单](docs/screenshots/menu.png) | ![历史](docs/screenshots/backlog.png) |
+
+### 剧情小游戏「回声」
+
+音乐教室里的 Phaser 小游戏：先听希尔维弹八个音，再按原样还回去。结果会写回剧本变量，影响她接下来的台词与尾声。
+
+![回声小游戏](docs/screenshots/minigame.png)
 
 ## 快速开始
 
@@ -201,6 +209,7 @@ docker compose -f scripts/docker-compose.yml -f scripts/docker-compose.game.yml 
 
 - **引擎内核**：纯 TypeScript，YAML 解析、指针 + 阻塞调度、变量与条件表达式、已读标记、存档序列化
 - **播放器**：React 19、Tailwind CSS v4、Motion 12、Zustand 5、Howler.js
+- **剧情小游戏**：Phaser 4，独立 `@sylvie/minigames` 包与宿主 loader 注册表
 - **桌面端**：Electron 45、Electron Forge 8、Vite 8、NSIS
 - **Web 预览**：Vite 8 + React 19（源码别名热更新、`/game` 资源中间件、IndexedDB 存档 + localStorage 回退）
 - **Web 容器化**：Docker Compose + Node 22 多阶段构建 + Nginx 静态托管
@@ -223,6 +232,7 @@ SylvieGalGame/
 │   ├── packages/
 │   │   ├── engine-core/              # 纯 TS 剧本引擎（含 Vitest）
 │   │   ├── player/                   # React 播放器
+│   │   ├── minigames/                # Phaser 剧情小游戏与 loader 注册表
 │   │   ├── game-content/             # 内容包：剧本 + 图片 + 音频（无构建步骤）
 │   │   ├── types/                    # 跨包共享类型
 │   │   ├── eslint-config/            # 共享 ESLint 平面配置（base / react）

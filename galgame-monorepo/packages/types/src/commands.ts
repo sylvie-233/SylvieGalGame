@@ -4,6 +4,7 @@
  * 场景 YAML 由 engine-core 解析后，每条指令都会变成这里的一种带 `kind`
  * 判别字段的普通对象；播放器只消费这些结构，不感知原始 YAML 写法。
  */
+import type { MinigameCommand } from './minigame';
 import type { VariableValue } from './variables';
 
 /**
@@ -190,6 +191,7 @@ export type Command =
   | ChoiceCommand
   | SetCommand
   | IfCommand
+  | MinigameCommand
   | WaitCommand
   | EndingCommand
   | ShakeCommand
@@ -209,6 +211,7 @@ export const COMMAND_KINDS = [
   'choice',
   'set',
   'if',
+  'minigame',
   'wait',
   'ending',
   'shake',

@@ -39,6 +39,20 @@ commands:
       position: center
       duration: 500
 
+  - if:
+      condition: 'echo_cleared && echo_echoes >= 7'
+      then: "book_epilogue_echo"
+  - jump: "book_epilogue_rejoin"
+
+  - label: book_epilogue_echo
+
+  - text:
+      speaker: 希尔维
+      text: "那天你按回来的八个音，我写进谱子了。"
+  - jump: "book_epilogue_rejoin"
+
+  - label: book_epilogue_rejoin
+
   - text:
       speaker: 希尔维
       text: "最后两小节，我想好了。不过先不告诉你。"

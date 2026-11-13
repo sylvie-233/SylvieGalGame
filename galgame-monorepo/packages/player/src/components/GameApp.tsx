@@ -14,6 +14,7 @@ import {
   emptyGalleryUnlocks,
   type GalleryUnlocks,
   type GameSettings,
+  type MinigameResult,
   type SaveData,
 } from '@sylvie/types';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
@@ -38,6 +39,9 @@ const BacklogPanel = lazy(() =>
 );
 const GalleryPanel = lazy(() =>
   import('./GalleryPanel').then((module) => ({ default: module.GalleryPanel })),
+);
+const MinigameOverlay = lazy(() =>
+  import('./MinigameOverlay').then((module) => ({ default: module.MinigameOverlay })),
 );
 const SaveLoadPanel = lazy(() =>
   import('./SaveLoadPanel').then((module) => ({ default: module.SaveLoadPanel })),
@@ -396,6 +400,14 @@ export function GameApp() {
     });
   }, [audio, settings.bgmVolume, settings.seVolume, settings.voiceVolume]);
 
+  // 小游戏需要听清琴音，BGM 在覆盖层期间临时压低；离开该阶段后恢复玩家音量。
+  useEffect(() => {
+    audio.setBgmDucked(snapshot.phase === 'minigame');
+    return () => {
+      audio.setBgmDucked(false);
+    };
+  }, [audio, snapshot.phase]);
+
   // 窗口标题优先使用 manifest 的 windowTitle，缺省回退到游戏标题。
   useEffect(() => {
     if (!manifest) return;
@@ -473,6 +485,23 @@ export function GameApp() {
     }
   }, [snapshot.phase, setAuto, setOverlay, setSkip]);
 
+  // 引擎阻塞在 minigame 时打开对应覆盖层；恢复 / 回退到小游戏也会重新挂载。
+  // 阶段离开 minigame 后关闭残留覆盖层，避免快速读档等路径把它留在画面上。
+  useEffect(() => {
+    if (snapshot.phase === 'minigame') {
+      setAuto(false);
+      setSkip(false);
+      if (
+        usePlayerStore.getState().view === 'game' &&
+        usePlayerStore.getState().overlay?.kind !== 'minigame'
+      ) {
+        setOverlay({ kind: 'minigame' });
+      }
+    } else if (overlay?.kind === 'minigame') {
+      setOverlay(null);
+    }
+  }, [overlay, snapshot.phase, setAuto, setOverlay, setSkip]);
+
   // wait 指令：没有覆盖层遮挡时，按快照中的毫秒数自动恢复推进。
   useEffect(() => {
     if (snapshot.phase !== 'wait' || overlay) return;
@@ -543,6 +572,21 @@ export function GameApp() {
     if (usePlayerStore.getState().overlay) return;
     engine.advance();
   }, [engine]);
+
+  /** 小游戏正常结束：先关闭覆盖层，再让引擎按剧本映射写回结果并继续。 */
+  const finishMinigame = useCallback(
+    (result?: MinigameResult) => {
+      setOverlay(null);
+      engine.finishMinigame(result);
+    },
+    [engine, setOverlay],
+  );
+
+  /** 跳过小游戏：使用 minigame.skip 的预设结果，剧情不会卡住。 */
+  const skipMinigame = useCallback(() => {
+    setOverlay(null);
+    engine.skipMinigame();
+  }, [engine, setOverlay]);
 
   /** H 键 / 右键：仅在文本或等待阶段切换界面隐藏，选项与结束时保持可见。 */
   const toggleUiHidden = useCallback(() => {
@@ -668,6 +712,9 @@ export function GameApp() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
+      // 小游戏覆盖层独占键盘：不推进对话、不打开菜单，也不响应 Ctrl+S / Ctrl+L。
+      // Esc 同样交给小游戏自行处理，退出只能点击「跳过」或完成游戏。
+      if (overlay?.kind === 'minigame') return;
 
       if (event.key === 'Control') {
         ctrlDown.current = true;
@@ -994,6 +1041,15 @@ export function GameApp() {
       )}
 
       <Suspense fallback={null}>
+        {overlay?.kind === 'minigame' && snapshot.minigame && (
+          <MinigameOverlay
+            minigame={snapshot.minigame}
+            platform={platform}
+            onFinish={finishMinigame}
+            onSkip={skipMinigame}
+          />
+        )}
+
         {overlay?.kind === 'saves' && (
           <SaveLoadPanel
             mode={overlay.mode}

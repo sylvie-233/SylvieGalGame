@@ -49,7 +49,7 @@ export function TitleScreen({
   return (
     <div className="absolute inset-0 overflow-hidden">
       <motion.img
-        className="absolute inset-0 h-full w-full object-cover brightness-[0.88] saturate-[0.94]"
+        className="absolute inset-0 h-full w-full object-cover brightness-[0.96] saturate-[0.98]"
         src={backgroundUrl}
         alt=""
         draggable={false}
@@ -61,12 +61,12 @@ export function TitleScreen({
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 24% 42%, rgba(9,11,18,0.1), rgba(6,7,12,0.82) 66%), linear-gradient(100deg, rgba(6,7,12,0.92) 0%, rgba(6,7,12,0.45) 44%, rgba(6,7,12,0.16) 72%), linear-gradient(0deg, rgba(6,7,12,0.86), transparent 46%)',
+            'radial-gradient(circle at 24% 42%, rgba(9,11,18,0.06), rgba(6,7,12,0.74) 66%), linear-gradient(100deg, rgba(6,7,12,0.86) 0%, rgba(6,7,12,0.36) 44%, rgba(6,7,12,0.1) 72%), linear-gradient(0deg, rgba(6,7,12,0.8), transparent 46%)',
         }}
       />
 
       <motion.div
-        className="relative z-[2] flex h-full max-w-[760px] flex-col items-start justify-center px-[clamp(32px,6vw,96px)] py-[clamp(32px,6vw,96px)] max-[900px]:px-7 max-[900px]:py-8"
+        className="relative z-[2] flex h-full max-w-[900px] flex-col items-start justify-center px-[clamp(32px,6vw,96px)] py-[clamp(32px,6vw,96px)] max-[900px]:px-7 max-[900px]:py-8"
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: 'easeOut' }}
@@ -74,7 +74,7 @@ export function TitleScreen({
         <div className="mb-[18px] text-[11px] tracking-[0.42em] text-sg-gold/80 uppercase">
           SYLVIE GALGAME
         </div>
-        <h1 className="m-0 font-dialogue text-[clamp(40px,6.6vw,86px)] leading-[1.08] font-medium tracking-[0.06em] [text-shadow:0_10px_40px_rgba(0,0,0,0.6)]">
+        <h1 className="m-0 font-dialogue text-[clamp(40px,5.4vw,72px)] leading-[1.08] font-medium tracking-[0.06em] [text-shadow:0_10px_40px_rgba(0,0,0,0.6)]">
           {title}
         </h1>
         {subtitle && (

@@ -19,6 +19,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/types/package.json packages/types/package.json
 COPY packages/engine-core/package.json packages/engine-core/package.json
 COPY packages/player/package.json packages/player/package.json
+COPY packages/minigames/package.json packages/minigames/package.json
 COPY packages/game-content/package.json packages/game-content/package.json
 COPY packages/eslint-config/package.json packages/eslint-config/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json

@@ -240,6 +240,11 @@ async function play(engine, strategy) {
       engine.resumeWait();
       continue;
     }
+    if (snapshot.phase === 'minigame') {
+      // 校验只验证剧本能跑通，不实际玩小游戏；按剧本声明的 skip 结果继续。
+      engine.skipMinigame();
+      continue;
+    }
     throw new Error(`未预期的阻塞状态：${snapshot.phase}`);
   }
 

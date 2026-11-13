@@ -13,6 +13,7 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
+    "@sylvie/minigames": "workspace:*",
     "@sylvie/player": "workspace:*",
     "@sylvie/types": "workspace:*",
     "html-to-image": "^1.11.13",

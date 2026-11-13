@@ -8,6 +8,7 @@
  * - IndexedDB 不可用或单次读写失败时回退 localStorage，键统一加 `sylvie:` 前缀；
  * - 旧版本只写过 localStorage 的数据会在首次打开数据库时迁移进 IndexedDB。
  */
+import { createMinigameLoaders } from '@sylvie/minigames';
 import type { PlayerPlatform } from '@sylvie/types';
 
 // localStorage 回退键前缀，避免与同源其它数据冲突；IndexedDB 内直接使用播放器原始键。
@@ -331,6 +332,8 @@ export const webPlatform: PlayerPlatform = {
   assetUrl,
   storage,
   captureScreenshot,
+  // 剧情小游戏按 id 懒加载；没触发小游戏的玩家不会下载 Phaser。
+  minigames: createMinigameLoaders(),
   // 浏览器可能因缺少用户手势拒绝全屏，捕获后返回实际状态，不影响游戏流程。
   async setFullscreen(value) {
     try {

@@ -35,6 +35,9 @@ importers:
       '@sylvie/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@sylvie/minigames':
+        specifier: workspace:*
+        version: link:../../packages/minigames
       '@sylvie/player':
         specifier: workspace:*
         version: link:../../packages/player
@@ -101,6 +104,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@sylvie/minigames':
+        specifier: workspace:*
+        version: link:../../packages/minigames
       '@sylvie/player':
         specifier: workspace:*
         version: link:../../packages/player
@@ -223,6 +229,37 @@ importers:
         version: 9.39.5(jiti@2.7.0)
 
   packages/game-content: {}
+
+  packages/minigames:
+    dependencies:
+      '@sylvie/types':
+        specifier: workspace:*
+        version: link:../types
+      phaser:
+        specifier: ^4.2.1
+        version: 4.2.1
+    devDependencies:
+      '@sylvie/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@sylvie/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.5(jiti@2.7.0)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.4
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.32)(typescript@5.9.3)(yaml@2.9.1)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(yaml@2.9.1)
 
   packages/player:
     dependencies:
@@ -1976,6 +2013,9 @@ packages:
     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
     engines: {node: '>=0.10.0'}
 
+  eventemitter3@5.0.4:
+    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
+
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
@@ -2836,6 +2876,9 @@ packages:
   pe-library@1.0.1:
     resolution: {integrity: sha512-nh39Mo1eGWmZS7y+mK/dQIqg7S1lp38DpRxkyoHf0ZcUs/HDc+yyTjuOtTvSMZHmfSLuSQaX945u05Y2Q6UWZg==}
     engines: {node: '>=14', npm: '>=7'}
+
+  phaser@4.2.1:
+    resolution: {integrity: sha512-WUNwCPJpdjvZiuT6SgCfYVW8Qw/3j0jJ4ws7P2QkhFLFu74sbGuyHJcbFueGkY/AYO4Pi47bNQXn1OCJeLX//w==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -5457,6 +5500,8 @@ snapshots:
 
   esutils@2.0.3: {}
 
+  eventemitter3@5.0.4: {}
+
   expect-type@1.4.0: {}
 
   exponential-backoff@3.1.3: {}
@@ -6323,6 +6368,10 @@ snapshots:
   pe-library@0.4.1: {}
 
   pe-library@1.0.1: {}
+
+  phaser@4.2.1:
+    dependencies:
+      eventemitter3: 5.0.4
 
   picocolors@1.1.1: {}
 

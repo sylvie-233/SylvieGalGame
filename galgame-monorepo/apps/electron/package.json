@@ -24,6 +24,7 @@
     "@electron-forge/shared-types": "^8.0.1",
     "@tailwindcss/vite": "^4.3.5",
     "@sylvie/eslint-config": "workspace:*",
+    "@sylvie/minigames": "workspace:*",
     "@sylvie/player": "workspace:*",
     "@sylvie/tsconfig": "workspace:*",
     "@sylvie/types": "workspace:*",

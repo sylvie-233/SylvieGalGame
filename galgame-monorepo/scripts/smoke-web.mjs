@@ -451,6 +451,101 @@ async function main() {
     if (branch.choice || !branch.dialogue) throw new Error('选择后未进入分支剧情');
     console.log('分支验证：', branch.dialogue.slice(0, 80));
 
+    // 沿 book 路线推进到旧音乐教室，验证小游戏入口与结果回写。
+    let reachedEchoChoice = false;
+    for (let step = 0; step < 100; step += 1) {
+      const current = await state();
+      if (current.choice) {
+        const options = await evaluate(
+          `[...document.querySelectorAll('[aria-label="选择"] button')].map((item) => (item.textContent ?? '').trim())`,
+        );
+        if (options.some((text) => text.includes('八个音'))) {
+          reachedEchoChoice = true;
+          break;
+        }
+        await clickFirstChoice();
+        await sleep(500);
+        continue;
+      }
+      await pressSpace();
+      await sleep(260);
+    }
+    if (!reachedEchoChoice) throw new Error('未能到达回声小游戏入口');
+    await shot('minigame-choice');
+
+    const openedEcho = await evaluate(`(() => {
+      const button = [...document.querySelectorAll('[aria-label="选择"] button')].find((item) =>
+        (item.textContent ?? '').includes('八个音'),
+      );
+      if (!button) return false;
+      button.click();
+      return true;
+    })()`);
+    if (!openedEcho) throw new Error('无法进入回声小游戏');
+    await waitFor(`Boolean(document.querySelector('[aria-label^="小游戏"]'))`);
+    await waitFor(`Boolean(document.querySelector('[aria-label^="小游戏"] canvas'))`);
+    await sleep(400);
+    await shot('minigame');
+
+    // 点击画布中央开始演示；之后用 CDP 原生键盘事件按回八个音。
+    await client.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x: 640,
+      y: 300,
+      button: 'left',
+      clickCount: 1,
+    });
+    await client.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x: 640,
+      y: 300,
+      button: 'left',
+      clickCount: 1,
+    });
+    await sleep(6400);
+
+    const dispatchKey = async (key, code, keyCode) => {
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyDown',
+        key,
+        code,
+        windowsVirtualKeyCode: keyCode,
+        nativeVirtualKeyCode: keyCode,
+      });
+      await client.send('Input.dispatchKeyEvent', {
+        type: 'keyUp',
+        key,
+        code,
+        windowsVirtualKeyCode: keyCode,
+        nativeVirtualKeyCode: keyCode,
+      });
+    };
+
+    // 旋律 [0, 2, 1, 3, 1, 2, 0, 1] 对应界面数字 1、3、2、4、2、3、1、2。
+    const echoKeys = [
+      ['1', 'Digit1', 49],
+      ['3', 'Digit3', 51],
+      ['2', 'Digit2', 50],
+      ['4', 'Digit4', 52],
+      ['2', 'Digit2', 50],
+      ['3', 'Digit3', 51],
+      ['1', 'Digit1', 49],
+      ['2', 'Digit2', 50],
+    ];
+    for (const [key, code, keyCode] of echoKeys) {
+      await dispatchKey(key, code, keyCode);
+      await sleep(360);
+    }
+
+    await waitFor(`!document.querySelector('[aria-label^="小游戏"]')`, 20000);
+    await sleep(500);
+    const afterMinigame = await state();
+    if (!afterMinigame.dialogue?.includes('一个都没听错')) {
+      throw new Error(`小游戏结果未接入剧情分支：${afterMinigame.dialogue ?? '(无对话)'}`);
+    }
+    await shot('minigame-result');
+    console.log('小游戏验证：', afterMinigame.dialogue.slice(0, 80));
+
     if (errors.length > 0) {
       console.error(`\n发现 ${errors.length} 条运行时错误：`);
       for (const error of errors) console.error(`  - ${error}`);

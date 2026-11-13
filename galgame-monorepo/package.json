@@ -10,13 +10,13 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @sylvie/player... build && pnpm --filter @sylvie/electron start",
+    "dev": "pnpm --filter @sylvie/player... --filter @sylvie/minigames... build && pnpm --filter @sylvie/electron start",
     "dev:web": "pnpm --filter @sylvie/web dev",
     "build": "turbo run build",
     "build:web": "pnpm --filter @sylvie/web build",
     "preview:web": "pnpm --filter @sylvie/web build && pnpm --filter @sylvie/web preview",
-    "package": "pnpm --filter @sylvie/player... build && pnpm --filter @sylvie/electron package",
-    "make": "pnpm --filter @sylvie/player... build && pnpm --filter @sylvie/electron make",
+    "package": "pnpm --filter @sylvie/player... --filter @sylvie/minigames... build && pnpm --filter @sylvie/electron package",
+    "make": "pnpm --filter @sylvie/player... --filter @sylvie/minigames... build && pnpm --filter @sylvie/electron make",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",

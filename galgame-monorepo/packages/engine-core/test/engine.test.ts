@@ -688,6 +688,96 @@ commands:
     expect(backToChoice.backlog).toHaveLength(2);
   });
 
+  it('blocks on a minigame and maps only declared result keys to variables', async () => {
+    const files = createFiles();
+    files['scripts/game.yaml'] = GAME_YAML.replace(
+      '  player_name: "旅人"',
+      '  player_name: "旅人"\n  knows_melody: false',
+    );
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - text: "开始"
+  - minigame:
+      id: echo
+      title: 回声
+      prompt: "{player_name}，把她弹过的八个音还回去。"
+      params: { notes: 8, mode: listen }
+      result: { echoes: affection, cleared: knows_melody }
+      skip: { echoes: 0, cleared: false }
+  - text: "结果 {affection} / {knows_melody}"
+`;
+    const warnings: string[] = [];
+    const engine = new GameEngine({
+      host: {
+        assets: createAssets(files),
+        storage: createStorage(),
+        onWarning: (message) => warnings.push(message),
+      },
+    });
+    await engine.initialize();
+    engine.start();
+    engine.advance();
+
+    const blocked = engine.getSnapshot();
+    expect(blocked.phase).toBe('minigame');
+    expect(blocked.dialogue).toBeNull();
+    expect(blocked.minigame).toEqual({
+      id: 'echo',
+      title: '回声',
+      prompt: '旅人，把她弹过的八个音还回去。',
+      params: { notes: 8, mode: 'listen' },
+    });
+
+    // 回退到小游戏前的对话，再推进应重新进入同一个阻塞点。
+    engine.rollback();
+    expect(engine.getSnapshot().dialogue?.text).toBe('开始');
+    engine.advance();
+    expect(engine.getSnapshot().phase).toBe('minigame');
+
+    engine.finishMinigame({ echoes: 6, cleared: true, ignored: 'x' });
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.phase).toBe('text');
+    expect(snapshot.minigame).toBeNull();
+    expect(snapshot.dialogue?.text).toBe('结果 6 / true');
+    expect(snapshot.variables.affection).toBe(6);
+    expect(snapshot.variables.knows_melody).toBe(true);
+    expect(snapshot.variables.ignored).toBeUndefined();
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('applies minigame skip results and reopens from a save', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - text: "开始"
+  - minigame:
+      id: echo
+      result: { echoes: affection }
+      skip: { echoes: 0 }
+  - text: "结果 {affection}"
+`;
+    const engine = new GameEngine({
+      host: { assets: createAssets(files), storage: createStorage() },
+    });
+    await engine.initialize();
+    engine.start();
+    engine.advance();
+    expect(engine.getSnapshot().phase).toBe('minigame');
+
+    const save = engine.createSave();
+    engine.skipMinigame();
+    expect(engine.getSnapshot().dialogue?.text).toBe('结果 0');
+
+    const restored = new GameEngine({
+      host: { assets: createAssets(files), storage: createStorage() },
+    });
+    await restored.initialize();
+    expect(restored.restoreSave(save)).toBe(true);
+    expect(restored.getSnapshot().phase).toBe('minigame');
+    restored.finishMinigame({ echoes: 4 });
+    expect(restored.getSnapshot().dialogue?.text).toBe('结果 4');
+  });
+
   it('rotates auto saves and picks the latest among all save kinds', async () => {
     const storage = createStorage();
     const engine = await createEngine();

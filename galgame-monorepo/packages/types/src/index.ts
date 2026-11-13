@@ -4,6 +4,7 @@
  */
 export * from './commands';
 export * from './gallery';
+export * from './minigame';
 export * from './platform';
 export * from './save';
 export * from './script';

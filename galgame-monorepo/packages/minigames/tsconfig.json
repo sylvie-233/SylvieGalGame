@@ -1,0 +1,7 @@
+{
+  "extends": "@sylvie/tsconfig/library.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "include": ["src", "test", "tsup.config.ts"]
+}

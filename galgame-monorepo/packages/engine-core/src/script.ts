@@ -22,6 +22,8 @@ import type {
   IfCommand,
   JumpCommand,
   LabelCommand,
+  MinigameCommand,
+  MinigameResult,
   SeCommand,
   SetCommand,
   ShakeCommand,
@@ -924,6 +926,94 @@ function parseWait(payload: unknown, block: string, index: number, warn: Warn): 
 }
 
 /**
+ * minigame 指令。
+ *
+ * `id` 必填；`params` 由具体小游戏自行解释，引擎原样透传。
+ * `result` 是「游戏结果键 → 剧本变量名」的映射，未列出的结果会被忽略；
+ * `skip` 是玩家主动跳过或 loader 不可用时使用的原始结果，仍走同一套映射。
+ */
+function parseMinigame(
+  payload: unknown,
+  block: string,
+  index: number,
+  warn: Warn,
+): MinigameCommand | null {
+  const context = `${block} 第 ${index + 1} 条 minigame`;
+  if (!isRecord(payload)) {
+    warn(`[脚本] ${context}：参数必须是 { id, title?, prompt?, params?, result?, skip? } 映射`);
+    return null;
+  }
+  warnUnknownKeys(payload, ['id', 'title', 'prompt', 'params', 'result', 'skip'], context, warn);
+
+  const id = asString(payload.id);
+  if (!id) {
+    warn(`[脚本] ${context}：缺少 id`);
+    return null;
+  }
+  const prompt = asString(payload.prompt);
+  if (payload.prompt !== undefined && prompt === null) {
+    warn(`[脚本] ${context}：prompt 必须是字符串，已忽略`);
+  }
+  if (prompt) {
+    const interpolationError = validateInterpolation(prompt);
+    if (interpolationError) {
+      warn(`[脚本] ${context}：prompt ${interpolationError}`);
+    }
+  }
+
+  let params: Record<string, unknown> = {};
+  if (payload.params !== undefined) {
+    if (isRecord(payload.params)) {
+      params = { ...payload.params };
+    } else {
+      warn(`[脚本] ${context}：params 必须是映射，已按空对象处理`);
+    }
+  }
+
+  const result: Record<string, string> = {};
+  if (payload.result !== undefined) {
+    if (!isRecord(payload.result)) {
+      warn(`[脚本] ${context}：result 必须是「结果键: 变量名」映射，已忽略`);
+    } else {
+      for (const [key, value] of Object.entries(payload.result)) {
+        const variable = asString(value);
+        if (!variable) {
+          warn(`[脚本] ${context}：result.${key} 的变量名必须是字符串，已忽略`);
+          continue;
+        }
+        result[key] = variable;
+      }
+    }
+  }
+
+  const skip: MinigameResult = {};
+  if (payload.skip !== undefined) {
+    if (!isRecord(payload.skip)) {
+      warn(`[脚本] ${context}：skip 必须是结果映射，已忽略`);
+    } else {
+      for (const [key, value] of Object.entries(payload.skip)) {
+        const parsed = asVariableValue(value);
+        if (parsed === null) {
+          warn(`[脚本] ${context}：skip.${key} 必须是数字/布尔/字符串，已忽略`);
+          continue;
+        }
+        skip[key] = parsed;
+      }
+    }
+  }
+
+  return {
+    kind: 'minigame',
+    id,
+    title: asString(payload.title) ?? id,
+    prompt,
+    params,
+    result,
+    skip,
+  };
+}
+
+/**
  * 单键映射分派：一条 YAML 指令必须恰好有一个指令名。
  * import 出现在 commands 里属于常见误用，单独给出提示。
  */
@@ -979,6 +1069,8 @@ function parseCommand(raw: unknown, block: string, index: number, warn: Warn): C
       return parseSet(payload, block, index, warn);
     case 'if':
       return parseIf(payload, block, index, warn);
+    case 'minigame':
+      return parseMinigame(payload, block, index, warn);
     case 'wait':
       return parseWait(payload, block, index, warn);
     case 'ending':

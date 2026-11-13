@@ -20,6 +20,9 @@ import type {
   EngineHost,
   GameManifest,
   GameSnapshot,
+  MinigameCommand,
+  MinigameResult,
+  MinigameState,
   Pointer,
   SaveData,
   SetCommand,
@@ -59,6 +62,8 @@ interface RollbackState {
   dialogue: DialogueSnapshot | null;
   choice: GameSnapshot['choice'];
   choiceOptions: ChoiceCommand['options'];
+  minigame: MinigameState | null;
+  minigameCommand: MinigameCommand | null;
   waitMs: number;
 }
 
@@ -84,6 +89,19 @@ function createEmptyStage(): StageSnapshot {
   };
 }
 
+/**
+ * 深拷贝小游戏参数。
+ * 参数来自 YAML，理论上只含普通对象 / 数组 / 原始值；structuredClone 失败时退化为浅拷贝，
+ * 至少不会因为一个异常值阻断整个剧本。
+ */
+function cloneParams(params: Record<string, unknown>): Record<string, unknown> {
+  try {
+    return structuredClone(params);
+  } catch {
+    return { ...params };
+  }
+}
+
 /** 深拷贝舞台，保证快照 / 回滚历史与引擎内部状态互不影响。 */
 function cloneStage(stage: StageSnapshot): StageSnapshot {
   return {
@@ -106,6 +124,7 @@ export function createEmptySnapshot(): GameSnapshot {
     stage: createEmptyStage(),
     dialogue: null,
     choice: null,
+    minigame: null,
     audio: { bgm: null },
     variables: {},
     backlog: [],
@@ -130,6 +149,9 @@ export class GameEngine {
   private dialogue: DialogueSnapshot | null = null;
   private choice: GameSnapshot['choice'] = null;
   private choiceOptions: ChoiceCommand['options'] = [];
+  private minigame: MinigameState | null = null;
+  /** 当前阻塞中的 minigame 指令；结果映射与 skip 默认值都由它提供。 */
+  private minigameCommand: MinigameCommand | null = null;
   private audio: { bgm: string | null } = { bgm: null };
   private backlog: BacklogEntry[] = [];
   private pointer: Pointer = { scene: '', block: '', index: 0 };
@@ -236,6 +258,8 @@ export class GameEngine {
     this.dialogue = null;
     this.choice = null;
     this.choiceOptions = [];
+    this.minigame = null;
+    this.minigameCommand = null;
     this.phase = 'idle';
     this.waitMs = 0;
     this.chapter = 'start';
@@ -290,6 +314,8 @@ export class GameEngine {
     this.dialogue = null;
     this.choice = null;
     this.choiceOptions = [];
+    this.minigame = null;
+    this.minigameCommand = null;
     this.phase = 'idle';
     this.waitMs = 0;
     this.chapter = data.chapter || 'start';
@@ -367,6 +393,52 @@ export class GameEngine {
     this.run(false);
   }
 
+  /**
+   * 结束当前小游戏并按剧本映射写回变量。
+   *
+   * 结果键只有出现在 `minigame.result` 中才会写入同名变量，未声明的键静默忽略，
+   * 因此小游戏实现可以自由扩展返回值而不污染剧本。类型不是数字/布尔/字符串的值
+   * 会被丢弃并警告；变量未在 game.yaml 中登记时也允许写入，但会提示作者。
+   * 重复调用或当前不在 minigame 阶段时为空操作。
+   */
+  finishMinigame(result: MinigameResult = {}): void {
+    if (!this.loaded || this.phase !== 'minigame' || !this.minigameCommand) return;
+    const command = this.minigameCommand;
+    const nextVariables: VariableTable = { ...this.variables };
+
+    for (const [key, variable] of Object.entries(command.result)) {
+      if (!Object.prototype.hasOwnProperty.call(result, key)) continue;
+      const value = result[key];
+      if (
+        typeof value !== 'string' &&
+        typeof value !== 'number' &&
+        typeof value !== 'boolean'
+      ) {
+        this.warn(`[小游戏] "${command.id}" 的结果 "${key}" 不是可写入变量的类型，已忽略`);
+        continue;
+      }
+      if (!Object.prototype.hasOwnProperty.call(this.variables, variable)) {
+        this.warn(`[小游戏] "${command.id}" 写入了未在 game.yaml 中声明的变量 "${variable}"`);
+      }
+      nextVariables[variable] = value;
+    }
+
+    this.variables = nextVariables;
+    this.minigame = null;
+    this.minigameCommand = null;
+    this.dialogue = null;
+    this.phase = 'idle';
+    this.waitMs = 0;
+    this.pointer.index += 1;
+    this.run(false);
+  }
+
+  /** 跳过当前小游戏：使用剧本 minigame.skip 中声明的默认结果，继续推进。 */
+  skipMinigame(): void {
+    if (!this.loaded || this.phase !== 'minigame' || !this.minigameCommand) return;
+    this.finishMinigame(this.minigameCommand.skip);
+  }
+
   /** 当前会话中是否还有可回滚的阻塞点。 */
   canRollback(): boolean {
     return (
@@ -404,6 +476,8 @@ export class GameEngine {
         }
       : null;
     this.choiceOptions = state.choiceOptions.map((option) => ({ ...option }));
+    this.minigame = state.minigame ? { ...state.minigame, params: cloneParams(state.minigame.params) } : null;
+    this.minigameCommand = state.minigameCommand;
     this.waitMs = state.waitMs;
 
     const scene = this.requireLoaded().scenes.get(this.pointer.scene);
@@ -698,6 +772,9 @@ export class GameEngine {
             return;
           }
           break;
+        case 'minigame':
+          this.blockOnMinigame(command, restoring);
+          return;
         case 'wait':
           this.phase = 'wait';
           this.waitMs = command.duration;
@@ -799,6 +876,36 @@ export class GameEngine {
   }
 
   /**
+   * 进入 minigame 阻塞态。
+   *
+   * 只在快照中提供展示信息与参数，具体渲染由宿主 loader 负责。
+   * 这里不发出 checkpoint：小游戏本身没有进度，重开一次不会丢失剧情状态；
+   * 结束后的下一条文本会照常触发自动存档。
+   */
+  private blockOnMinigame(command: MinigameCommand, _restoring: boolean): void {
+    const prompt = command.prompt
+      ? interpolateText(command.prompt, this.variables, (message) =>
+          this.warnOnce(`minigame:${command.id}:${message}`, message),
+        )
+      : null;
+
+    this.minigame = {
+      id: command.id,
+      title: command.title,
+      prompt,
+      params: cloneParams(command.params),
+    };
+    this.minigameCommand = command;
+    this.dialogue = null;
+    this.choice = null;
+    this.choiceOptions = [];
+    this.phase = 'minigame';
+    this.waitMs = 0;
+    this.recordRollback('minigame', 0);
+    this.emit();
+  }
+
+  /**
    * 保存当前阻塞点到回滚历史。
    * 历史满 50 条时丢弃最旧的一条；所有可变字段都做拷贝，避免后续推进污染历史。
    */
@@ -822,6 +929,10 @@ export class GameEngine {
           }
         : null,
       choiceOptions: this.choiceOptions.map((option) => ({ ...option })),
+      minigame: this.minigame
+        ? { ...this.minigame, params: cloneParams(this.minigame.params) }
+        : null,
+      minigameCommand: this.minigameCommand,
       waitMs,
     });
   }
@@ -1008,6 +1119,8 @@ export class GameEngine {
     this.phase = 'ended';
     this.choice = null;
     this.choiceOptions = [];
+    this.minigame = null;
+    this.minigameCommand = null;
     this.waitMs = 0;
     this.emit();
     this.emitEffect({ type: 'ended' });
@@ -1067,6 +1180,9 @@ export class GameEngine {
             options: this.choice.options.map((option) => ({ ...option })),
           }
         : null,
+      minigame: this.minigame
+        ? { ...this.minigame, params: cloneParams(this.minigame.params) }
+        : null,
       audio: { ...this.audio },
       variables: { ...this.variables },
       backlog: this.backlog.slice(),
@@ -1079,7 +1195,12 @@ export class GameEngine {
 
 /** 判断指令是否会让引擎暂停，等待播放器 / 玩家输入。 */
 export function isBlocking(command: Command): boolean {
-  return command.kind === 'text' || command.kind === 'choice' || command.kind === 'wait';
+  return (
+    command.kind === 'text' ||
+    command.kind === 'choice' ||
+    command.kind === 'minigame' ||
+    command.kind === 'wait'
+  );
 }
 
 export type { CompiledScene };

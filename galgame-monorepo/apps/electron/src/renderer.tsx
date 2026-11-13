@@ -3,6 +3,7 @@
  * 读取桌面配置，把 `window.sylvieGame` 适配成 PlayerPlatform 后挂载播放器。
  * 播放器本身不接触 Electron API，宿主差异全部收敛在 configurePlayer 注入的平台对象里。
  */
+import { createMinigameLoaders } from '@sylvie/minigames';
 import { configurePlayer, ErrorBoundary, GameApp } from '@sylvie/player';
 import { createRoot } from 'react-dom/client';
 
@@ -67,6 +68,7 @@ async function boot(): Promise<void> {
     },
     setFullscreen: (value) => desktop.setFullscreen(value),
     getFullscreen: () => desktop.getFullscreen(),
+    minigames: createMinigameLoaders(),
     saveTextFile: (filename, content) => desktop.saveTextFile(filename, content),
     openTextFile: () => desktop.openTextFile(),
     quit: () => {

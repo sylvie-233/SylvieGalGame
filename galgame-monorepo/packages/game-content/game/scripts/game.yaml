@@ -20,6 +20,8 @@ variables:
   affection: 0
   curiosity: 0
   knows_melody: false
+  echo_echoes: 0
+  echo_cleared: false
   route: ""
 
 chapters:

@@ -2,7 +2,7 @@
 
 一期目标（见 [需求整理](../docs/SylvieGalGame需求整理-v1.md)）：**无编辑器、纯 YAML 脚本驱动、React + Electron、仅播放器**，跑通线性 + 分支视觉小说流程，并可打包为 Windows exe。
 
-当前仓库已包含一个可玩的竖切版本《一百二十日元的回声》：深夜售货机前的相遇 → 三条分支 → 三个结局，共 142 句文本，含立绘 / CG / BGM / SE、打字机、Auto、Skip（仅已读）、Backlog、20 个手动存档 + 自动/快速存档、设置与图鉴。二期 M1 另已加入回滚、文本插值、存档迁移、应用内确认框、警告面板与错误边界；M2 已加入稳定已读 id、`set` 表达式、选项赋值动作、选项键盘操作、自动存档轮换与章节 / 结局元数据。
+当前仓库已包含一个可玩的竖切版本《一百二十日元的回声》：深夜售货机前的相遇 → 三条分支 → 三个结局，共 149 句文本，含立绘 / CG / BGM / SE、打字机、Auto、Skip（仅已读）、Backlog、20 个手动存档 + 自动/快速存档、设置与图鉴。二期 M1 另已加入回滚、文本插值、存档迁移、应用内确认框、警告面板与错误边界；M2 已加入稳定已读 id、`set` 表达式、选项赋值动作、选项键盘操作、自动存档轮换、章节 / 结局元数据，以及可拔插的 Phaser 剧情小游戏「回声」。
 
 ## 技术栈
 
@@ -15,6 +15,7 @@
 | 动画 | Motion 12（`motion/react`） |
 | 全局状态 | Zustand 5 |
 | 音频 | Howler.js |
+| 剧情小游戏 | Phaser 4（按需懒加载，独立 `@sylvie/minigames` 包） |
 | 脚本 | YAML（`yaml`） |
 | 工程 | pnpm workspace + Turborepo + ESLint 9 |
 
@@ -47,6 +48,9 @@ galgame-monorepo/
 │  │  └─ test/                 # Vitest 单元测试
 │  ├─ player/                  # React 播放器：舞台、对话、选项、面板、音频、状态
 │  │  └─ test/                 # Vitest：Zustand 状态 / 存档工具
+│  ├─ minigames/               # 剧情小游戏：Phaser 场景 + 宿主 loader 注册表
+│  │  ├─ src/echo/             # 「回声」：听八个音并按原样弹回
+│  │  └─ test/                 # Vitest：旋律与计分数据
 │  ├─ eslint-config/           # 共享 ESLint 平面配置（base / react）
 │  └─ game-content/            # 纯内容包（无构建步骤）：剧本 + 图片 + 音频
 │     └─ game/
@@ -69,6 +73,7 @@ galgame-monorepo/
 - `player` 只消费引擎快照与效果事件，UI 状态集中在 Zustand。
 - `electron` 只负责桌面能力和资源加载，不包含剧情逻辑。
 - `web` 只是预览壳：把同一套 `PlayerPlatform` 用 HTTP + IndexedDB（localStorage 回退）实现，便于浏览器 HMR 与 DevTools 调试，不作为交付形态。
+- `minigames` 只提供宿主 loader 与 Phaser 玩法；引擎和播放器都不引用 Phaser，宿主只按 `minigame.id` 注入注册表。
 - `game-content` 不含代码；替换整个目录即可换一款游戏。
 
 ## 数据流
@@ -83,7 +88,7 @@ engine-core ──快照/效果──▶ player（Zustand + React + Motion）
                                           Web: IndexedDB / localStorage 回退）
 ```
 
-引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` / `shake` / `flash` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档，并通过 `getUpcomingSceneAssets()` 预取后续分支场景；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。预加载有数量预算（单场景 32 个、音频 LRU 24 条），超出按需加载。
+引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` / `minigame` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` / `shake` / `flash` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档，并通过 `getUpcomingSceneAssets()` 预取后续分支场景；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。预加载有数量预算（单场景 32 个、音频 LRU 24 条），超出按需加载。
 
 ## 开始开发
 
@@ -99,14 +104,14 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 
 | 命令 | 作用 |
 | --- | --- |
-| `pnpm dev` | 构建 `player` 依赖后启动桌面应用 |
+| `pnpm dev` | 构建 `player` / `minigames` 依赖后启动桌面应用 |
 | `pnpm dev:web` | 启动 Web 预览壳（端口 5175，`player` / `engine-core` 源码热更新） |
 | `pnpm build:web` | 构建 Web 预览静态产物到 `apps/web/dist`（同时复制内容包） |
 | `pnpm preview:web` | 构建并预览 Web 产物 |
 | `pnpm build` | Turbo 构建全部包（含 Web 预览） |
 | `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
-| `pnpm test` | 单元测试（Vitest）：引擎 31 个 + 播放器状态 / 存档工具 8 个 |
+| `pnpm test` | 单元测试（Vitest）：引擎 36 个 + 播放器状态 / 存档工具 8 个 + 小游戏数据 5 个 |
 | `pnpm validate` | 加载真实剧本、内容体检、跑通全部分支与结局、检查资源与版本一致性 |
 | `pnpm version:check` | 检查根 / Electron / Web / 内容包 / `game.yaml` 版本是否一致 |
 | `pnpm version:set <版本>` | 以根 `package.json` 为基准统一写入全部版本号 |
@@ -114,7 +119,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
 | `pnpm make` | 通过 NSIS 生成安装包 `apps/electron/out/make/` |
 | `pnpm smoke` | 启动已打包产物，自动验证标题 / 回退 / 分支 / 选项 / 菜单 / 存读档 / 设置并截图到 `scripts/.smoke/`（需先 `pnpm package`，或把 exe 路径作为参数传入） |
-| `pnpm smoke:web` | 构建 Web 产物、启动 `vite preview`，用无头 Chrome 跑标题 → 推进 → 选项 → 存读档并截图；可用 `CHROME_PATH` 指定浏览器 |
+| `pnpm smoke:web` | 构建 Web 产物、启动 `vite preview`，用无头 Chrome 跑标题 → 推进 → 选项 → 存读档 → 回声小游戏并截图；可用 `CHROME_PATH` 指定浏览器 |
 
 > 若终端导出了 `ELECTRON_RUN_AS_NODE=1`，Electron 会以纯 Node 模式启动并报 `bad option`。运行前先 `unset ELECTRON_RUN_AS_NODE`；`pnpm smoke` 已自动处理。
 

@@ -24,6 +24,7 @@ export type Overlay =
   | { kind: 'backlog' }
   | { kind: 'gallery' }
   | { kind: 'warnings' }
+  | { kind: 'minigame' }
   | { kind: 'end' }
   | null;
 

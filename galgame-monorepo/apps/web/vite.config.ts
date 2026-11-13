@@ -199,6 +199,10 @@ export default defineConfig({
         find: /^@sylvie\/types$/,
         replacement: path.join(WORKSPACE_ROOT, 'packages/types/src/index.ts'),
       },
+      {
+        find: /^@sylvie\/minigames$/,
+        replacement: path.join(WORKSPACE_ROOT, 'packages/minigames/src/index.ts'),
+      },
     ],
     // 源码别名会从 workspace 根解析 React，去重避免出现两份 React 导致 hooks 报错。
     dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
@@ -216,6 +220,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // Phaser 只在玩家进入小游戏时按需加载，1.4 MB 的独立块不进入首屏；
+    // 单独放宽该告警，避免每次构建都出现无意义的超限提示。
+    chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
         // Rolldown 分包：把体积大、更新频率低的依赖拆成独立 chunk，利于浏览器长期缓存。

@@ -26,6 +26,8 @@ export class AudioManager {
   private volumes: AudioVolumes = { bgm: 0.7, se: 0.8, voice: 0.9 };
   private preloaded = new Map<string, HTMLAudioElement>();
   private disposed = false;
+  /** 小游戏等需要专注听觉的场景会临时压低 BGM，不改动玩家设置。 */
+  private bgmDucked = false;
 
   /**
    * @param resolveUrl 把内容包相对路径转换为可播放 URL
@@ -40,8 +42,20 @@ export class AudioManager {
       se: clamp(volumes.se),
       voice: clamp(volumes.voice),
     };
-    this.bgm?.volume(this.volumes.bgm);
+    this.bgm?.volume(this.bgmTargetVolume());
     this.voice?.volume(this.volumes.voice);
+  }
+
+  /** BGM 的当前目标音量：设置音量在压低状态下乘以一个很小但非零的系数。 */
+  private bgmTargetVolume(): number {
+    return this.volumes.bgm * (this.bgmDucked ? 0.12 : 1);
+  }
+
+  /** 临时压低 / 恢复 BGM；小游戏覆盖层期间调用，不写入玩家设置。 */
+  setBgmDucked(ducked: boolean, fade = 400): void {
+    if (this.bgmDucked === ducked) return;
+    this.bgmDucked = ducked;
+    this.bgm?.fade(this.bgm.volume(), this.bgmTargetVolume(), Math.max(50, fade));
   }
 
   /**
@@ -88,7 +102,7 @@ export class AudioManager {
       html5: false,
     });
     howl.play();
-    howl.fade(0, this.volumes.bgm, Math.max(50, fade));
+    howl.fade(0, this.bgmTargetVolume(), Math.max(50, fade));
     if (position > 0) {
       howl.seek(position);
     }

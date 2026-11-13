@@ -4,6 +4,7 @@
  * engine-core 与 player 只依赖这些抽象，不直接访问文件系统、localStorage
  * 或 Electron API；Electron / Web 外壳在启动时注入具体实现。
  */
+import type { MinigameLoaderRegistry } from './minigame';
 
 /** 引擎读取剧本与资源文本的最小接口。 */
 export interface AssetHost {
@@ -45,6 +46,12 @@ export interface PlayerPlatform {
   saveTextFile?: (filename: string, content: string) => Promise<boolean>;
   /** 宿主文件对话框选择文本文件；取消时返回 null。 */
   openTextFile?: () => Promise<string | null>;
+  /**
+   * 按 id 注册的剧情小游戏 loader。
+   * 播放器只按 `minigame.id` 查找并挂载，未注册时显示「小游戏未接入」与跳过入口。
+   * 具体实现放在独立包中，避免播放器或引擎依赖 Phaser。
+   */
+  minigames?: MinigameLoaderRegistry;
   quit?: () => void;
   appVersion?: string;
   /** 桌面端运行日志目录；Web 端为空。 */

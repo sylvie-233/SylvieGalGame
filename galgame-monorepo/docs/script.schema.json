@@ -277,6 +277,32 @@
         {
           "type": "object",
           "additionalProperties": false,
+          "required": ["minigame"],
+          "properties": {
+            "minigame": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "title": { "type": "string", "minLength": 1 },
+                "prompt": { "type": "string" },
+                "params": { "type": "object" },
+                "result": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string", "minLength": 1 }
+                },
+                "skip": {
+                  "type": "object",
+                  "additionalProperties": { "$ref": "#/definitions/scalar" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
           "required": ["wait"],
           "properties": {
             "wait": {
