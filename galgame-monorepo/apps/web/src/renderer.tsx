@@ -1,9 +1,14 @@
+/**
+ * Web 预览壳入口：注入 webPlatform 并挂载播放器。
+ * 共享包在开发 / 构建时都直接走源码别名，因此与桌面端运行的是同一套 UI。
+ */
 import { configurePlayer, ErrorBoundary, GameApp } from '@sylvie/player';
 import { createRoot } from 'react-dom/client';
 
 import './index.css';
 import { webPlatform } from './platform';
 
+/** React 挂载前失败时的纯 DOM 兜底错误页。 */
 function renderFatal(message: string): void {
   const container = document.getElementById('root');
   if (!container) return;
@@ -21,6 +26,7 @@ function renderFatal(message: string): void {
   container.append(wrapper);
 }
 
+/** 配置平台能力后挂载 GameApp；ErrorBoundary 兜住渲染异常。 */
 function boot(): void {
   const container = document.getElementById('root');
   if (!container) {
@@ -28,6 +34,7 @@ function boot(): void {
     return;
   }
 
+  // 必须先注入平台能力再渲染 GameApp，播放器挂载时会立即读取存储与资源。
   configurePlayer(webPlatform);
   createRoot(container).render(
     <ErrorBoundary>

@@ -3,22 +3,31 @@ import type { FontChoice, GameSettings, PlayerPlatform } from '@sylvie/types';
 import { Modal } from './Modal';
 
 interface SettingsPanelProps {
+  /** 当前设置；面板不持有副本，每次修改都通过 onChange 回写。 */
   settings: GameSettings;
+  /** 修改后的完整设置；GameApp 负责即时应用与防抖持久化。 */
   onChange: (settings: GameSettings) => void;
   onClose: () => void;
+  /** 用于切换全屏的宿主能力。 */
   platform: PlayerPlatform;
 }
 
 interface RangeRowProps {
+  /** 左侧标签。 */
   label: string;
+  /** 当前值。 */
   value: number;
   min: number;
   max: number;
+  /** 步进，默认 1。 */
   step?: number;
+  /** 右侧展示文案（已格式化，如百分比 / 秒）。 */
   display: string;
+  /** 拖动时的回调，参数已转为数字。 */
   onChange: (value: number) => void;
 }
 
+/** 设置面板中的一行滑块：标签、range 输入与格式化后的当前值。 */
 function RangeRow({ label, value, min, max, step = 1, display, onChange }: RangeRowProps) {
   return (
     <label className="grid grid-cols-[86px_1fr_86px] items-center gap-4 py-1 max-[900px]:grid-cols-[70px_1fr_70px] max-[900px]:gap-2.5">
@@ -37,17 +46,26 @@ function RangeRow({ label, value, min, max, step = 1, display, onChange }: Range
   );
 }
 
+/** 可选字体，实际字形由根节点 `data-font` 对应的 CSS 决定。 */
 const FONT_OPTIONS: Array<{ value: FontChoice; label: string }> = [
   { value: 'serif', label: '宋体衬线' },
   { value: 'sans', label: '黑体无衬线' },
   { value: 'kai', label: '楷体' },
 ];
 
+/** 分组标题的共享样式。 */
 const GROUP_TITLE = 'mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase';
 
+/**
+ * 设置面板：音量、打字速度 / 自动等待、字体与全屏。
+ * 所有修改都向上合并成完整 GameSettings，由 GameApp 即时应用并防抖落盘；
+ * 全屏还会额外调用平台能力，持久化的 fullscreen 仅用于下次启动恢复。
+ */
 export function SettingsPanel({ settings, onChange, onClose, platform }: SettingsPanelProps) {
+  /** 以当前设置为基准合并单个字段。 */
   const update = (patch: Partial<GameSettings>) => onChange({ ...settings, ...patch });
 
+  /** 切换全屏：先写设置，再请求宿主；平台不支持时仅保留偏好。 */
   const toggleFullscreen = () => {
     const next = !settings.fullscreen;
     update({ fullscreen: next });

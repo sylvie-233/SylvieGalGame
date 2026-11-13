@@ -6,20 +6,31 @@ import { CrossfadeImage } from './CrossfadeImage';
 import { DialogueBox, type DialogueHandle } from './DialogueBox';
 
 interface GameStageProps {
+  /** 引擎当前快照，包含背景、立绘、CG、对话与选项。 */
   snapshot: GameSnapshot;
+  /** 把内容包相对路径转换为宿主可访问的 URL。 */
   assetUrl: (path: string) => string;
+  /** 打字机命令式句柄，供外层实现“先补全再推进”。 */
   dialogueRef: RefObject<DialogueHandle | null>;
+  /** 打字速度（字 / 秒）。 */
   typingSpeed: number;
+  /** 跳过已读：对话立即完整显示。 */
   skip: boolean;
+  /** 自动播放：文本打完并等待 autoDelay 后推进。 */
   auto: boolean;
+  /** 自动播放的句末等待时间（毫秒）。 */
   autoDelay: number;
+  /** 自动播放计时结束时由对话组件回调。 */
   onAutoAdvance: () => void;
+  /** 点击舞台空白区域。 */
   onInteract: () => void;
+  /** 玩家确认选项，参数为选项在剧本中的原始下标。 */
   onChoose: (optionIndex: number) => void;
   /** 隐藏对话与舞台 UI，只保留画面；由外层提供恢复入口。 */
   uiHidden?: boolean;
 }
 
+/** 把数值或 left / center / right 语义位置转成 CSS left 百分比。 */
 function spriteLeft(position: SpritePosition): string {
   if (typeof position === 'number') return `${position}%`;
   if (position === 'left') return '20%';
@@ -27,6 +38,7 @@ function spriteLeft(position: SpritePosition): string {
   return '50%';
 }
 
+/** 剧本中的缓动名映射到 CSS timing-function。 */
 const EASE_CSS: Record<TransitionEase, string> = {
   linear: 'linear',
   easeIn: 'cubic-bezier(0.42, 0, 1, 1)',
@@ -34,9 +46,14 @@ const EASE_CSS: Record<TransitionEase, string> = {
   easeInOut: 'cubic-bezier(0.42, 0, 0.58, 1)',
 };
 
+/** 背景暗角与上下渐变，压暗边缘以突出立绘与对话框。 */
 const VIGNETTE =
   'bg-[radial-gradient(ellipse_at_50%_46%,transparent_42%,rgba(3,4,8,0.5)_100%),linear-gradient(0deg,rgba(4,5,9,0.72)_0%,transparent_38%),linear-gradient(180deg,rgba(4,5,9,0.28)_0%,transparent_22%)]';
 
+/**
+ * 游戏舞台：按 z 轴分层渲染背景 → 立绘 → CG → 暗角 → 点击层 → 对话框 → 选项。
+ * 组件不持有引擎状态，只根据快照播放转场并把交互回调给外层。
+ */
 export function GameStage({
   snapshot,
   assetUrl,
@@ -52,6 +69,7 @@ export function GameStage({
 }: GameStageProps) {
   const background = snapshot.stage.background;
   const cg = snapshot.stage.cg;
+  // 立绘以 id 为 key 渲染；位置、透明度、缩放、翻转全部来自快照。
   const sprites = Object.values(snapshot.stage.sprites);
 
   return (
@@ -100,6 +118,7 @@ export function GameStage({
         ))}
       </div>
 
+      {/* CG 层始终保留 DOM，仅用 opacity 控制显隐，避免切换时重新挂载。 */}
       <div
         className="pointer-events-none absolute inset-0 z-[3] transition-opacity ease-in-out"
         style={{
@@ -124,6 +143,7 @@ export function GameStage({
 
       <div className={`pointer-events-none absolute inset-0 z-[5] ${VIGNETTE}`} aria-hidden="true" />
 
+      {/* 透明点击层：点击舞台推进或补全对话；选项层 z-30 位于其上方。 */}
       <div className="absolute inset-0 z-10 cursor-pointer" onClick={onInteract} aria-hidden="true" />
 
       {!uiHidden && (

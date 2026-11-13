@@ -3,13 +3,20 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 
 interface WarningsPanelProps {
+  /** 脚本诊断警告，来自 Zustand 的 warnings。 */
   warnings: string[];
   onClose: () => void;
 }
 
+/**
+ * 脚本警告面板：列出引擎加载 / 运行时收集的诊断信息。
+ * 警告不阻断游戏；支持一键复制全部内容，复制成功后按钮短暂显示“已复制”。
+ */
 export function WarningsPanel({ warnings, onClose }: WarningsPanelProps) {
+  // 复制反馈只是按钮文案的临时状态，2 秒后自动复位。
   const [copied, setCopied] = useState(false);
 
+  /** 按序号拼接全部警告并写入剪贴板。 */
   const copyAll = (): void => {
     const text = warnings.map((warning, index) => `${index + 1}. ${warning}`).join('\n');
     void navigator.clipboard

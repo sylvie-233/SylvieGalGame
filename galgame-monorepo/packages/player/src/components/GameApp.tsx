@@ -45,25 +45,41 @@ const SettingsPanel = lazy(() =>
   import('./SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
 );
 
+/** 需要走 Image 预热的图片扩展名；音频交给 AudioManager 自行筛选。 */
 const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp|gif|svg|avif)$/i;
 /** 单次场景预加载的图片 / 音频上限，超出部分在真正显示或播放时按需加载。 */
 const PRELOAD_ASSET_BUDGET = 32;
 /** 图片预热记录上限，避免长会话反复为同一资源创建 Image 对象。 */
 const PRELOAD_IMAGE_CACHE_LIMIT = 64;
 
+/**
+ * 播放器根组件：持有引擎与音频实例，订阅快照 / 效果事件，并渲染标题页、舞台与各类覆盖层。
+ *
+ * 生命周期：
+ * - 首次渲染时惰性创建 {@link GameEngine} 与 {@link AudioManager}，之后由 ref / state 稳定持有；
+ * - 挂载后初始化引擎、读取设置与图鉴，并把引擎效果映射为音频播放、动画与自动存档等副作用；
+ * - 卸载时取消订阅、清理定时器并 dispose 引擎与音频。
+ *
+ * 组件不直接访问宿主 API，全部经由 `getPlayerPlatform()` 注入的 {@link PlayerPlatform}。
+ */
 export function GameApp() {
   const platform = getPlayerPlatform();
 
+  // 隐藏舞台 UI（对话、快捷栏），只保留画面；由 H 键 / 右键切换。
   const [uiHidden, setUiHidden] = useState(false);
+  // 全屏闪光的一次性描述；用 key 保证连续触发时重新播放动画，动画结束清空。
   const [flash, setFlash] = useState<{
     key: number;
     color: 'white' | 'black';
     opacity: number;
     duration: number;
   } | null>(null);
+  // 舞台震动动画控制器，由引擎的 shake 效果驱动。
   const shakeControls = useAnimationControls();
+  // 图鉴解锁状态与 ref 并存：ref 供 effect 做增量比对，state 驱动面板渲染。
   const [gallery, setGallery] = useState<GalleryUnlocks>(() => emptyGalleryUnlocks());
   const galleryRef = useRef<GalleryUnlocks>(emptyGalleryUnlocks());
+  // 图鉴落盘防抖计时器。
   const galleryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapshot = usePlayerStore((state) => state.snapshot);
   const manifest = usePlayerStore((state) => state.manifest);
@@ -109,21 +125,31 @@ export function GameApp() {
   );
   const [audio] = useState(() => new AudioManager((path) => platform.assetUrl(path)));
 
+  // snapshotRef 供事件回调 / 键盘处理读取最新快照，避免闭包拿到旧值。
   const snapshotRef = useRef(snapshot);
+  // 对话打字机的命令式句柄：点击舞台时先补全当前句，再推进。
   const dialogueRef = useRef<DialogueHandle | null>(null);
+  // 设置持久化的防抖计时器；音频音量本身即时生效，不等待落盘。
   const settingsTimer = useRef<number | null>(null);
+  // 区分“按住 Ctrl 跳过已读”和 Ctrl+S / Ctrl+L 组合键：
+  // 组合键使用后置位 ctrlComboUsed，松开 Ctrl 时不再触发跳过。
   const ctrlDown = useRef(false);
   const ctrlComboUsed = useRef(false);
 
+  // 引擎初始化与事件绑定：只在引擎 / 音频 / 平台实例变化时重建，
+  // 内部的定时器、订阅与监听都在 cleanup 中统一释放。
   useEffect(() => {
+    // active 用于阻止组件卸载后仍在进行的异步初始化继续写状态。
     let active = true;
     let autoSaveTimer: number | null = null;
     let lastScreenshotChapter: string | null = null;
     let lastScreenshot: string | null = null;
     const preloadedImages = new Set<string>();
 
+    /** 为一批资源做预热；图片走 Image，音频交给 AudioManager 的预加载表。 */
     const preload = (assets: string[]) => {
       // 数量预算：当前场景资源按脚本顺序优先，超出的留到实际使用时再加载。
+      // 图片用 Image 预热浏览器缓存；同一资源只创建一次，并以缓存上限封顶。
       const selected = assets.slice(0, PRELOAD_ASSET_BUDGET);
       for (const asset of selected) {
         if (!IMAGE_PATTERN.test(asset) || preloadedImages.has(asset)) continue;
@@ -135,6 +161,15 @@ export function GameApp() {
       audio.preloadAudio(selected);
     };
 
+    /**
+     * 自动存档：由 checkpoint 效果触发，900ms 防抖后写入 `save:auto`。
+     * 截图策略：
+     * - 选项节点必抓新图；
+     * - 普通文本仅在章节变化时抓图，其余复用上一张，避免每条台词都 capturePage；
+     * - 进入新场景时缓存会被清空，下一次 checkpoint 必然重新截图。
+     * 截图失败不阻断存档，退化为无快照 / 复用旧快照。
+     * 写入本身由 `writeAutoSave` 完成槽位轮换（1 → 2 → 3）。
+     */
     const scheduleAutoSave = (block: 'text' | 'choice', chapter: string) => {
       if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
       autoSaveTimer = window.setTimeout(() => {
@@ -165,11 +200,13 @@ export function GameApp() {
       }, 900);
     };
 
+    // 状态订阅：引擎每次推进都会推送不可变快照，这里同步到 Zustand。
     const unsubscribeState = engine.subscribe((next) => {
       snapshotRef.current = next;
       setSnapshot(next);
     });
 
+    // 效果事件只承载副作用（播放音频、预加载、动画、自动存档），不直接改引擎状态。
     const unsubscribeEffect = engine.onEffect((effect) => {
       switch (effect.type) {
         case 'scene':
@@ -188,11 +225,12 @@ export function GameApp() {
           audio.playVoice(effect.sound);
           break;
         case 'checkpoint':
+          // 文本 / 选项阻塞时触发：节流自动存档，并预取接下来可能进入的场景资源。
           scheduleAutoSave(effect.block, effect.chapter);
-          // 预取接下来可能进入的场景资源，玩家做选择前就开始加载。
           preload(engine.getUpcomingSceneAssets(2));
           break;
         case 'shake': {
+          // 引擎只提供强度与时长，这里转换成对称衰减的关键帧。
           const strength = Math.max(1, effect.intensity);
           void shakeControls.start({
             x: [0, -strength, strength, -strength * 0.6, strength * 0.6, 0],
@@ -221,6 +259,8 @@ export function GameApp() {
       }
     });
 
+    // 初始化顺序：先加载 manifest 并推送初始快照，再恢复设置、音量、图鉴与全屏。
+    // 每一步异步返回后都检查 active，防止组件已卸载仍继续写状态。
     void engine
       .initialize()
       .then(async (loadedManifest) => {
@@ -254,6 +294,7 @@ export function GameApp() {
         setInitError(error instanceof Error ? error.message : String(error));
       });
 
+    // 卸载：停止未完成的异步、清理定时器、移除订阅并释放引擎与音频资源。
     return () => {
       active = false;
       if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
@@ -277,6 +318,7 @@ export function GameApp() {
     shakeControls,
   ]);
 
+  // 设置变化时同步到音频通道；音量不经防抖，拖动滑块即时生效。
   useEffect(() => {
     audio.setVolumes({
       bgm: settings.bgmVolume,
@@ -285,11 +327,13 @@ export function GameApp() {
     });
   }, [audio, settings.bgmVolume, settings.seVolume, settings.voiceVolume]);
 
+  // 窗口标题优先使用 manifest 的 windowTitle，缺省回退到游戏标题。
   useEffect(() => {
     if (!manifest) return;
     document.title = manifest.windowTitle || manifest.title;
   }, [manifest]);
 
+  // 标题页 BGM：清单加载完成并回到标题视图时播放。
   useEffect(() => {
     if (!ready || view !== 'title') return;
     const track = manifest?.titleScreen.bgm ?? null;
@@ -300,6 +344,8 @@ export function GameApp() {
   }, [audio, manifest, ready, view]);
 
   // 图鉴解锁：CG 显示、BGM 播放、抵达结局时记录到 meta:gallery，与存档解耦。
+  // 每次快照变化都基于 galleryRef 做增量比对，新增条目后先更新本地状态，
+  // 再以 300ms 防抖落盘，避免快速连续推进时频繁写存储。
   useEffect(() => {
     if (!manifest) return;
     const current = galleryRef.current;
@@ -342,6 +388,7 @@ export function GameApp() {
     }, 300);
   }, [manifest, platform.storage, snapshot]);
 
+  // 卸载时取消尚未落盘的图鉴写入（已写入的部分不受影响）。
   useEffect(
     () => () => {
       if (galleryTimer.current) clearTimeout(galleryTimer.current);
@@ -349,6 +396,7 @@ export function GameApp() {
     [],
   );
 
+  // 选项 / 结局出现时退出自动播放；结局还会退出跳过并弹出结束页（仅游戏内）。
   useEffect(() => {
     if (snapshot.phase === 'choice' || snapshot.phase === 'ended') {
       setAuto(false);
@@ -361,12 +409,15 @@ export function GameApp() {
     }
   }, [snapshot.phase, setAuto, setOverlay, setSkip]);
 
+  // wait 指令：没有覆盖层遮挡时，按快照中的毫秒数自动恢复推进。
   useEffect(() => {
     if (snapshot.phase !== 'wait' || overlay) return;
     const timer = window.setTimeout(() => engine.resumeWait(), snapshot.waitMs);
     return () => window.clearTimeout(timer);
   }, [snapshot.phase, snapshot.waitMs, overlay, engine]);
 
+  // 跳过已读：每 60ms 检查一次当前阻塞点。
+  // 文本已读才推进；遇到未读文本会立即关闭跳过并提示，选项 / 结局同样停止。
   useEffect(() => {
     if (!skip || view !== 'game' || overlay) return;
     const timer = window.setInterval(() => {
@@ -387,6 +438,7 @@ export function GameApp() {
     return () => window.clearInterval(timer);
   }, [skip, view, overlay, engine, setSkip, showToast]);
 
+  // 设置先写入全局状态即时生效，落盘做 300ms 防抖，避免拖动滑块时频繁写存储。
   const updateSettings = useCallback(
     (next: GameSettings) => {
       setSettings(next);
@@ -400,6 +452,7 @@ export function GameApp() {
     [platform.storage, setSettings],
   );
 
+  /** 点击舞台 / 空格 / 回车：打字中先补全当前句，否则推进引擎。 */
   const handleInteract = useCallback(() => {
     if (!ready || view !== 'game' || overlay) return;
     if (snapshotRef.current.phase !== 'text') return;
@@ -411,6 +464,7 @@ export function GameApp() {
     }
   }, [ready, view, overlay, engine]);
 
+  /** 选择选项：先关闭自动与跳过，再让引擎应用选项的赋值并跳转。 */
   const handleChoose = useCallback(
     (optionIndex: number) => {
       setAuto(false);
@@ -424,6 +478,7 @@ export function GameApp() {
     engine.advance();
   }, [engine]);
 
+  /** H 键 / 右键：仅在文本或等待阶段切换界面隐藏，选项与结束时保持可见。 */
   const toggleUiHidden = useCallback(() => {
     if (!ready || view !== 'game' || overlay) return;
     const phase = snapshotRef.current.phase;
@@ -441,6 +496,7 @@ export function GameApp() {
     }
   }, [snapshot.phase]);
 
+  /** 回退到上一个阻塞点；没有历史时静默忽略（按钮本身会禁用）。 */
   const rollback = useCallback(() => {
     if (!ready || view !== 'game' || overlay) return;
     if (!engine.canRollback()) return;
@@ -450,6 +506,10 @@ export function GameApp() {
     showToast('已回到上一句');
   }, [engine, overlay, ready, setAuto, setSkip, showToast, view]);
 
+  /**
+   * 统一读档入口（存档面板、快速读档、继续游戏共用）：
+   * 先清空音频，再让引擎恢复状态并切到游戏视图；返回恢复是否成功。
+   */
   const applyLoadedSave = useCallback(
     (data: SaveData): boolean => {
       audio.stopAll();
@@ -467,6 +527,7 @@ export function GameApp() {
     [audio, engine, setAuto, setOverlay, setSkip, setView, showToast],
   );
 
+  /** 开始新游戏：清空音频与覆盖层，交由引擎从头运行脚本。 */
   const startNewGame = useCallback(() => {
     if (!ready) return;
     audio.stopAll();
@@ -477,6 +538,7 @@ export function GameApp() {
     setSkip(false);
   }, [audio, engine, ready, setAuto, setOverlay, setSkip, setView]);
 
+  /** 继续游戏：从自动 / 快速 / 手动存档中取 createdAt 最新的一份。 */
   const continueGame = useCallback(async () => {
     if (!ready) return;
     const data = await readLatestSave(platform.storage);
@@ -487,6 +549,7 @@ export function GameApp() {
     applyLoadedSave(data);
   }, [applyLoadedSave, platform.storage, ready, showToast]);
 
+  /** 快速存档（Ctrl+S / 快捷栏）：现场抓图并写入 `save:quick`。 */
   const quickSave = useCallback(async () => {
     if (!ready || view !== 'game') {
       showToast('请先进入游戏');
@@ -509,6 +572,7 @@ export function GameApp() {
     }
   }, [audio, engine, platform, ready, showToast, view]);
 
+  /** 快速读档（Ctrl+L）：读取 `save:quick` 并复用统一读档流程。 */
   const quickLoad = useCallback(async () => {
     if (!ready || view !== 'game') {
       showToast('请先进入游戏');
@@ -522,7 +586,17 @@ export function GameApp() {
     applyLoadedSave(data);
   }, [applyLoadedSave, platform.storage, ready, showToast, view]);
 
+  /**
+   * 全局键盘快捷键：
+   * - 输入框 / 可编辑区域内完全不拦截，交还给浏览器；
+   * - Ctrl+S / Ctrl+L 快速存档 / 读档；单独按下再松开 Ctrl 切换“跳过已读”；
+   * - Esc 关闭最上层覆盖层（结束页除外），无覆盖层时打开菜单；
+   * - PageUp 回退、空格 / 回车推进、A 自动播放、H 隐藏界面。
+   *
+   * 通过 ctrlComboUsed 区分组合键与“按住 Ctrl 跳过”，避免按 Ctrl+S 时误开跳过。
+   */
   useEffect(() => {
+    /** 焦点位于输入框、文本域或 contentEditable 时，快捷键不生效。 */
     const isEditableTarget = (target: EventTarget | null): boolean =>
       target instanceof HTMLElement &&
       (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
@@ -583,6 +657,7 @@ export function GameApp() {
       }
     };
 
+    // 只有“按下并松开 Ctrl 且期间没用过组合键”才切换跳过。
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key !== 'Control') return;
       const shouldToggleSkip =
@@ -612,6 +687,7 @@ export function GameApp() {
     toggleUiHidden,
   ]);
 
+  // 向上滚轮回退：450ms 节流，避免一次长滚动触发多次回退；passive 监听不阻塞页面滚动。
   useEffect(() => {
     if (!ready || view !== 'game' || overlay) return;
     let lastRollback = 0;
@@ -626,6 +702,7 @@ export function GameApp() {
     return () => window.removeEventListener('wheel', onWheel);
   }, [engine, overlay, ready, rollback, view]);
 
+  /** 返回标题：停止音频与自动 / 跳过状态，但保留引擎当前进度以便再次开始。 */
   const backToTitle = useCallback(() => {
     audio.stopAll();
     setView('title');
@@ -634,6 +711,10 @@ export function GameApp() {
     setSkip(false);
   }, [audio, setAuto, setOverlay, setSkip, setView]);
 
+  /**
+   * 图鉴 BGM 试听：传入曲目时播放；传入 null 表示停止试听，
+   * 此时恢复到当前上下文原本的 BGM（标题页曲目或游戏内当前曲目）。
+   */
   const previewBgm = useCallback(
     (track: string | null) => {
       if (track) {
@@ -651,6 +732,7 @@ export function GameApp() {
     [audio, manifest, view],
   );
 
+  /** 返回标题前走应用内确认框；Promise 结果为 true 才真正返回。 */
   const confirmBackToTitle = useCallback(async () => {
     const confirmed = await confirm('返回标题？未保存的进度会丢失。', {
       title: '返回标题',
@@ -665,6 +747,7 @@ export function GameApp() {
   const titleScreen = manifest?.titleScreen;
   const titleArt = platform.assetUrl(titleScreen?.background ?? 'images/bg/title.svg');
 
+  /** 启动失败页：把错误、存档 / 日志路径与脚本警告汇总复制到剪贴板。 */
   const copyDiagnostics = useCallback(() => {
     const clipboard = navigator.clipboard;
     if (!clipboard) {

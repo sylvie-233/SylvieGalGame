@@ -3,12 +3,17 @@ import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Modal } from './Modal';
 
 export interface ConfirmOptions {
+  /** 弹窗标题，默认“请确认”。 */
   title?: string;
+  /** 确认按钮文案，默认“确定”。 */
   confirmLabel?: string;
+  /** 取消按钮文案，默认“取消”。 */
   cancelLabel?: string;
+  /** 使用危险色（删除、覆盖、返回标题等不可逆操作）。 */
   danger?: boolean;
 }
 
+/** 当前待确认的请求；resolve 为对应的 Promise 收束函数。 */
 interface ConfirmState extends ConfirmOptions {
   message: string;
   resolve: (confirmed: boolean) => void;
@@ -17,6 +22,12 @@ interface ConfirmState extends ConfirmOptions {
 /**
  * 应用内确认框，替代原生 window.confirm。
  * 原生确认框会阻塞渲染与 CDP 自动化，且无法沿用播放器样式。
+ *
+ * 返回 `{ confirm, dialog }`：
+ * - `confirm(message, options)` 返回 Promise<boolean>，确认 / 取消 / 关闭分别 resolve
+ *   true / false；若上一次确认尚未回答就被新请求替换，旧 Promise 会先 resolve(false)，
+ *   防止调用方永久等待；
+ * - `dialog` 需由调用方渲染到组件树中。
  */
 export function useConfirm() {
   const [state, setState] = useState<ConfirmState | null>(null);
@@ -34,6 +45,7 @@ export function useConfirm() {
     [],
   );
 
+  /** 结束当前确认：先清空 ref 再 resolve，避免同一请求被重复结算。 */
   const settle = useCallback((confirmed: boolean) => {
     const current = stateRef.current;
     if (!current) return;
@@ -42,6 +54,7 @@ export function useConfirm() {
     setState(null);
   }, []);
 
+  // 关闭（× / Esc / 遮罩）等同于取消；确认按钮默认聚焦，便于键盘操作。
   const dialog: ReactNode = state ? (
     <Modal title={state.title ?? '请确认'} onClose={() => settle(false)}>
       <p className="m-0 whitespace-pre-wrap text-sm leading-[1.9] tracking-[0.03em] text-sg-ink/80">

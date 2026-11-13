@@ -1,3 +1,10 @@
+/**
+ * 剧情引擎：在编译后的剧本上维护指针、阻塞态与运行时状态。
+ *
+ * 调度模型是「指针 + 阻塞」：即时指令（set / bg / jump / if 等）在 `run()`
+ * 中循环执行；遇到 text / choice / wait 时保存快照并返回，等播放器交互后
+ * 再调用 advance / choose / resumeWait 继续。对外只暴露不可变快照与 effect 事件。
+ */
 import type {
   BacklogEntry,
   BgCommand,
@@ -27,12 +34,19 @@ import { evaluateCondition, evaluateExpression } from './expression';
 import { interpolateText } from './interpolate';
 import { loadGame, type LoadedGame } from './script';
 
+/** Backlog 只保留最近 400 行，避免长时间游玩后快照无限膨胀。 */
 const MAX_BACKLOG = 400;
+/** 单次推进的指令上限，用于兜底检测 `jump` 自环等死循环。 */
 const RUN_STEP_LIMIT = 200_000;
+/** 已读标记合并写入的防抖间隔（毫秒），避免每句台词都落盘。 */
 const READ_MARK_PERSIST_DELAY = 300;
 /** 回滚只覆盖当前会话，最多保留 50 个阻塞点。 */
 const ROLLBACK_HISTORY_LIMIT = 50;
 
+/**
+ * 一个阻塞点的完整可恢复状态。
+ * 只保存在内存中，不写入存档；记录时必须深拷贝可变字段，防止后续推进污染历史。
+ */
 interface RollbackState {
   phase: GameSnapshot['phase'];
   pointer: Pointer;
@@ -47,10 +61,12 @@ interface RollbackState {
   waitMs: number;
 }
 
+/** 创建引擎所需的最小宿主能力。 */
 export interface GameEngineOptions {
   host: EngineHost;
 }
 
+/** createSave 的可选附加信息；引擎不感知截图与音频实例，由播放器补齐。 */
 export interface CreateSaveOptions {
   screenshot?: string | null;
   note?: string;
@@ -58,6 +74,7 @@ export interface CreateSaveOptions {
   bgmPosition?: number;
 }
 
+/** 构造空舞台；每次返回新对象，避免不同引擎实例共享引用。 */
 function createEmptyStage(): StageSnapshot {
   return {
     background: { image: null, transition: 'none', duration: 0, revision: 0 },
@@ -66,6 +83,7 @@ function createEmptyStage(): StageSnapshot {
   };
 }
 
+/** 深拷贝舞台，保证快照 / 回滚历史与引擎内部状态互不影响。 */
 function cloneStage(stage: StageSnapshot): StageSnapshot {
   return {
     background: { ...stage.background },
@@ -76,6 +94,7 @@ function cloneStage(stage: StageSnapshot): StageSnapshot {
   };
 }
 
+/** 未初始化时对外暴露的空快照。 */
 export function createEmptySnapshot(): GameSnapshot {
   return {
     phase: 'idle',
@@ -93,6 +112,12 @@ export function createEmptySnapshot(): GameSnapshot {
   };
 }
 
+/**
+ * 剧情引擎。
+ *
+ * 所有可变状态只在类内部修改，对外通过不可变快照与 effect 事件输出；
+ * 播放器不需要（也不应该）直接操作指针或变量。
+ */
 export class GameEngine {
   private readonly host: EngineHost;
   private readonly warn: (message: string) => void;
@@ -113,12 +138,17 @@ export class GameEngine {
   private waitMs = 0;
   private snapshot: GameSnapshot = createEmptySnapshot();
 
+  /** 已读 id 常驻内存，避免每次判断都读存储。 */
   private readonly readMarks = new Set<string>();
+  /** 已读标记防抖写入句柄；dispose 时立即落盘。 */
   private readMarksTimer: ReturnType<typeof setTimeout> | null = null;
   private stateListeners = new Set<(snapshot: GameSnapshot) => void>();
   private effectListeners = new Set<(effect: EngineEffect) => void>();
+  /** 当前会话的回滚历史，按阻塞点先后排列。 */
   private readonly rollbackHistory: RollbackState[] = [];
+  /** warnOnce 去重表，键通常是「指令 id + 消息」。 */
   private readonly warned = new Set<string>();
+  /** 当前 manifest.version，用于读档时提示内容不一致。 */
   private contentVersion = '';
 
   constructor(options: GameEngineOptions) {
@@ -126,6 +156,11 @@ export class GameEngine {
     this.warn = options.host.onWarning ?? ((message: string) => console.warn(message));
   }
 
+  /**
+   * 读取 manifest、递归加载场景并做资源校验。
+   * 已读标记读取失败只降级为空集合，不阻断启动。
+   * 通常只在启动时调用一次；重复调用会重新加载并覆盖变量初值。
+   */
   async initialize(): Promise<GameManifest> {
     const loaded = await loadGame(this.host.assets, this.warn);
     this.loaded = loaded;
@@ -152,29 +187,38 @@ export class GameEngine {
     return loaded.manifest;
   }
 
+  /** 返回已加载的 manifest；未初始化时抛错。 */
   getManifest(): GameManifest {
     if (!this.manifest) throw new Error('引擎尚未初始化');
     return this.manifest;
   }
 
+  /** 是否已完成 `initialize()`。 */
   isReady(): boolean {
     return this.loaded !== null;
   }
 
+  /** 最近一次 emit 产生的快照；对象不可变，可直接比较引用。 */
   getSnapshot(): GameSnapshot {
     return this.snapshot;
   }
 
+  /** 订阅状态快照，返回取消订阅函数。 */
   subscribe(listener: (snapshot: GameSnapshot) => void): () => void {
     this.stateListeners.add(listener);
     return () => this.stateListeners.delete(listener);
   }
 
+  /** 订阅瞬时副作用事件，返回取消订阅函数。 */
   onEffect(listener: (effect: EngineEffect) => void): () => void {
     this.effectListeners.add(listener);
     return () => this.effectListeners.delete(listener);
   }
 
+  /**
+   * 从指定场景（默认 manifest.start）重新开始。
+   * 会清空变量、舞台、Backlog 与回滚历史，并立即推进到第一个阻塞点。
+   */
   start(sceneName?: string): void {
     const loaded = this.requireLoaded();
     const name = sceneName ?? loaded.manifest.start;
@@ -204,6 +248,13 @@ export class GameEngine {
     this.run(false);
   }
 
+  /**
+   * 从存档恢复。
+   *
+   * 指针无效时返回 false 并保持当前状态不变；恢复后以 restoring=true 重新执行
+   * 当前指令，因此不会补发 checkpoint。存档中的已读标记会合并进当前集合，
+   * contentVersion 不一致只提示，不阻止读档。
+   */
   restoreSave(data: SaveData): boolean {
     const loaded = this.requireLoaded();
     const scene = loaded.scenes.get(data.scene);
@@ -263,7 +314,7 @@ export class GameEngine {
     return true;
   }
 
-  /** 对话推进：只在 text 阻塞态有效。 */
+  /** 对话推进：只在 text 阻塞态有效，会把当前行记为已读并前进一条指令。 */
   advance(): void {
     if (!this.loaded || this.phase !== 'text' || !this.dialogue) return;
     this.markRead(this.dialogue.id);
@@ -272,6 +323,7 @@ export class GameEngine {
     this.run(false);
   }
 
+  /** 选择选项：先执行选项上的赋值动作，再跳转；目标无效时顺延到下一条指令。 */
   choose(optionIndex: number): void {
     if (!this.loaded || this.phase !== 'choice') return;
     const option = this.choiceOptions[optionIndex];
@@ -291,6 +343,7 @@ export class GameEngine {
     this.run(false);
   }
 
+  /** wait 计时结束后的继续信号。 */
   resumeWait(): void {
     if (!this.loaded || this.phase !== 'wait') return;
     this.waitMs = 0;
@@ -309,7 +362,10 @@ export class GameEngine {
     );
   }
 
-  /** 回到上一个文本 / 选项 / 等待阻塞点，并恢复当时的完整状态。 */
+  /**
+   * 回到上一个文本 / 选项 / 等待阻塞点，并恢复当时的完整状态。
+   * 当前阻塞点会被弹出历史；历史中至少要有两个点（当前 + 上一处）才允许回退。
+   */
   rollback(): boolean {
     if (!this.canRollback()) return false;
 
@@ -350,6 +406,7 @@ export class GameEngine {
     return true;
   }
 
+  /** 当前对话是否已读；兼容旧版 `block#下标` 形式的已读标记。 */
   isCurrentTextRead(): boolean {
     if (!this.dialogue) return false;
     if (this.readMarks.has(this.dialogue.id)) return true;
@@ -357,6 +414,7 @@ export class GameEngine {
     return this.readMarks.has(`${this.pointer.block}#${this.pointer.index}`);
   }
 
+  /** 已读文本 id 总数。 */
   getReadMarkCount(): number {
     return this.readMarks.size;
   }
@@ -402,6 +460,10 @@ export class GameEngine {
     return [...assets];
   }
 
+  /**
+   * 解析 `label` 或 `scene#label` 并判断目标 label 是否存在。
+   * 仅用于预加载扫描，不修改指针；无效目标由调用方忽略。
+   */
   private findTargetScene(
     target: string,
   ): { scene: CompiledScene; valid: boolean } | null {
@@ -420,6 +482,7 @@ export class GameEngine {
     return { scene, valid: Boolean(scene.labels[target]) };
   }
 
+  /** 组装当前状态的存档数据；不会写入存储，由播放器决定槽位。 */
   createSave(options: CreateSaveOptions = {}): SaveData {
     this.requireLoaded();
     return {
@@ -443,6 +506,7 @@ export class GameEngine {
     };
   }
 
+  /** 释放监听器与定时器；待写入的已读标记会立即落盘。 */
   dispose(): void {
     if (this.readMarksTimer) {
       clearTimeout(this.readMarksTimer);
@@ -454,6 +518,7 @@ export class GameEngine {
     this.effectListeners.clear();
   }
 
+  /** 断言已初始化并返回加载结果；未初始化属于调用方错误，直接抛错。 */
   private requireLoaded(): LoadedGame {
     if (!this.loaded) {
       throw new Error('引擎尚未初始化，请先调用 initialize()');
@@ -461,6 +526,7 @@ export class GameEngine {
     return this.loaded;
   }
 
+  /** 启动时逐个检查资源是否存在；相同路径只查一次，并按首次引用位置汇总警告。 */
   private async validateAssets(loaded: LoadedGame): Promise<void> {
     const checked = new Map<string, boolean>();
     const missing: string[] = [];
@@ -487,6 +553,13 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 指令推进主循环。
+   *
+   * 即时指令执行后指针前进并继续；遇到阻塞指令（text / choice / wait）则记录
+   * 回滚点、emit 快照并返回。restoring 表示刚读档恢复，用于抑制重复的
+   * checkpoint 事件，避免自动存档在恢复瞬间被触发。
+   */
   private run(restoring: boolean): void {
     const loaded = this.requireLoaded();
     let steps = 0;
@@ -524,6 +597,7 @@ export class GameEngine {
         return;
       }
 
+      // 每个分支要么自行推进指针，要么跳到新位置；阻塞分支直接 return。
       switch (command.kind) {
         case 'label':
           this.chapter = command.name;
@@ -625,6 +699,10 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 进入 text 阻塞态：求值插值、写入 Backlog、记录回滚点并通知 UI。
+   * 同一 id 连续出现时不重复写 Backlog（读档 / 回滚会重放同一条指令）。
+   */
   private blockOnText(command: TextCommand, restoring: boolean): void {
     const text = interpolateText(command.text, this.variables, (message) =>
       this.warnOnce(`text:${command.id}:${message}`, message),
@@ -663,6 +741,11 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 尝试进入 choice 阻塞态。
+   * 无 condition 的选项始终可见；条件求值失败的选项视为不可见并警告。
+   * 返回 false 表示没有任何可见选项，调用方应跳过该指令继续推进。
+   */
   private blockOnChoice(command: ChoiceCommand, restoring: boolean): boolean {
     const views: NonNullable<GameSnapshot['choice']>['options'] = [];
 
@@ -700,6 +783,10 @@ export class GameEngine {
     return true;
   }
 
+  /**
+   * 保存当前阻塞点到回滚历史。
+   * 历史满 50 条时丢弃最旧的一条；所有可变字段都做拷贝，避免后续推进污染历史。
+   */
   private recordRollback(phase: RollbackState['phase'], waitMs: number): void {
     if (this.rollbackHistory.length >= ROLLBACK_HISTORY_LIMIT) {
       this.rollbackHistory.shift();
@@ -724,12 +811,14 @@ export class GameEngine {
     });
   }
 
+  /** 同一 key 的警告只发一次，避免循环或重复推进时刷屏。 */
   private warnOnce(key: string, message: string): void {
     if (this.warned.has(key)) return;
     this.warned.add(key);
     this.warn(message);
   }
 
+  /** 更新背景状态；revision 自增让相同图片重复切换也能触发动画。 */
   private applyBg(command: BgCommand): void {
     this.stage.background = {
       image: command.image,
@@ -740,6 +829,11 @@ export class GameEngine {
     };
   }
 
+  /**
+   * 更新立绘槽位。
+   * 隐藏（image 为 null）时保留上一次素材并把透明度设为 0，便于淡出；
+   * revision 自增供 UI 重新触发过渡。
+   */
   private applySprite(command: SpriteCommand): void {
     const previous = this.stage.sprites[command.id];
     this.stage.sprites = {
@@ -760,6 +854,7 @@ export class GameEngine {
     };
   }
 
+  /** 更新 CG 图层；隐藏时保留旧图以便淡出。 */
   private applyCg(command: CgCommand): void {
     const previous = this.stage.cg;
     this.stage.cg = {
@@ -772,6 +867,7 @@ export class GameEngine {
     };
   }
 
+  /** 记录 BGM 并通知播放器执行切换。 */
   private applyBgm(command: BgmCommand): void {
     this.audio = { bgm: command.track };
     this.emitEffect({
@@ -782,6 +878,11 @@ export class GameEngine {
     });
   }
 
+  /**
+   * 执行变量赋值。
+   * expr 优先于 value；求值失败或类型不匹配时只警告并保持变量不变。
+   * `+=` 在任一侧为字符串时做拼接，其余算术运算要求两侧都是数字。
+   */
   private applySet(command: SetCommand): void {
     let next: SetCommand['value'];
     if (command.expr !== null) {
@@ -830,6 +931,11 @@ export class GameEngine {
     this.variables = { ...this.variables, [command.variable]: current - next };
   }
 
+  /**
+   * 把跳转目标解析成指针并切换当前章节。
+   * 支持 `scene#label` 与当前场景内的 `label`；失败时返回 false，
+   * 由调用方决定是顺延到下一条还是跳过整条指令。
+   */
   private resolveTarget(target: string): boolean {
     const loaded = this.requireLoaded();
     const hash = target.indexOf('#');
@@ -869,6 +975,7 @@ export class GameEngine {
     return true;
   }
 
+  /** 查找并记录结局；未登记的 id 会警告，但仍会结束剧情。 */
   private applyEnding(command: EndingCommand): void {
     const ending = this.requireLoaded().manifest.endings.find((item) => item.id === command.id);
     if (!ending) {
@@ -881,6 +988,7 @@ export class GameEngine {
     this.finish();
   }
 
+  /** 进入 ended 阶段并广播结束事件。 */
   private finish(): void {
     this.phase = 'ended';
     this.choice = null;
@@ -890,12 +998,14 @@ export class GameEngine {
     this.emitEffect({ type: 'ended' });
   }
 
+  /** 标记已读并安排防抖落盘。 */
   private markRead(id: string): void {
     if (this.readMarks.has(id)) return;
     this.readMarks.add(id);
     this.schedulePersistReadMarks();
   }
 
+  /** 重置防抖计时器；连续阅读时只在停顿后写一次。 */
   private schedulePersistReadMarks(): void {
     if (this.readMarksTimer) {
       clearTimeout(this.readMarksTimer);
@@ -906,6 +1016,7 @@ export class GameEngine {
     }, READ_MARK_PERSIST_DELAY);
   }
 
+  /** 把已读集合整体写回存储；失败仅警告，不影响游戏继续。 */
   private async persistReadMarks(): Promise<void> {
     try {
       await this.host.storage.set(READ_MARKS_KEY, JSON.stringify([...this.readMarks]));
@@ -914,15 +1025,18 @@ export class GameEngine {
     }
   }
 
+  /** 同步广播 effect；监听器应自行避免抛错，否则会中断当前推进。 */
   private emitEffect(effect: EngineEffect): void {
     this.effectListeners.forEach((listener) => listener(effect));
   }
 
+  /** 把内部 label 名映射为 manifest.chapters 中的展示名；未登记时回退原值。 */
   private resolveChapterName(): string {
     if (!this.chapter) return '';
     return this.manifest?.chapters[this.chapter] ?? this.chapter;
   }
 
+  /** 重建不可变快照并通知所有状态监听者。 */
   private emit(): void {
     this.snapshot = {
       phase: this.phase,
@@ -948,7 +1062,7 @@ export class GameEngine {
   }
 }
 
-/** 供播放器判断指令类型的小工具。 */
+/** 判断指令是否会让引擎暂停，等待播放器 / 玩家输入。 */
 export function isBlocking(command: Command): boolean {
   return command.kind === 'text' || command.kind === 'choice' || command.kind === 'wait';
 }

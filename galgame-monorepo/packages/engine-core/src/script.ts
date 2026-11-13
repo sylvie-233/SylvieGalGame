@@ -1,3 +1,11 @@
+/**
+ * 剧本加载与校验。
+ *
+ * 把 game.yaml 与场景 YAML 编译成引擎可直接执行的 CompiledScene：
+ * - 递归解析 imports，得到每个场景的块闭包；
+ * - 每条指令做类型归一化与默认值填充，非法项只警告并跳过；
+ * - 生成稳定的文本 id、label 表、资源清单与源码行号，用于诊断与预加载。
+ */
 import type {
   AssetHost,
   BgCommand,
@@ -31,8 +39,10 @@ import { isSeq, parse as parseYaml, parseDocument } from 'yaml';
 import { validateExpression } from './expression';
 import { validateInterpolation } from './interpolate';
 
+/** 脚本诊断回调；消息面向作者，调用方通常汇总到播放器警告面板。 */
 export type Warn = (message: string) => void;
 
+/** 致命脚本错误（无法继续加载），与可恢复的 warn 区分。 */
 export class ScriptError extends Error {
   constructor(message: string) {
     super(message);
@@ -40,6 +50,7 @@ export class ScriptError extends Error {
   }
 }
 
+/** 一次完整加载的结果：编译后的场景、资源位置与 manifest。 */
 export interface LoadedGame {
   manifest: GameManifest;
   /** 所有场景（包含仅被 import 的场景），键为场景名。 */
@@ -48,6 +59,7 @@ export interface LoadedGame {
   assetLocations: Map<string, string>;
 }
 
+/** 场景 YAML 的原始解析结果；指令归一化推迟到 compileBlock。 */
 interface RawSceneDocument {
   name: string;
   imports: string[];
@@ -56,6 +68,7 @@ interface RawSceneDocument {
   commandLines: number[];
 }
 
+// 解析阶段会大量面对 unknown，统一用这些小工具做类型收窄。
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -93,10 +106,12 @@ const TRANSITIONS: readonly Transition[] = [
 
 const EASES: readonly TransitionEase[] = ['linear', 'easeIn', 'easeOut', 'easeInOut'];
 
+/** 非法值静默回退：转场只影响观感，不值得为它中断加载。 */
 function parseTransition(value: unknown, fallback: Transition): Transition {
   return TRANSITIONS.includes(value as Transition) ? (value as Transition) : fallback;
 }
 
+/** 解析缓动曲线；未提供时用 fallback，非法值警告后回退。 */
 function parseEase(
   value: unknown,
   context: string,
@@ -109,6 +124,7 @@ function parseEase(
   return fallback;
 }
 
+/** 只提示未知键，不阻断解析，方便发现 YAML 里的拼写错误。 */
 function warnUnknownKeys(
   payload: Record<string, unknown>,
   allowed: string[],
@@ -121,6 +137,7 @@ function warnUnknownKeys(
   }
 }
 
+/** 数字位置会夹取到 0-100，避免作者写出画面外的坐标。 */
 function parseSpritePosition(
   value: unknown,
   block: string,
@@ -139,11 +156,16 @@ function parseSpritePosition(
   return 'center';
 }
 
+/** 从资源路径推导图鉴 id：取文件名并去掉扩展名。 */
 function galleryIdFromPath(value: string): string {
   const file = value.split('/').pop() ?? value;
   return file.replace(/\.[^.]+$/, '') || value;
 }
 
+/**
+ * 归一化图鉴列表：支持 "路径" 简写与 { id, image/track, title } 映射。
+ * id 缺省时取文件名（去扩展名），重复 id 保留首次定义。
+ */
 function parseGalleryList(
   value: unknown,
   kind: 'cg' | 'bgm',
@@ -190,6 +212,7 @@ function parseGalleryList(
   return entries;
 }
 
+/** 统一包裹 YAML 解析错误：先警告再抛出 ScriptError，保证失败来源明确。 */
 function yamlParse(source: string, label: string, warn: Warn): unknown {
   try {
     return parseYaml(source);
@@ -200,6 +223,12 @@ function yamlParse(source: string, label: string, warn: Warn): unknown {
   }
 }
 
+/**
+ * 解析 game.yaml。
+ *
+ * 必填项缺失会抛 ScriptError；其余字段尽量容错并给出警告，
+ * 例如 scenes 为空时回退为 [start]，start 未登记时自动补入列表。
+ */
 export function parseManifest(source: string, warn: Warn): GameManifest {
   const raw = yamlParse(source, 'scripts/game.yaml', warn);
   if (!isRecord(raw)) {
@@ -349,6 +378,7 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
   };
 }
 
+/** 解析单个场景 YAML；保留 commands 原始数组，逐条归一化留到编译阶段。 */
 function parseSceneDocument(name: string, source: string, warn: Warn): RawSceneDocument {
   const raw = yamlParse(source, `场景 ${name}`, warn);
   if (!isRecord(raw)) {
@@ -384,7 +414,12 @@ function parseSceneDocument(name: string, source: string, warn: Warn): RawSceneD
   };
 }
 
-/** 读取 commands 每一项在 YAML 中的起始行号，供警告定位。 */
+/**
+ * 读取 commands 每一项在 YAML 中的起始行号，供警告定位。
+ *
+ * 使用 parseDocument 保留节点 range（字符偏移），再从头扫描换行符换算成行号；
+ * 任一环节失败就返回空数组，诊断退化为不带行号，不影响加载。
+ */
 function commandLineNumbers(source: string, count: number): number[] {
   try {
     const document = parseDocument(source);
@@ -410,6 +445,7 @@ function commandLineNumbers(source: string, count: number): number[] {
   }
 }
 
+/** bg 支持路径简写、null（回到黑屏）与完整映射；隐藏时 duration 强制为 0。 */
 function parseBg(payload: unknown, block: string, index: number, warn: Warn): BgCommand {
   let image: string | null = null;
   let transition: Transition = 'fade';
@@ -454,6 +490,10 @@ function parseBg(payload: unknown, block: string, index: number, warn: Warn): Bg
   return { kind: 'bg', image, transition, ease, duration };
 }
 
+/**
+ * sprite 参数必须是映射；opacity / scale / z 会被夹取到合法区间，
+ * 越界只警告不拒绝，避免手滑导致整条指令被丢弃。
+ */
 function parseSprite(
   payload: unknown,
   block: string,
@@ -512,6 +552,7 @@ function parseSprite(
   };
 }
 
+/** cg 支持 "路径" / "hide" / "none" 简写与映射；visible 缺省时按是否有图推断。 */
 function parseCg(payload: unknown, block: string, index: number, warn: Warn): CgCommand {
   if (typeof payload === 'string') {
     if (payload === 'hide' || payload === 'none') {
@@ -565,6 +606,10 @@ function parseCg(payload: unknown, block: string, index: number, warn: Warn): Cg
   };
 }
 
+/**
+ * text 支持纯字符串与 { speaker, text, voice, id } 映射。
+ * id 留空表示由编译期按内容哈希生成；插值语法错误只警告，不影响解析。
+ */
 function parseText(payload: unknown, block: string, index: number, warn: Warn): TextCommand | null {
   let text: string | null = null;
   let speaker: string | null = null;
@@ -595,6 +640,7 @@ function parseText(payload: unknown, block: string, index: number, warn: Warn): 
   return { kind: 'text', id: explicitId ?? '', speaker, text, voice };
 }
 
+/** bgm 的 "stop" / "none" / 空串都表示停止。 */
 function parseBgm(payload: unknown, block: string, index: number, warn: Warn): BgmCommand {
   if (typeof payload === 'string') {
     const isStop = payload === 'stop' || payload === 'none' || payload === '';
@@ -619,6 +665,7 @@ function parseBgm(payload: unknown, block: string, index: number, warn: Warn): B
   return { kind: 'bgm', track: null, fade: 500, loop: true };
 }
 
+/** se 支持路径简写与 { sound, volume }；volume 夹取到 0-1。 */
 function parseSe(payload: unknown, block: string, index: number, warn: Warn): SeCommand | null {
   if (typeof payload === 'string') {
     return { kind: 'se', sound: payload, volume: 1 };
@@ -639,6 +686,7 @@ function parseSe(payload: unknown, block: string, index: number, warn: Warn): Se
   return null;
 }
 
+/** voice 支持路径简写与 { sound }；缺少 sound 时整条指令丢弃。 */
 function parseVoice(
   payload: unknown,
   block: string,
@@ -658,6 +706,11 @@ function parseVoice(
   return null;
 }
 
+/**
+ * 解析选项。
+ * 每个选项的 text 与 jump/target 必填；if/condition 只做语法校验，
+ * 运行期是否可见由引擎按变量表求值。set/actions 会在跳转前依次执行。
+ */
 function parseChoice(
   payload: unknown,
   block: string,
@@ -718,6 +771,11 @@ function parseChoice(
   };
 }
 
+/**
+ * 解析赋值动作。
+ * expr 与 value 同时存在时忽略 value；`+=` / `-=` 的 value 必须是数字，
+ * 否则无法保证运行期算术合法。
+ */
 function parseSetPayload(payload: unknown, context: string, warn: Warn): SetCommand | null {
   if (!isRecord(payload)) {
     warn(`[脚本] ${context}：参数必须是 { var, op, value } 或 { var, op, expr } 映射`);
@@ -759,10 +817,12 @@ function parseSetPayload(payload: unknown, context: string, warn: Warn): SetComm
   return { kind: 'set', variable, op, value, expr: null };
 }
 
+/** set 指令入口，复用选项动作的解析逻辑。 */
 function parseSet(payload: unknown, block: string, index: number, warn: Warn): SetCommand | null {
   return parseSetPayload(payload, `${block} 第 ${index + 1} 条 set`, warn);
 }
 
+/** if 的 then 可写作 then 或 jump；else 缺省表示不成立时顺序执行下一条。 */
 function parseIf(payload: unknown, block: string, index: number, warn: Warn): IfCommand | null {
   if (!isRecord(payload)) {
     warn(`[脚本] ${block} 第 ${index + 1} 条 if：参数必须是 { condition, then, else } 映射`);
@@ -786,6 +846,7 @@ function parseIf(payload: unknown, block: string, index: number, warn: Warn): If
   };
 }
 
+/** shake 可用数字简写表示时长；intensity 夹取到 1-40 像素。 */
 function parseShake(payload: unknown, block: string, index: number, warn: Warn): ShakeCommand {
   const context = `${block} 第 ${index + 1} 条 shake`;
   if (typeof payload === 'number' && Number.isFinite(payload)) {
@@ -803,6 +864,7 @@ function parseShake(payload: unknown, block: string, index: number, warn: Warn):
   return { kind: 'shake', intensity: 8, duration: 400 };
 }
 
+/** flash 可用 "white" / "black" 简写；opacity 夹取到 0-1。 */
 function parseFlash(payload: unknown, block: string, index: number, warn: Warn): FlashCommand {
   const context = `${block} 第 ${index + 1} 条 flash`;
   const color = (value: unknown): 'white' | 'black' | null =>
@@ -831,6 +893,7 @@ function parseFlash(payload: unknown, block: string, index: number, warn: Warn):
   return { kind: 'flash', color: 'white', opacity: 0.85, duration: 500 };
 }
 
+/** ending 只接受结局 id 字符串；是否登记在 manifest 中由第二遍校验。 */
 function parseEnding(
   payload: unknown,
   block: string,
@@ -845,6 +908,7 @@ function parseEnding(
   return { kind: 'ending', id };
 }
 
+/** wait 支持毫秒数字简写与 { duration } 映射；负数归零。 */
 function parseWait(payload: unknown, block: string, index: number, warn: Warn): WaitCommand {
   if (typeof payload === 'number' && Number.isFinite(payload)) {
     return { kind: 'wait', duration: Math.max(0, payload) };
@@ -859,6 +923,10 @@ function parseWait(payload: unknown, block: string, index: number, warn: Warn): 
   return { kind: 'wait', duration: 0 };
 }
 
+/**
+ * 单键映射分派：一条 YAML 指令必须恰好有一个指令名。
+ * import 出现在 commands 里属于常见误用，单独给出提示。
+ */
 function parseCommand(raw: unknown, block: string, index: number, warn: Warn): Command | null {
   if (!isRecord(raw)) {
     warn(`[脚本] ${block} 第 ${index + 1} 条指令必须是映射`);
@@ -928,7 +996,10 @@ function parseCommand(raw: unknown, block: string, index: number, warn: Warn): C
   }
 }
 
-/** FNV-1a 32 位哈希，用于生成与行号无关的稳定文本 id。 */
+/**
+ * FNV-1a 32 位哈希，用于生成与行号无关的稳定文本 id。
+ * 同一文本在插入 / 删除其他台词后仍保持相同 id，已读标记不会错位。
+ */
 function hashTextId(value: string): string {
   let hash = 0x811c9dc5;
   for (let index = 0; index < value.length; index += 1) {
@@ -938,6 +1009,14 @@ function hashTextId(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
+/**
+ * 把一个 YAML 文件的原始指令数组编译成 CompiledBlock。
+ *
+ * - 解析失败的单条指令直接跳过，不影响同文件其他指令；
+ * - text 未显式给 id 时按「说话人 + 文本 + 语音」的哈希生成，
+ *   重复内容追加 `~n` 区分；
+ * - 有行号时，警告前缀会带上 `file:line` 便于定位。
+ */
 function compileBlock(
   blockId: string,
   rawCommands: unknown[],
@@ -953,6 +1032,7 @@ function compileBlock(
       line > 0 ? (message) => warn(`(${file}:${line}) ${message}`) : warn;
     const command = parseCommand(raw, blockId, index, scopedWarn);
     if (!command) return;
+    // 内容哈希与行号无关；同一块内完全相同的台词用 ~n 后缀区分。
     if (command.kind === 'text' && !command.id) {
       const base = `${blockId}@${hashTextId(
         `${command.speaker ?? ''}\u0000${command.text}\u0000${command.voice ?? ''}`,
@@ -966,6 +1046,7 @@ function compileBlock(
   return { id: blockId, commands };
 }
 
+/** 收集指令直接引用的资源路径，供场景资源清单与启动校验使用。 */
 function commandAssets(command: Command): string[] {
   switch (command.kind) {
     case 'bg':
@@ -985,6 +1066,7 @@ function commandAssets(command: Command): string[] {
   }
 }
 
+/** 编译期校验跳转目标；只警告不抛错，运行期 resolveTarget 还会再兜底。 */
 function validateTarget(
   target: string,
   currentScene: CompiledScene,
@@ -1016,6 +1098,17 @@ function validateTarget(
   }
 }
 
+/**
+ * 加载并编译整个游戏。
+ *
+ * 步骤：
+ * 1. 解析 manifest；
+ * 2. 递归读取 manifest.scenes 与 imports，检测 import 循环；
+ * 3. 逐文件编译指令并生成文本 id；
+ * 4. 第一遍：为每个场景建立块闭包、label 表与资源清单；
+ * 5. 第二遍：所有 label 就绪后校验跨场景跳转、结局引用与章节名；
+ * 6. 把标题页 / 图鉴资源补进起始场景，纳入预加载与缺失校验。
+ */
 export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGame> {
   const manifestText = await assets.readText('scripts/game.yaml');
   const manifest = parseManifest(manifestText, warn);
@@ -1023,6 +1116,7 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
   const documents = new Map<string, RawSceneDocument>();
   const pending = new Set<string>();
 
+  // pending 记录当前递归栈，命中即说明 imports 成环；已加载的文档直接复用。
   const ensureScene = async (name: string): Promise<void> => {
     if (documents.has(name)) return;
     if (pending.has(name)) {
@@ -1054,6 +1148,7 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
     compiledBlocks.set(name, compileBlock(name, document.commands, document.commandLines, warn));
   }
 
+  // import 闭包：场景自身 + 递归 import 的所有块；用 visited 去重并防环。
   const closureOf = (name: string): string[] => {
     const result: string[] = [];
     const visited = new Set<string>();
@@ -1179,7 +1274,7 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
     throw new ScriptError(`start 场景 "${manifest.start}" 未能加载`);
   }
 
-  // 标题页与图鉴资源也纳入校验与预加载清单。
+  // 标题页与图鉴资源也纳入起始场景的校验与预加载清单（只补一次，避免重复）。
   const startScene = scenes.get(manifest.start);
   for (const asset of [
     manifest.titleScreen.background,

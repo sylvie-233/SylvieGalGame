@@ -25,31 +25,46 @@ import { useConfirm } from './ConfirmDialog';
 import { Modal } from './Modal';
 
 interface SaveLoadPanelProps {
+  /** 打开面板的目的：保存或读取。 */
   mode: 'save' | 'load';
+  /** 引擎实例，用于读取 manifest 展示章节名、生成存档数据。 */
   engine: GameEngine;
+  /** 宿主平台能力：存储、截图、文件导入导出。 */
   platform: PlayerPlatform;
+  /** 读档时把数据交回 GameApp 恢复；面板自身不切换视图。 */
   onLoad: (data: SaveData) => void;
   onClose: () => void;
+  /** 操作结果轻提示（保存 / 删除 / 导入导出）。 */
   notify: (message: string) => void;
   /** 当前 BGM 播放位置（秒），写入存档以便读档后继续播放。 */
   getAudioPosition: () => number;
 }
 
+/** 把存档时间戳格式化为 zh-CN、24 小时制的本地时间。 */
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
 }
 
 interface SlotCardProps {
+  /** 槽位显示名（自动存档、快速存档或两位编号）。 */
   title: string;
+  /** 槽位数据；null 表示空槽。 */
   data: SaveData | null;
+  /** 当前面板模式，仅用于空槽文案。 */
   mode: 'save' | 'load';
+  /** 不可点击（自动 / 快速存档在保存模式下只读，或操作进行中）。 */
   disabled?: boolean;
+  /** 把存档里的章节 label 转成展示名。 */
   formatChapter: (chapter: string) => string;
+  /** 点击 / 回车激活槽位。 */
   onActivate: () => void;
+  /** 删除该槽位；不传则不显示删除按钮。 */
   onDelete?: () => void;
+  /** 导出该槽位；不传或空槽时不显示导出按钮。 */
   onExport?: () => void;
 }
 
+/** 单个存档槽位的展示卡片：缩略图、标题、备注 / 章节 / 时间与悬浮操作。 */
 function SlotCard({
   title,
   data,
@@ -145,6 +160,15 @@ function SlotCard({
   );
 }
 
+/**
+ * 存档 / 读档面板。
+ *
+ * 数据来源：`readManualSaves` 读取 20 个手动槽位，`readAutoSaves` 读取 3 个自动槽位，
+ * `readSave` 读取快速存档；挂载时刷新一次，保存 / 删除 / 导入后再刷新。
+ *
+ * 保存是两段式：点击槽位先进入备注确认（已有存档会提示覆盖），确认后才抓图写入。
+ * 自动存档与快速存档在本面板中只读，只能读取、导出（快速存档可删除）。
+ */
 export function SaveLoadPanel({
   mode,
   engine,
@@ -154,10 +178,13 @@ export function SaveLoadPanel({
   notify,
   getAudioPosition,
 }: SaveLoadPanelProps) {
+  // 三组槽位数据来自引擎的存储层，均为面板本地状态。
   const [manual, setManual] = useState<ManualSaveEntry[]>([]);
   const [auto, setAuto] = useState<AutoSaveEntry[]>([]);
   const [quick, setQuick] = useState<SaveData | null>(null);
+  // 正在执行截图 / 写入 / 导入导出时禁用交互，避免并发覆盖。
   const [busy, setBusy] = useState(false);
+  // 非空的 pending 表示备注确认弹窗已打开，记录目标槽位与现有数据（用于覆盖提示）。
   const [pending, setPending] = useState<{ key: string; existing: SaveData | null } | null>(
     null,
   );
@@ -167,6 +194,7 @@ export function SaveLoadPanel({
   const formatChapter = (chapter: string): string =>
     formatChapterName(engine.isReady() ? engine.getManifest() : null, chapter);
 
+  /** 重新读取手动 / 自动 / 快速三组存档。 */
   const refresh = useCallback(async () => {
     const entries = await readManualSaves(platform.storage, MANUAL_SAVE_COUNT);
     setManual(entries);
@@ -178,12 +206,14 @@ export function SaveLoadPanel({
     void refresh();
   }, [refresh]);
 
+  /** 进入保存确认：预填现有备注，已有数据时由弹窗提示覆盖。 */
   const beginSave = (key: string, existing: SaveData | null) => {
     if (busy) return;
     setNote(existing?.note ?? '');
     setPending({ key, existing });
   };
 
+  /** 实际写入：抓图 → 创建存档快照 → 写入槽位 → 刷新列表并提示。 */
   const saveTo = async (key: string, noteText: string) => {
     if (busy) return;
     setBusy(true);
@@ -207,6 +237,7 @@ export function SaveLoadPanel({
     }
   };
 
+  /** 关闭备注弹窗并开始写入；先取快照再清 pending，避免状态更新后读不到目标。 */
   const confirmSave = () => {
     if (!pending) return;
     const target = pending;
@@ -214,6 +245,7 @@ export function SaveLoadPanel({
     void saveTo(target.key, note);
   };
 
+  /** 删除槽位前调用应用内确认框；取消时直接返回，不进入 busy。 */
   const remove = async (key: string) => {
     if (busy) return;
     const confirmed = await confirm('确定删除该存档吗？删除后无法恢复。', {
@@ -235,6 +267,7 @@ export function SaveLoadPanel({
     }
   };
 
+  /** 导出指定键（默认全量）为 JSON 文件；平台不支持时提示。 */
   const exportKeys = async (keys?: string[]) => {
     if (busy) return;
     if (!platform.saveTextFile) {
@@ -254,6 +287,7 @@ export function SaveLoadPanel({
     }
   };
 
+  /** 选择文件并导入；返回 null 表示用户取消，格式错误由引擎抛错后提示。 */
   const importSaves = async () => {
     if (busy) return;
     if (!platform.openTextFile) {
@@ -309,6 +343,7 @@ export function SaveLoadPanel({
           </span>
         </div>
 
+        {/* 特殊存档固定只读：保存模式下禁用，自动槽位也不可手动覆盖。 */}
         <h3 className="mt-2.5 mb-0 text-xs font-medium tracking-[0.26em] text-sg-gold uppercase">
           特殊存档
         </h3>
@@ -341,6 +376,7 @@ export function SaveLoadPanel({
           手动存档
         </h3>
         <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3">
+          {/* 手动槽位在保存模式下点击进入备注确认，在读档模式下仅在已有数据时可点。 */}
           {manual.map((entry) => (
             <SlotCard
               key={entry.slot}

@@ -3,15 +3,23 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
 interface ChoiceOverlayProps {
+  /** 当前选项快照；null 时不渲染遮罩。 */
   choice: ChoiceSnapshot | null;
+  /** 玩家确认选项，参数为选项在剧本中的原始下标（不是渲染序号）。 */
   onChoose: (optionIndex: number) => void;
 }
 
+/**
+ * 选项遮罩：支持鼠标点击，也接管方向键、Home / End、数字键与回车。
+ * 焦点与高亮通过 active / activeRef 同步：ref 供事件处理器读取最新值，
+ * state 驱动样式；选项出现时自动聚焦第一项。
+ */
 export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
   const [active, setActive] = useState(0);
   const activeRef = useRef(0);
   const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
+  /** 移动到指定选项：同步 ref / state 并把浏览器焦点交给对应按钮。 */
   const focusOption = (index: number) => {
     activeRef.current = index;
     setActive(index);
@@ -27,6 +35,7 @@ export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
     });
 
     // 选项出现时接管方向键 / 数字键 / 回车；鼠标点击仍然有效。
+    // 使用捕获阶段并挂在 window 上，确保优先于外层推进 / 回退快捷键。
     const onKeyDown = (event: KeyboardEvent) => {
       const options = choice.options;
       if (options.length === 0) return;

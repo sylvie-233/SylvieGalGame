@@ -1,23 +1,37 @@
 import { motion } from 'motion/react';
 
 interface TitleScreenProps {
+  /** 游戏标题，来自 manifest。 */
   title: string;
+  /** 版本号，来自 manifest。 */
   version: string;
+  /** 副标题；缺省时由 GameApp 提供默认文案。 */
   subtitle: string;
+  /** 是否显示版本号，来自 titleScreen 配置。 */
   showVersion: boolean;
+  /** 脚本与资源是否加载完成；未完成时禁用依赖引擎的按钮。 */
   ready: boolean;
+  /** 已解析的标题背景 URL。 */
   backgroundUrl: string;
   onNewGame: () => void;
+  /** 从自动 / 快速 / 手动存档中取最新一份继续。 */
   onContinue: () => void;
   onLoad: () => void;
   onGallery: () => void;
   onSettings: () => void;
+  /** 可选：Web 壳不实现 quit，因此不渲染退出按钮。 */
   onQuit?: () => void;
 }
 
+/** 标题页菜单按钮样式；悬停时字距展开并出现左侧短横线。 */
 const MENU_BUTTON =
   'relative px-1 py-[11px] text-left text-[clamp(14px,1.35vw,17px)] tracking-[0.24em] text-sg-ink/75 transition-all duration-300 enabled:hover:tracking-[0.3em] enabled:hover:text-sg-accent-strong enabled:hover:after:w-3 enabled:hover:after:opacity-100 focus-visible:text-sg-accent-strong focus-visible:outline-none disabled:cursor-default disabled:text-sg-ink/25 after:absolute after:top-1/2 after:-left-[18px] after:h-px after:w-2 after:-translate-y-1/2 after:bg-sg-accent after:opacity-0 after:transition-all after:duration-300';
 
+/**
+ * 标题页：缓慢推拉的背景、游戏标题 / 副标题与入口菜单。
+ * 数据全部由 GameApp 从 manifest 派生；`ready` 为 false 时禁用新游戏、
+ * 继续、读档与图鉴，设置保持可用。`onQuit` 缺失时隐藏退出按钮。
+ */
 export function TitleScreen({
   title,
   version,

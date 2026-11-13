@@ -1,6 +1,9 @@
 interface QuickBarProps {
+  /** 自动播放是否开启（按钮高亮）。 */
   auto: boolean;
+  /** 跳过已读是否开启（按钮高亮）。 */
   skip: boolean;
+  /** 当前会话是否还有可回退的阻塞点。 */
   canRollback: boolean;
   onToggleAuto: () => void;
   onToggleSkip: () => void;
@@ -11,9 +14,14 @@ interface QuickBarProps {
   onMenu: () => void;
 }
 
+/** 快捷栏按钮的共享样式。 */
 const BASE_BUTTON =
   'rounded-sm px-2.5 py-1.5 text-xs tracking-[0.14em] transition-colors hover:bg-sg-accent/10 hover:text-sg-accent-strong focus-visible:outline-none';
 
+/**
+ * 舞台右上角的快捷操作栏：自动、跳过、回退、历史、存档、读档、菜单。
+ * 平时半透明，悬停或内部聚焦时变为不透明；无回退历史时“回退”禁用。
+ */
 export function QuickBar({
   auto,
   skip,

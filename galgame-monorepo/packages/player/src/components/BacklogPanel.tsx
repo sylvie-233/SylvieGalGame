@@ -4,12 +4,19 @@ import { useEffect, useRef } from 'react';
 import { Modal } from './Modal';
 
 interface BacklogPanelProps {
+  /** 引擎快照中的对话历史（按时间正序）。 */
   entries: BacklogEntry[];
   onClose: () => void;
+  /** 回放某条记录的语音；由 GameApp 转交给 AudioManager。 */
   onReplay: (voice: string) => void;
 }
 
+/**
+ * 对话历史面板：展示 Backlog 每一条文本，支持回放带语音的台词。
+ * 打开或新增记录时自动滚动到底部，符合“最新对话在下方”的阅读习惯。
+ */
 export function BacklogPanel({ entries, onClose, onReplay }: BacklogPanelProps) {
+  // 底部哨兵元素，scrollIntoView 比计算 scrollTop 更稳妥。
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

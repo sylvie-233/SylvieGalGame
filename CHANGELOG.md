@@ -9,6 +9,13 @@
 
 - T3 跳过策略、T4 语音感知 Auto、U2 设置增强、U7 应用内键位帮助。
 
+### Fixed
+
+- `pnpm validate` 的 Schema 错误此前被局部变量遮蔽，实际不会导致失败；现在会正确阻断。
+- Web 内容中间件支持 `Range: bytes=-N` 的后缀语义，不再退化为全量响应。
+- Web 导入存档取消文件选择时，Promise 会正常以 `null` 结束。
+- `version:set` 在 `game.yaml` 缺少 `version` 时先做前置检查，避免留下半套版本号。
+
 ## [0.1.0] - 2026-11-13
 
 首个可玩版本：YAML 驱动的视觉小说播放器，包含 Electron 桌面壳、Web 预览壳与 Docker 静态站。

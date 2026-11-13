@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-/** 校验内容包：解析全部场景、检查资源存在性，并跑通两条分支到结局。 */
+/**
+ * 内容包校验：
+ * 1. 用 docs/script.schema.json 校验清单与每个场景；
+ * 2. 用真实内容目录初始化引擎，检查版本一致性；
+ * 3. 内容体检：未引用资源、不可达场景、资源体积 / 扩展名 / 命名；
+ * 4. 用两条策略各跑一条分支到结局，确认关键台词出现。
+ * 诊断输出按错误 / 警告分组；只要存在任意一条，就以非零退出码结束。
+ */
 import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,9 +20,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const GAME_ROOT = path.join(ROOT, 'packages/game-content/game');
 
+// 诊断桶：错误阻断退出，警告只打印；引擎的脚本警告也汇入 warnings。
 const errors = [];
 const warnings = [];
 
+// 最小 AssetHost 实现：直接读真实内容目录，不需要打包或协议层。
 const assets = {
   readText: (relativePath) => readFile(path.join(GAME_ROOT, relativePath), 'utf8'),
   exists: async (relativePath) => {
@@ -28,6 +37,7 @@ const assets = {
   },
 };
 
+/** 内存存储：校验过程会触发自动存档，但不应写入真实存档文件。 */
 function createMemoryStorage() {
   const map = new Map();
   return {
@@ -41,12 +51,18 @@ function createMemoryStorage() {
   };
 }
 
+// 支持的资源类型与建议体积上限；超出体积只告警，因为体积是否合理取决于发布目标。
 const IMAGE_EXTENSIONS = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif']);
 const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.ogg', '.m4a', '.flac']);
 const MAX_IMAGE_BYTES = 1_500_000;
 const MAX_AUDIO_BYTES = 8_000_000;
+// 路径只允许小写字母、数字、下划线、点、斜杠与连字符，避免 URL 编码 / 大小写差异带来的问题。
 const SAFE_ASSET_PATH = /^[a-z0-9_./-]+$/;
 
+/**
+ * 对清单与全部场景执行 JSON Schema 校验。
+ * 失败时只保留最深层的错误（跳过 oneOf 产生的泛化信息），最多展示 4 条，便于定位。
+ */
 async function validateSchemaFiles() {
   const schema = JSON.parse(await readFile(path.join(ROOT, 'docs/script.schema.json'), 'utf8'));
   const ajv = new Ajv({ allErrors: true, strict: false });
@@ -63,19 +79,21 @@ async function validateSchemaFiles() {
     const data = parseYaml(await readFile(path.join(GAME_ROOT, file), 'utf8'));
     const validate = file === 'scripts/game.yaml' ? validateManifest : validateScene;
     if (validate(data)) continue;
-    const errors = validate.errors ?? [];
+    const schemaErrors = validate.errors ?? [];
     const depthOf = (error) => error.instancePath.split('/').length;
-    const maxDepth = Math.max(0, ...errors.map(depthOf));
-    const deepest = errors.filter(
+    const maxDepth = Math.max(0, ...schemaErrors.map(depthOf));
+    const deepest = schemaErrors.filter(
       (error) => depthOf(error) === maxDepth && error.keyword !== 'oneOf',
     );
-    const details = (deepest.length > 0 ? deepest : errors)
+    const details = (deepest.length > 0 ? deepest : schemaErrors)
       .slice(0, 4)
       .map((error) => `${error.instancePath || '/'} ${error.message}`);
+    // 注意：这里必须写入模块级 errors，Schema 失败才会让 pnpm validate 以非零码退出。
     errors.push(`[Schema] ${file}：${details.join('；') || '不符合 script.schema.json'}`);
   }
 }
 
+/** 递归列出目录下的文件（相对 GAME_ROOT、使用 / 分隔）；目录不存在返回空数组。 */
 async function walk(relativeDir) {
   const absolute = path.join(GAME_ROOT, relativeDir);
   let entries;
@@ -96,13 +114,20 @@ async function walk(relativeDir) {
   return files;
 }
 
+/** 从 `scene#label` 形式的跳转目标中取出场景名；没有 # 返回 null。 */
 function targetScene(target) {
   if (typeof target !== 'string') return null;
   const hash = target.indexOf('#');
   return hash > 0 ? target.slice(0, hash).trim() : null;
 }
 
-/** 内容体检：未引用资源、不可达场景、资源体积与命名。 */
+/**
+ * 内容体检：
+ * - 汇总场景引用、标题画面与画廊资源，找出磁盘上未被引用的文件；
+ * - 从 manifest.start 出发沿 jump / if / choice 收集可达场景；
+ * - 检查资源扩展名、路径命名与体积，输出引用率与语音覆盖率。
+ * 直接复用 loadGame 的解析结果，避免自己再解析一遍 YAML。
+ */
 async function inspectContent(manifest) {
   const loaded = await loadGame(assets, () => {});
   const referenced = new Set();
@@ -184,6 +209,10 @@ async function inspectContent(manifest) {
   console.log(`- 语音覆盖 ${voiceCount}/${textCount} 条文本`);
 }
 
+/**
+ * 用给定策略把剧本跑到结局，返回全部台词。
+ * strategy 接收当前快照并返回要选择的选项；guard 上限用于识别死循环。
+ */
 async function play(engine, strategy) {
   const lines = [];
   engine.start();
@@ -218,6 +247,7 @@ async function play(engine, strategy) {
   return lines;
 }
 
+/** 校验入口：Schema → 引擎初始化 → 版本一致性 → 内容体检 → 两条分支 → 汇总诊断。 */
 async function main() {
   await validateSchemaFiles();
 

@@ -1,9 +1,15 @@
+/**
+ * Electron 渲染进程入口：
+ * 读取桌面配置，把 `window.sylvieGame` 适配成 PlayerPlatform 后挂载播放器。
+ * 播放器本身不接触 Electron API，宿主差异全部收敛在 configurePlayer 注入的平台对象里。
+ */
 import { configurePlayer, ErrorBoundary, GameApp } from '@sylvie/player';
 import { createRoot } from 'react-dom/client';
 
 import './index.css';
 import type { DesktopConfig } from './desktop-types';
 
+/** React 挂载前失败时的纯 DOM 兜底错误页，避免依赖 React 自身能否正常启动。 */
 function renderFatal(message: string): void {
   const container = document.getElementById('root');
   if (!container) return;
@@ -21,6 +27,7 @@ function renderFatal(message: string): void {
   container.append(wrapper);
 }
 
+/** 校验 preload 桥接、注入平台能力并挂载 GameApp。 */
 async function boot(): Promise<void> {
   const desktop = window.sylvieGame;
   if (!desktop) {
@@ -31,6 +38,7 @@ async function boot(): Promise<void> {
   const config: DesktopConfig = await desktop.getConfig();
   console.info(`[桌面端] 渲染进程启动 v${config.appVersion}`);
 
+  // 把 IPC 方法适配成播放器约定的平台接口；读取失败统一抛错，由播放器显示脚本警告。
   configurePlayer({
     readText: async (path) => {
       const text = await desktop.readText(path);
@@ -44,6 +52,7 @@ async function boot(): Promise<void> {
       set: (key, value) => desktop.storageSet(key, value),
       delete: (key) => desktop.storageDelete(key),
     },
+    // 截图前临时标记 data-capture 并等两帧，让播放器隐藏 UI 控件后再调 capturePage。
     captureScreenshot: async () => {
       const root = document.documentElement;
       root.dataset.capture = 'true';
@@ -74,6 +83,7 @@ async function boot(): Promise<void> {
     return;
   }
 
+  // ErrorBoundary 兜住渲染异常，避免整页白屏；只剩纯文本错误提示可读。
   createRoot(container).render(
     <ErrorBoundary>
       <GameApp />

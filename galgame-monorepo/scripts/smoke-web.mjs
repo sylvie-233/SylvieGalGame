@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Web 冒烟测试：构建 Web 产物、启动 vite preview，用无头 Chrome 跑
- * 标题 → 推进 → 选项 → 存读档，并截图到 scripts/.smoke。
+ * Web 冒烟测试：构建 Web 产物、启动 vite preview，用无头 Chrome 通过 CDP 跑
+ * 标题 → 推进 → 存读档 → 选项 → 分支，并截图到 scripts/.smoke。
  *
  * 用法：node scripts/smoke-web.mjs [--url http://localhost:5176/]
  * 可用 CHROME_PATH 指定浏览器；默认探测 Chrome / Edge / Chromium。
+ * 每次运行使用临时浏览器 profile，结束后删除，不污染本机浏览器数据。
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -23,6 +24,7 @@ const URL = process.argv.includes('--url')
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 
+/** 按 CHROME_PATH → 常见安装路径 → PATH 的顺序探测可执行浏览器。 */
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const candidates =
@@ -58,6 +60,7 @@ function findChrome() {
   throw new Error('未找到 Chrome / Edge / Chromium，请设置 CHROME_PATH');
 }
 
+/** 轮询直到 URL 返回成功响应，用于等待 vite preview 就绪。 */
 async function waitForHttp(url, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -77,6 +80,7 @@ async function fetchJson(url) {
   return response.json();
 }
 
+/** 轮询 Chrome 的调试端口直到出现页面目标；超时抛错。 */
 async function waitForTarget(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -92,6 +96,10 @@ async function waitForTarget(timeoutMs = 20000) {
   throw new Error('等待 Chrome 调试目标超时');
 }
 
+/**
+ * 最小 CDP 客户端：按 id 匹配请求响应，无 id 的事件消息交给 onMessage 监听器。
+ * 与 smoke-app.mjs 中的实现保持一致，只是连接对象不同。
+ */
 function createClient(url) {
   const socket = new WebSocket(url);
   const pending = new Map();
@@ -134,6 +142,7 @@ function createClient(url) {
   };
 }
 
+/** Windows 下 pnpm 是 .cmd，必须经 cmd.exe /c 调用；含空格的参数手动补引号。 */
 function pnpmCommand(args) {
   const command = [pnpm, ...args]
     .map((part) => (/\s/.test(part) ? `"${part}"` : part))
@@ -141,6 +150,7 @@ function pnpmCommand(args) {
   return { file: process.env.ComSpec ?? 'cmd.exe', args: ['/d', '/s', '/c', command] };
 }
 
+/** 同步执行 pnpm 命令，输出直接继承到当前终端（构建日志可见）。 */
 function execPnpm(args) {
   if (process.platform === 'win32') {
     const { file, args: commandArgs } = pnpmCommand(args);
@@ -154,6 +164,10 @@ function execPnpm(args) {
   execFileSync(pnpm, args, { cwd: ROOT, stdio: 'inherit' });
 }
 
+/**
+ * 后台启动 pnpm 命令。
+ * POSIX 下 detached 让 preview 拥有独立进程组，stopProcess 才能一次结束子进程。
+ */
 function spawnPnpm(args) {
   if (process.platform === 'win32') {
     const { file, args: commandArgs } = pnpmCommand(args);
@@ -166,6 +180,7 @@ function spawnPnpm(args) {
   return spawn(pnpm, args, { cwd: ROOT, stdio: 'ignore', detached: true });
 }
 
+/** Windows 用 taskkill /T /F 结束进程树；POSIX 先杀进程组，失败再杀单个进程。 */
 function stopProcess(child) {
   if (!child?.pid) return;
   if (process.platform === 'win32') {
@@ -187,9 +202,12 @@ function stopProcess(child) {
   }
 }
 
+/** 构建 → 启动 preview → 启动无头浏览器 → 按剧本驱动 UI；finally 清理所有子进程。 */
 async function main() {
   await mkdir(OUT, { recursive: true });
+  // 临时 profile 确保每次都是干净存档；结束时连同缓存一起删除。
   const profile = await mkdtemp(path.join(os.tmpdir(), 'sylvie-smoke-web-'));
+  // 运行期错误汇总：流程跑完后统一决定退出码，避免首个错误中断后续截图。
   const errors = [];
   let server;
   let chrome;
@@ -216,6 +234,7 @@ async function main() {
     server.on('error', (error) => errors.push(`preview: ${error.message}`));
     await waitForHttp(URL);
 
+    // 无头模式 + 固定窗口尺寸 + 独立调试端口；--no-sandbox 便于在 CI / 容器中运行。
     const executable = findChrome();
     chrome = spawn(
       executable,
@@ -257,6 +276,7 @@ async function main() {
     await client.send('Runtime.enable');
     await client.send('Log.enable');
 
+    // 在页面内执行表达式：awaitPromise + returnByValue 便于直接拿回 JSON 结果。
     const evaluate = async (expression) => {
       const result = await client.send('Runtime.evaluate', {
         expression,
@@ -269,6 +289,7 @@ async function main() {
       return result.result.value;
     };
 
+    // 截图按序号命名并加 web- 前缀，与桌面端冒烟截图区分。
     let index = 0;
     const shot = async (name) => {
       index += 1;
@@ -278,6 +299,7 @@ async function main() {
       console.log(`截图：${path.relative(ROOT, file)}`);
     };
 
+    /** 轮询表达式直到为真；用于等待渲染完成、按钮可用等界面状态。 */
     const waitFor = async (expression, timeoutMs = 15000) => {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
@@ -287,6 +309,7 @@ async function main() {
       throw new Error(`等待条件超时：${expression}`);
     };
 
+    /** 按文本包含匹配并点击按钮；找不到返回 false。 */
     const clickButton = (text) =>
       evaluate(`(() => {
         const button = [...document.querySelectorAll('button')].find((item) =>
@@ -297,6 +320,7 @@ async function main() {
         return true;
       })()`);
 
+    /** 点击选项区域（aria-label="选择"）的第一个按钮。 */
     const clickFirstChoice = () =>
       evaluate(`(() => {
         const button = document.querySelector('[aria-label="选择"] button');
@@ -305,6 +329,7 @@ async function main() {
         return true;
       })()`);
 
+    /** 点击存档卡槽（data-slot 为 "01" 这类两位编号）。 */
     const clickSlot = (title) =>
       evaluate(`(() => {
         const card = [...document.querySelectorAll('[data-slot]')].find(
@@ -315,11 +340,13 @@ async function main() {
         return true;
       })()`);
 
+    /** 在 window 上派发空格 keydown，模拟玩家推进对话。 */
     const pressSpace = () =>
       evaluate(
         `window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))`,
       );
 
+    /** 抓取当前界面快照：视图、弹窗文字、选项是否出现、当前台词与可见按钮。 */
     const state = () =>
       evaluate(`(() => ({
         view: document.querySelector('[data-view]')?.dataset.view ?? null,
@@ -329,6 +356,7 @@ async function main() {
         buttons: [...document.querySelectorAll('button')].map((item) => (item.textContent ?? '').trim()).filter(Boolean),
       }))()`);
 
+    /** 轮询到同一句台词连续两次一致，规避打字机动画造成的状态抖动。 */
     const stableDialogue = async () => {
       let previous = null;
       for (let attempt = 0; attempt < 24; attempt += 1) {
@@ -369,6 +397,7 @@ async function main() {
     if (!(await clickSlot('01'))) throw new Error('存档面板中未找到槽位 01');
     await sleep(400);
     // 新的保存流程会弹出备注输入框，填写后确认才写入。
+    // React 受控输入不响应直接赋值，需调用原型上的 value setter 再派发 input 事件。
     const noteValue = await evaluate(`(() => {
       const input = document.querySelector('input[type="text"]');
       if (!input) return null;
@@ -430,6 +459,7 @@ async function main() {
       console.log('\nWeb 冒烟通过，运行期无错误。');
     }
   } finally {
+    // 清理顺序：断开 CDP → 结束浏览器 → 结束 preview → 删除临时 profile。
     client?.close();
     stopProcess(chrome);
     stopProcess(server);

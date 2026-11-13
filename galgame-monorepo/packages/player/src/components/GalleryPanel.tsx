@@ -4,13 +4,18 @@ import { useState } from 'react';
 import { Modal } from './Modal';
 
 interface GalleryPanelProps {
+  /** 清单提供图鉴条目与结局定义。 */
   manifest: GameManifest;
+  /** 已解锁的 CG / BGM / 结局 id，来自 `meta:gallery`。 */
   unlocks: GalleryUnlocks;
+  /** 内容包相对路径 → 可访问 URL。 */
   assetUrl: (path: string) => string;
+  /** 试听 BGM；传 null 表示停止并恢复原 BGM。 */
   onPreviewBgm: (track: string | null) => void;
   onClose: () => void;
 }
 
+/** 图鉴的三个分页。 */
 type GalleryTab = 'cg' | 'bgm' | 'endings';
 
 const TABS: Array<{ key: GalleryTab; label: string }> = [
@@ -19,9 +24,18 @@ const TABS: Array<{ key: GalleryTab; label: string }> = [
   { key: 'endings', label: '结局' },
 ];
 
+/** 分页按钮的共享样式。 */
 const TAB_BUTTON =
   'rounded-sm border px-4 py-2 text-[13px] tracking-[0.12em] transition-colors focus-visible:outline-none';
 
+/**
+ * 回忆图鉴面板。
+ *
+ * 条目来自 manifest（CG / BGM / 结局定义），可见性来自 `unlocks`（meta:gallery）：
+ * - CG 分页可点开已解锁大图，未解锁仅显示暗色占位；
+ * - BGM 分页可试听 / 停止，关闭面板会停止试听并恢复原曲；
+ * - 结局分页对未达成项隐藏标题与描述。
+ */
 export function GalleryPanel({
   manifest,
   unlocks,
@@ -39,6 +53,7 @@ export function GalleryPanel({
 
   const selected = manifest.gallery.cgs.find((entry) => entry.id === selectedCg) ?? null;
 
+  /** 试听开关：再次点击同一曲目即停止，并让外层恢复原本的 BGM。 */
   const toggleBgm = (id: string, track: string) => {
     if (playing === id) {
       setPlaying(null);
@@ -49,6 +64,7 @@ export function GalleryPanel({
     onPreviewBgm(track);
   };
 
+  /** 关闭前若仍在试听，先停止并恢复原曲，避免图鉴 BGM 残留到游戏内。 */
   const close = () => {
     if (playing) onPreviewBgm(null);
     onClose();

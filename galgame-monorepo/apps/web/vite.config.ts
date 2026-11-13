@@ -1,3 +1,11 @@
+/**
+ * Web 预览壳的 Vite 配置。
+ * 关键点：
+ * - 共享包别名到源码，开发期改 player / engine-core 立即热更新；
+ * - 开发与 preview 都把内容包挂到 /game，构建时复制到 dist/game；
+ * - 内容中间件支持 HEAD 与单段 Range，音频可流式播放；
+ * - 用 Rolldown 的 codeSplitting.groups 拆分 React / Motion / Howler / Zustand。
+ */
 import { createReadStream } from 'node:fs';
 import { access, cp, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,10 +15,12 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Connect, type Plugin } from 'vite';
 
+// apps/web/ 的上一级是 galgame-monorepo；内容包与共享包都相对它定位。
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(HERE, '../..');
 const GAME_ROOT = path.join(WORKSPACE_ROOT, 'packages/game-content/game');
 
+// 与 Electron 的 MIME 表保持一致，避免浏览器把 YAML / 音频按错误类型处理。
 const MIME_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
   '.css': 'text/css; charset=utf-8',
@@ -36,6 +46,7 @@ const MIME_TYPES: Record<string, string> = {
   '.yml': 'text/yaml; charset=utf-8',
 };
 
+/** 解析到 root 内并拒绝目录穿越；NUL 字节与越界路径返回 null。 */
 function resolveInside(root: string, relativePath: string): string | null {
   if (!relativePath || relativePath.includes('\0')) return null;
   const cleaned = relativePath.replace(/^[/\\]+/, '');
@@ -44,6 +55,10 @@ function resolveInside(root: string, relativePath: string): string | null {
   return resolved;
 }
 
+/**
+ * 解析单段 Range（`bytes=start-end`，允许省略 end）。
+ * 不合法或越界时返回 null，由调用方回 200 全量；只实现单段，足够音频拖动播放。
+ */
 function parseRange(
   range: string | undefined,
   size: number,
@@ -52,6 +67,14 @@ function parseRange(
   const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
   if (!match) return null;
   const [, rawStart, rawEnd] = match;
+
+  // `bytes=-N` 表示最后 N 个字节，与 `bytes=0-N` 语义不同。
+  if (!rawStart && rawEnd) {
+    const suffix = Number(rawEnd);
+    if (!Number.isFinite(suffix) || suffix <= 0) return null;
+    return { start: Math.max(0, size - suffix), end: size - 1 };
+  }
+
   const start = rawStart ? Number(rawStart) : 0;
   const end = rawEnd ? Math.min(Number(rawEnd), size - 1) : size - 1;
   if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
@@ -61,8 +84,10 @@ function parseRange(
 }
 
 /**
- * 开发期直接读取 packages/game-content/game，构建时复制到 dist/game。
+ * 游戏内容中间件 + 构建复制。
+ * 开发 / preview 直接读取 packages/game-content/game，构建后复制到 dist/game；
  * Web 只是预览壳，内容仍只有一份来源，不需要额外同步步骤。
+ * 请求路径先解码再做目录穿越校验，随后按扩展名补 Content-Type 并处理 HEAD / Range。
  */
 function gameContentPlugin(): Plugin {
   const handle: Connect.NextHandleFunction = async (request, response, next) => {
@@ -71,6 +96,7 @@ function gameContentPlugin(): Plugin {
       return;
     }
 
+    // 去掉查询串并解码；非法编码直接回 400，避免把异常字符带进文件系统。
     let relative: string;
     try {
       relative = decodeURIComponent(request.url.split('?')[0] ?? '');
@@ -100,6 +126,7 @@ function gameContentPlugin(): Plugin {
     response.setHeader('accept-ranges', 'bytes');
     response.setHeader('cache-control', 'no-store');
 
+    // HEAD 只返回元信息，供播放器 exists() 探测资源。
     if (request.method === 'HEAD') {
       response.setHeader('content-length', fileStat.size);
       response.statusCode = 200;
@@ -107,6 +134,7 @@ function gameContentPlugin(): Plugin {
       return;
     }
 
+    // 单段 Range 返回 206，浏览器音频元素可据此跳到未缓冲位置。
     const range = parseRange(request.headers.range, fileStat.size);
     if (range) {
       response.statusCode = 206;
@@ -121,6 +149,7 @@ function gameContentPlugin(): Plugin {
     createReadStream(filePath).pipe(response);
   };
 
+  // 构建输出目录在配置解析后才确定，closeBundle 用它定位复制目标。
   let outDir = '';
 
   return {
@@ -128,12 +157,14 @@ function gameContentPlugin(): Plugin {
     configResolved(config) {
       outDir = path.resolve(config.root, config.build.outDir);
     },
+    // dev 与 preview 挂同一个中间件，url 前缀固定为 /game。
     configureServer(server) {
       server.middlewares.use('/game', handle);
     },
     configurePreviewServer(server) {
       server.middlewares.use('/game', handle);
     },
+    // 构建完成后把内容复制到 dist/game；先清空目标，避免下架资源残留。
     async closeBundle() {
       if (!outDir) return;
       const target = path.join(outDir, 'game');
@@ -149,7 +180,8 @@ function gameContentPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), tailwindcss(), gameContentPlugin()],
   resolve: {
-    // 预览壳直接跑共享包源码，改 UI 无需先构建 player / engine-core。
+    // 预览壳直接跑共享包源码，改 UI 无需先构建 player / engine-core；
+    // exact 形式的正则避免把 `@sylvie/player/xxx` 子路径误匹配成入口。
     alias: [
       {
         find: '@sylvie/player/styles.css',
@@ -168,11 +200,14 @@ export default defineConfig({
         replacement: path.join(WORKSPACE_ROOT, 'packages/types/src/index.ts'),
       },
     ],
+    // 源码别名会从 workspace 根解析 React，去重避免出现两份 React 导致 hooks 报错。
     dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
   },
   server: {
+    // 与 Electron dev server（5174）错开；strictPort 让端口占用时直接报错而不是静默换端口。
     port: 5175,
     strictPort: true,
+    // 别名指向 workspace 根，需要放开 Vite 默认只允许项目根访问的限制。
     fs: { allow: [WORKSPACE_ROOT] },
   },
   preview: {
@@ -183,6 +218,7 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
+        // Rolldown 分包：把体积大、更新频率低的依赖拆成独立 chunk，利于浏览器长期缓存。
         codeSplitting: {
           groups: [
             {

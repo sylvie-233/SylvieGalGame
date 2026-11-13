@@ -2,21 +2,31 @@ import type { Transition, TransitionEase } from '@sylvie/types';
 import { AnimatePresence, motion } from 'motion/react';
 
 interface CrossfadeImageProps {
+  /** 内容包内的图片相对路径；null 时只渲染空容器。 */
   src: string | null;
+  /** 相对路径 → 可访问 URL。 */
   assetUrl: (path: string) => string;
+  /** 无障碍替代文本。 */
   alt: string;
+  /** 转场类型；`none` 表示直接切换，不播放动画。 */
   transition: Transition;
+  /** 动画缓动，默认 easeInOut。 */
   ease?: TransitionEase;
+  /** 转场时长（毫秒）。 */
   duration: number;
+  /** 外层容器附加类名。 */
   className?: string;
+  /** 图片本身的 object-fit 等类名。 */
   imageClassName?: string;
 }
 
+/** 单种转场的进入 / 离开关键帧。 */
 interface TransitionVariants {
   initial: Record<string, string | number>;
   exit: Record<string, string | number>;
 }
 
+/** 各转场类型的关键帧；`none` 单独走无动画分支。 */
 const VARIANTS: Record<Exclude<Transition, 'none'>, TransitionVariants> = {
   fade: {
     initial: { opacity: 0 },
@@ -40,6 +50,7 @@ const VARIANTS: Record<Exclude<Transition, 'none'>, TransitionVariants> = {
   },
 };
 
+/** 所有转场最终收敛到的稳定状态；未用到的属性对当前转场无副作用。 */
 const SETTLED = {
   opacity: 1,
   x: '0%',
@@ -47,7 +58,11 @@ const SETTLED = {
   clipPath: 'inset(0 0% 0 0)',
 };
 
-/** 基于 Motion 的单图层转场：fade / dissolve / slide / wipe。 */
+/**
+ * 基于 Motion 的单图层图片转场：fade / dissolve / slide / wipe。
+ * `src` 变化时以 src 为 key 触发 AnimatePresence，旧图按 variants.exit 离开、
+ * 新图按 variants.initial 进入；`none` 时关闭动画直接替换。
+ */
 export function CrossfadeImage({
   src,
   assetUrl,

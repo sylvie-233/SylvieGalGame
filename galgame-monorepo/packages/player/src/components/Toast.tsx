@@ -1,5 +1,10 @@
 import { AnimatePresence, motion } from 'motion/react';
 
+/**
+ * 底部轻提示。
+ * 文案非空时淡入展示，由 store 的 showToast 在 2.6 秒后清空；
+ * key 使用文案本身，连续不同提示会重新播放进入动画。
+ */
 export function Toast({ message }: { message: string | null }) {
   return (
     <div

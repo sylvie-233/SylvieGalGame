@@ -1,18 +1,33 @@
+/**
+ * 宿主平台能力接口。
+ *
+ * engine-core 与 player 只依赖这些抽象，不直接访问文件系统、localStorage
+ * 或 Electron API；Electron / Web 外壳在启动时注入具体实现。
+ */
+
+/** 引擎读取剧本与资源文本的最小接口。 */
 export interface AssetHost {
   /** 读取相对游戏资源根目录的文本文件。 */
   readText(path: string): Promise<string>;
+  /** 判断资源是否存在，用于启动时校验。 */
   exists(path: string): Promise<boolean>;
 }
 
+/** 最小 KV 存储抽象；值统一为字符串，复杂结构由调用方序列化。 */
 export interface KeyValueStorage {
+  /** 读取键；不存在时返回 null。 */
   get(key: string): Promise<string | null>;
+  /** 写入或覆盖键。 */
   set(key: string, value: string): Promise<void>;
+  /** 删除键；不存在的键应视为成功。 */
   delete(key: string): Promise<void>;
 }
 
+/** engine-core 初始化所需的能力集合。 */
 export interface EngineHost {
   assets: AssetHost;
   storage: KeyValueStorage;
+  /** 脚本 / 资源警告回调；缺省时引擎退化为 console.warn。 */
   onWarning?: (message: string) => void;
 }
 

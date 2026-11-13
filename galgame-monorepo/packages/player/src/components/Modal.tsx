@@ -2,26 +2,43 @@ import { motion } from 'motion/react';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 interface ModalProps {
+  /** 标题栏文案，同时作为 dialog 的 aria-label。 */
   title: string;
+  /** 关闭回调；Esc、右上角 × 与点击遮罩都会触发。 */
   onClose: () => void;
+  /** 弹窗主体内容。 */
   children: ReactNode;
+  /** 可选固定底栏。 */
   footer?: ReactNode;
+  /** 使用更宽的最大宽度（存档、图鉴等面板）。 */
   wide?: boolean;
 }
 
+/** 弹窗栈中的一项；close 始终调用最新的 onClose，避免闭包过期。 */
 interface ModalEntry {
   id: string;
   close: () => void;
 }
 
-/** 当前打开的 Modal 栈，Esc 只关闭最上层的弹窗。 */
+/**
+ * 当前打开的 Modal 栈。
+ * 每个 Modal 挂载时入栈、卸载时出栈；Esc 事件只由栈顶处理，
+ * 因此嵌套确认框 / 存档面板时只会关闭最上层，不会一次退掉整串弹窗。
+ */
 const modalStack: ModalEntry[] = [];
 
+/**
+ * 播放器统一弹窗外壳：遮罩、标题栏、滚动主体与可选底栏。
+ * 所有需要弹出层的面板都应使用它，以共享弹窗栈与 Esc 行为，
+ * 不要自行写 `<div role="dialog">`。
+ */
 export function Modal({ title, onClose, children, footer, wide = false }: ModalProps) {
   const id = useId();
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
+  // 挂载时入栈并监听捕获阶段的 Esc；只有栈顶能关闭，并阻止事件继续传播，
+  // 避免同时触发游戏内“Esc 打开菜单”等快捷键。
   useEffect(() => {
     const entry: ModalEntry = { id, close: () => closeRef.current() };
     modalStack.push(entry);
@@ -46,6 +63,7 @@ export function Modal({ title, onClose, children, footer, wide = false }: ModalP
       className="fixed inset-0 z-[100] flex items-center justify-center px-[3vw] py-[4vh]"
       data-ui-chrome
     >
+      {/* 点击遮罩空白处关闭；只在直接命中遮罩时触发，避免冒泡误关。 */}
       <motion.div
         className="absolute inset-0 bg-[#030408]/70 backdrop-blur-md"
         initial={{ opacity: 0 }}

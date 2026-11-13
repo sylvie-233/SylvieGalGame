@@ -1,7 +1,16 @@
+/**
+ * 剧本条件 / 赋值表达式的小型求值器。
+ *
+ * 语法刻意保持最小：数字、布尔、字符串、变量、算术、比较、`&&` / `||` / `!`。
+ * 不使用 eval，保证剧本内容不能执行任意代码。错误统一抛 ExpressionError，
+ * 由调用方决定是警告后继续还是中止（引擎通常警告并保持原状态）。
+ */
 import type { VariableTable, VariableValue } from '@sylvie/types';
 
+/** 表达式求值结果，复用剧情变量的标量类型。 */
 export type ExprValue = VariableValue;
 
+/** 表达式词法 / 语法 / 求值错误；message 面向剧本作者，可直接展示。 */
 export class ExpressionError extends Error {
   constructor(message: string) {
     super(message);
@@ -17,9 +26,15 @@ interface Token {
   pos: number;
 }
 
+// 双字符运算符必须先于单字符匹配，否则 "==" 会被拆成两个 "="。
 const TWO_CHAR_OPERATORS = new Set(['&&', '||', '==', '!=', '<=', '>=']);
+// 括号也归入 operator，简化递归下降的匹配逻辑。
 const ONE_CHAR_OPERATORS = new Set(['+', '-', '*', '/', '!', '<', '>', '(', ')']);
 
+/**
+ * 词法分析：跳过空白，产出带源码位置的记号。
+ * 字符串支持 `\n` / `\t` 与反斜杠转义；数字支持整数与小数（需以数字开头）。
+ */
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   let index = 0;
@@ -96,6 +111,10 @@ function tokenize(source: string): Token[] {
   return tokens;
 }
 
+/**
+ * 统一真值语义：false、0、非有限数与空字符串为假，其余为真。
+ * 显式限定语义而不是依赖 JavaScript 隐式转换，保证剧本行为可预期。
+ */
 function truthy(value: ExprValue): boolean {
   if (typeof value === 'boolean') {
     return value;
@@ -106,6 +125,10 @@ function truthy(value: ExprValue): boolean {
   return value.length > 0;
 }
 
+/**
+ * 转为数字：数字原样返回；字符串需形如数字（允许首尾空格）；
+ * 其他类型或空字符串抛错，而不是静默变成 0 / NaN。
+ */
 function toNumber(value: ExprValue, context: string): number {
   if (typeof value === 'number') {
     return value;
@@ -119,10 +142,17 @@ function toNumber(value: ExprValue, context: string): number {
   throw new ExpressionError(`${context}需要数字，实际是 ${typeof value} (${String(value)})`);
 }
 
+/** 字符串拼接时的统一转换。 */
 function toStringValue(value: ExprValue): string {
   return String(value);
 }
 
+/**
+ * 递归下降解析器，每次 parse() 消费完整表达式。
+ *
+ * allowUnknownVariables 仅供编译期校验使用：未知变量按 0 处理，
+ * 这样即使变量尚未定义，也能检查语法与结构是否合法。
+ */
 class ExpressionParser {
   private position = 0;
 
@@ -132,6 +162,7 @@ class ExpressionParser {
     private readonly allowUnknownVariables = false,
   ) {}
 
+  /** 解析完整表达式；末尾必须恰好是 eof，否则视为多余内容。 */
   parse(): ExprValue {
     const value = this.parseOr();
     if (this.peek().kind !== 'eof') {
@@ -159,6 +190,7 @@ class ExpressionParser {
     return false;
   }
 
+  // 以下 parseXxx 按优先级从低到高递归；注意两侧都会求值，不做短路。
   private parseOr(): ExprValue {
     let left = this.parseAnd();
     while (this.matchOperator('||')) {
@@ -208,6 +240,7 @@ class ExpressionParser {
     }
   }
 
+  // 任一侧是字符串时 `+` 做拼接，否则两侧都必须能转成数字。
   private parseAdditive(): ExprValue {
     let left = this.parseMultiplicative();
     for (;;) {
@@ -227,6 +260,7 @@ class ExpressionParser {
     }
   }
 
+  // 除数为 0 直接报错，避免产生 Infinity / NaN 污染后续判断。
   private parseMultiplicative(): ExprValue {
     let left = this.parseUnary();
     for (;;) {
@@ -245,6 +279,7 @@ class ExpressionParser {
     }
   }
 
+  // 一元运算符右结合，允许 `!!x` / `--x` 这类写法。
   private parseUnary(): ExprValue {
     if (this.matchOperator('!')) {
       return !truthy(this.parseUnary());
@@ -258,6 +293,7 @@ class ExpressionParser {
     return this.parsePrimary();
   }
 
+  // 标识符优先识别 true / false 字面量，其余按变量表取值。
   private parsePrimary(): ExprValue {
     const token = this.advance();
     if (token.kind === 'number') {
@@ -288,6 +324,10 @@ class ExpressionParser {
   }
 }
 
+/**
+ * 相等比较：同类型按严格相等；数字与可解析为数字的字符串按数值比较。
+ * 无法比较时返回 false，而不是抛错（`==` 用于判断而非强制类型转换）。
+ */
 function valuesEqual(left: ExprValue, right: ExprValue): boolean {
   if (typeof left === typeof right) {
     if (typeof left === 'number' || typeof left === 'string' || typeof left === 'boolean') {
@@ -309,6 +349,10 @@ function valuesEqual(left: ExprValue, right: ExprValue): boolean {
   return false;
 }
 
+/**
+ * 大小比较：字符串与字符串按字典序；数字 / 数字字符串按数值。
+ * 布尔或其他类型组合直接报错，避免隐式转换产生歧义结果。
+ */
 function compareValues(left: ExprValue, right: ExprValue, operator: string): boolean {
   let leftComparable: number | string;
   let rightComparable: number | string;
@@ -345,7 +389,10 @@ function compareValues(left: ExprValue, right: ExprValue, operator: string): boo
   }
 }
 
-/** 求值，出错时抛出 ExpressionError。 */
+/**
+ * 求值并返回原始结果。
+ * 空表达式、未知变量、类型不匹配等都会抛出 ExpressionError，由调用方处理。
+ */
 export function evaluateExpression(source: string, variables: VariableTable): ExprValue {
   if (!source.trim()) {
     throw new ExpressionError('表达式为空');
@@ -359,7 +406,10 @@ export function evaluateCondition(source: string, variables: VariableTable): boo
   return truthy(evaluateExpression(source, variables));
 }
 
-/** 编译期校验，返回错误信息；无错误时返回 null。 */
+/**
+ * 编译期校验，返回错误信息；无错误时返回 null。
+ * 未知变量按 0 处理，因此这里只检查语法 / 结构，不检查变量是否存在。
+ */
 export function validateExpression(source: string): string | null {
   try {
     if (!source.trim()) {

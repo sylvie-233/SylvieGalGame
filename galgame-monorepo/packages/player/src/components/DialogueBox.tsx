@@ -2,33 +2,50 @@ import type { DialogueSnapshot } from '@sylvie/types';
 import { AnimatePresence, motion } from 'motion/react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
+/** 打字机的命令式接口：外层点击时先补全当前句，再决定是否推进。 */
 export interface DialogueHandle {
+  /** 当前文本是否仍在逐字显示。 */
   isTyping(): boolean;
+  /** 立即显示完整文本。 */
   completeTyping(): void;
 }
 
 interface DialogueBoxProps {
+  /** 当前对话；null 时对话框淡出但保留布局。 */
   dialogue: DialogueSnapshot | null;
+  /** 打字速度（字 / 秒），内部换算成每字延迟。 */
   typingSpeed: number;
+  /** 跳过已读：直接显示完整文本，不播放打字动画。 */
   skip: boolean;
+  /** 自动播放：文本显示完毕后等待 autoDelay 再推进。 */
   auto: boolean;
+  /** 自动播放的句末等待时间（毫秒）。 */
   autoDelay: number;
+  /** 自动播放计时结束时的推进回调。 */
   onAutoAdvance: () => void;
 }
 
+/**
+ * 对话打字机与对话框。
+ * 通过逐字增加 `typed` 模拟打字效果；`skip` 时立即补全，`auto` 时在
+ * 文本显示完后启动一次定时器调用 `onAutoAdvance`。打字进度以对话 id 重置。
+ */
 export const DialogueBox = forwardRef<DialogueHandle, DialogueBoxProps>(function DialogueBox(
   { dialogue, typingSpeed, skip, auto, autoDelay, onAutoAdvance },
   ref,
 ) {
   const text = dialogue?.text ?? '';
   const [typed, setTyped] = useState(0);
+  // 用 ref 保存最新文本长度，避免命令式句柄因闭包拿到旧的 text。
   const textLengthRef = useRef(0);
   textLengthRef.current = text.length;
 
+  // 换到新对话时重置打字进度。
   useEffect(() => {
     setTyped(0);
   }, [dialogue?.id]);
 
+  // 打字循环：每次只增加一个字，再由 typed 变化触发下一次；speed 是字 / 秒。
   useEffect(() => {
     if (!dialogue) return;
     if (skip) {
@@ -43,6 +60,7 @@ export const DialogueBox = forwardRef<DialogueHandle, DialogueBoxProps>(function
     return () => window.clearTimeout(timer);
   }, [dialogue, text.length, typingSpeed, skip, typed]);
 
+  // 自动播放：仅在文本完整显示后启动一次等待，任何依赖变化都会取消旧计时。
   useEffect(() => {
     if (!dialogue || !auto || skip) return;
     if (typed < text.length) return;
@@ -50,6 +68,7 @@ export const DialogueBox = forwardRef<DialogueHandle, DialogueBoxProps>(function
     return () => window.clearTimeout(timer);
   }, [dialogue, auto, skip, typed, text.length, autoDelay, onAutoAdvance]);
 
+  // 句柄只暴露查询与补全；内部通过 ref 读取最新长度，避免依赖过期闭包。
   useImperativeHandle(
     ref,
     () => ({

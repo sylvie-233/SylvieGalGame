@@ -2,29 +2,36 @@
 /**
  * 生成占位美术、音频与图标资源。
  * 不依赖任何第三方包：SVG 直接编写，WAV 用 16-bit PCM，PNG/ICO 用 zlib 手写。
+ *
+ * 可重复执行，每次都会覆盖同名占位文件；替换为正式素材后不要再运行，
+ * 否则新素材会被占位内容覆盖。
  */
 import { deflateSync } from 'node:zlib';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// 输出位置：游戏内容包（美术 / 音频）与 Electron 外壳图标目录。
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const GAME = path.join(ROOT, 'packages/game-content/game');
 const ASSETS = path.join(ROOT, 'apps/electron/assets');
 
+/** 确保目录存在并返回拼接后的绝对路径。 */
 const ensure = async (...segments) => {
   const target = path.join(...segments);
   await mkdir(target, { recursive: true });
   return target;
 };
 
+/** 写入文件（自动建目录）并打印相对仓库根的输出路径。 */
 const write = async (file, data) => {
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, data);
   console.log(`  · ${path.relative(ROOT, file)}`);
 };
 
+/** 确定性伪随机数生成器：同一 seed 产出完全相同的素材，重复生成时 diff 稳定。 */
 function mulberry32(seed) {
   let value = seed;
   return () => {
@@ -42,6 +49,7 @@ function mulberry32(seed) {
 
 const BOOK_COLORS = ['#8d5b6d', '#5b6d8d', '#8d7a5b', '#6d8d74', '#7a5b8d', '#a76f7d', '#4f6480'];
 
+/** 生成一面由随机宽高书本组成的书架，用 seed 保证每次布局一致。 */
 function bookshelf(x, y, width, height, seed) {
   const rng = mulberry32(seed);
   const rows = 4;
@@ -63,6 +71,7 @@ function bookshelf(x, y, width, height, seed) {
   return content;
 }
 
+/** 在给定区域内散布半透明圆点，模拟光柱中的漂浮尘埃。 */
 function dust(seed, count, width, height) {
   const rng = mulberry32(seed);
   let content = '';
@@ -75,6 +84,11 @@ function dust(seed, count, width, height) {
   return content;
 }
 
+/**
+ * 生成 1920×1080 的图书馆背景。
+ * variant 决定桌面道具：afternoon 为书本、tea 为茶具、sunset 为长椅；
+ * 其余颜色参数用于区分不同时段的天空与光柱。
+ */
 function libraryScene({ skyTop, skyBottom, wallTop, wallBottom, glow, beam, floor, accent, seed, variant }) {
   const width = 1920;
   const height = 1080;
@@ -193,6 +207,7 @@ function libraryScene({ skyTop, skyBottom, wallTop, wallBottom, glow, beam, floo
 </svg>`;
 }
 
+// 标题画面：拱形长窗、书架剪影与窗边少女，与游戏主色调一致。
 const titleArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
@@ -261,6 +276,7 @@ const titleArt = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080
   <rect y="950" width="1920" height="130" fill="#05060a" opacity="0.55"/>
 </svg>`;
 
+// 热茶 CG：暖色茶杯与蒸汽，对应“热茶”分支的氛围。
 const teaCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
   <defs>
     <linearGradient id="room" x1="0" y1="0" x2="0" y2="1">
@@ -308,6 +324,7 @@ const teaCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" w
   <rect y="980" width="1920" height="100" fill="#05060a" opacity="0.45"/>
 </svg>`;
 
+// 书页 CG：摊开的书与漂浮音符，对应“书页”分支的旋律结局。
 const bookCg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
   <defs>
     <radialGradient id="dark" cx="960" cy="560" r="820" gradientUnits="userSpaceOnUse">
@@ -370,6 +387,10 @@ const spriteBangs = `
   <path d="M272 402 Q244 512 268 632 Q286 664 314 646 Q284 556 294 424 Z" fill="#b78aa2"/>
   <path d="M528 402 Q556 512 532 632 Q514 664 486 646 Q516 556 506 424 Z" fill="#b78aa2"/>`;
 
+/**
+ * 生成 800×1200 的立绘：neutral 为睁眼，smile / blush 为眯眼，
+ * blush 额外加腮红；头发分前后两层，后发先画以免遮住脸部。
+ */
 function sprite(variant) {
   const blush =
     variant === 'blush'
@@ -446,6 +467,10 @@ function sprite(variant) {
 /* 音频（16-bit PCM WAV）                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 手写 WAV：44 字节文件头 + 16-bit 单声道 PCM。
+ * sample 回调返回 [-1, 1] 的浮点采样，写入前 clamp 并缩放为 int16。
+ */
 function writeWav({ seconds, sampleRate = 22050, sample }) {
   const frames = Math.floor(seconds * sampleRate);
   const buffer = Buffer.alloc(44 + frames * 2);
@@ -471,6 +496,7 @@ function writeWav({ seconds, sampleRate = 22050, sample }) {
 
 const TAU = Math.PI * 2;
 
+/** 单个音符：带 0.12s 上升、0.4s 衰减包络的正弦波，超出时间窗返回 0。 */
 function note(freq, t, start, duration, gain = 1) {
   if (t < start || t > start + duration) return 0;
   const local = t - start;
@@ -480,6 +506,7 @@ function note(freq, t, start, duration, gain = 1) {
   return Math.sin(TAU * freq * local) * envelope * gain;
 }
 
+/** 生成柔和 BGM：持续和弦 + 两音一组的琶音 + 轻微的缓慢呼吸起伏。 */
 function bgmSample(notes, duration, seed) {
   const rng = mulberry32(seed);
   const detune = notes.map(() => (rng() - 0.5) * 0.04);
@@ -498,6 +525,7 @@ function bgmSample(notes, duration, seed) {
   };
 }
 
+/** 音效采样：page 为翻页噪点 + 扫频，cup 为两次衰减脉冲模拟瓷杯轻碰。 */
 function seSample(kind) {
   const rng = mulberry32(kind === 'page' ? 7 : 11);
   const noise = (i) => rng() * 2 - 1;
@@ -517,6 +545,7 @@ function seSample(kind) {
   };
 }
 
+/** 生成占位“语音”：把若干带颤音的音节事件拼成一段无意义的旋律。 */
 function voiceSample(seed, baseFreq) {
   const rng = mulberry32(seed);
   const syllables = 5 + Math.floor(rng() * 3);
@@ -546,6 +575,7 @@ function voiceSample(seed, baseFreq) {
 /* PNG / ICO                                                           */
 /* ------------------------------------------------------------------ */
 
+// PNG 使用 CRC32 校验每个 chunk；查表实现避免引入第三方依赖。
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
   for (let n = 0; n < 256; n += 1) {
@@ -562,6 +592,7 @@ function crc32(buffer) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+/** 组装一个 PNG chunk：长度 + 类型 + 数据 + CRC。 */
 function pngChunk(type, data) {
   const typeBuffer = Buffer.from(type, 'ascii');
   const length = Buffer.alloc(4);
@@ -571,6 +602,10 @@ function pngChunk(type, data) {
   return Buffer.concat([length, typeBuffer, data, crc]);
 }
 
+/**
+ * 手写最小 PNG：RGBA8、无交错，每行前置 filter 0，再用 zlib level 9 压缩像素数据。
+ * pixels 为 width × height × 4 的原始 RGBA 缓冲。
+ */
 function encodePng(width, height, pixels) {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
@@ -596,6 +631,7 @@ function encodePng(width, height, pixels) {
   ]);
 }
 
+/** 程序化绘制图标：径向光晕 + 菱形高光 + 十字星光，并用圆角公式裁切四角。 */
 function iconPixels(size) {
   const pixels = Buffer.alloc(size * size * 4);
   const s = size / 256;
@@ -640,6 +676,10 @@ function iconPixels(size) {
   return pixels;
 }
 
+/**
+ * 组装 ICO：每个尺寸内嵌一张 PNG，目录项记录偏移与大小；
+ * 宽 / 高为 256 时目录项写 0（ICO 规范的约定）。
+ */
 function encodeIco(sizes) {
   const pngs = sizes.map((size) => {
     const png = encodePng(size, size, iconPixels(size));
@@ -673,6 +713,7 @@ function encodeIco(sizes) {
 /* 主流程                                                              */
 /* ------------------------------------------------------------------ */
 
+/** 生成全部占位资源：背景 / 立绘 / CG、BGM / 音效 / 语音，以及 Electron 图标。 */
 async function main() {
   console.log('生成 SVG 美术…');
   const bgDir = await ensure(GAME, 'images/bg');

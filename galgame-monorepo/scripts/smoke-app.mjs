@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
- * 冒烟测试：启动已打包的桌面应用，通过 Chrome DevTools Protocol 驱动界面并截图。
+ * 桌面端冒烟测试：启动已打包的 exe，通过 Chrome DevTools Protocol 驱动界面并截图。
+ *
+ * 流程：标题 → 开始新游戏 → 空格推进 → PageUp 回退 → 选项 → 存读档 → 设置，
+ * 截图输出到 scripts/.smoke，并收集 console error / 未捕获异常 / Log error 统一报告。
+ * 需要先执行 pnpm package；默认读取 apps/electron/out 下的免安装产物。
+ *
  * 用法：node scripts/smoke-app.mjs [exe路径]
  */
 import { spawn, execFileSync } from 'node:child_process';
@@ -8,6 +13,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// EXE 可通过第一个参数覆盖；OUT 固定为 scripts/.smoke，与 Web 冒烟共用目录。
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const EXE = path.resolve(
@@ -23,6 +29,7 @@ async function fetchJson(url) {
   return response.json();
 }
 
+/** 轮询 /json/list 直到出现可调试的页面目标；超时抛错。 */
 async function waitForTarget(timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -38,6 +45,10 @@ async function waitForTarget(timeoutMs = 20000) {
   throw new Error('等待调试目标超时');
 }
 
+/**
+ * 最小 CDP 客户端：在 WebSocket 上按 id 匹配请求与响应；
+ * 没有 id 的事件消息交给 onMessage 监听器（用于收集 console / 异常）。
+ */
 function createClient(url) {
   const socket = new WebSocket(url);
   const pending = new Map();
@@ -80,8 +91,10 @@ function createClient(url) {
   };
 }
 
+/** 启动应用并按剧本路径驱动 UI；任何一步失败都会在 finally 中结束进程树。 */
 async function main() {
   await mkdir(OUT, { recursive: true });
+  // 运行期错误汇总：只记录，流程跑完后统一决定退出码，避免首个错误中断后续截图。
   const errors = [];
 
   // 某些环境会导出 ELECTRON_RUN_AS_NODE=1，会让 Electron 以纯 Node 模式启动。
@@ -119,6 +132,7 @@ async function main() {
     await client.send('Runtime.enable');
     await client.send('Log.enable');
 
+    // 在页面内执行表达式：awaitPromise + returnByValue 便于直接拿回 JSON 结果。
     const evaluate = async (expression) => {
       const result = await client.send('Runtime.evaluate', {
         expression,
@@ -131,6 +145,7 @@ async function main() {
       return result.result.value;
     };
 
+    // 截图按序号命名，保证文件顺序与操作顺序一致。
     let index = 0;
     const shot = async (name) => {
       index += 1;
@@ -140,6 +155,7 @@ async function main() {
       console.log(`截图：${path.relative(ROOT, file)}`);
     };
 
+    /** 轮询表达式直到为真；用于等待渲染完成、按钮可用等界面状态。 */
     const waitFor = async (expression, timeoutMs = 8000) => {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
@@ -149,6 +165,7 @@ async function main() {
       throw new Error(`等待条件超时：${expression}`);
     };
 
+    /** 按文本包含匹配并点击按钮；找不到返回 false，由调用方决定是否报错。 */
     const clickButton = (text) =>
       evaluate(`(() => {
         const button = [...document.querySelectorAll('button')].find((item) =>
@@ -159,12 +176,14 @@ async function main() {
         return true;
       })()`);
 
+    /** 在 window 上派发空格 keydown，模拟玩家推进对话。 */
     const pressSpace = () =>
       evaluate(`(() => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }));
         return true;
       })()`);
 
+    /** 抓取当前界面快照：视图、弹窗 / 选项是否出现、当前台词与可见按钮。 */
     const state = () =>
       evaluate(`(() => ({
         view: document.querySelector('[data-view]')?.dataset.view ?? null,
@@ -244,6 +263,7 @@ async function main() {
     await clickButton('×');
     await sleep(500);
 
+    /** 点击存档卡槽（data-slot 为 "01" 这类两位编号）。 */
     const clickSlot = (title) =>
       evaluate(`(() => {
         const card = [...document.querySelectorAll('[data-slot]')].find(
@@ -254,7 +274,7 @@ async function main() {
         return true;
       })()`);
 
-    // 清空槽位 01，避免覆盖已有存档时弹出会阻塞 CDP 的 window.confirm。
+    // 先清空槽位 01：已有存档时播放器会弹应用内覆盖确认框，挡住后续自动化步骤。
     await evaluate(`window.sylvieGame ? window.sylvieGame.storageDelete('save:slot:1') : null`);
 
     await clickButton('存档');
@@ -296,6 +316,7 @@ async function main() {
       console.log('\n运行期无错误。');
     }
   } finally {
+    // 无论成功失败都断开 CDP，并结束应用进程树（/T 连同渲染进程一起终止）。
     client?.close();
     try {
       execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });

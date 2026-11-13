@@ -2,6 +2,10 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 import { getPlayerPlatform } from '../player-config';
 
+/**
+ * 安全读取平台路径：ErrorBoundary 可能在任何初始化阶段触发，
+ * 此时 configurePlayer 尚未调用也属正常，因此读取失败时静默返回空路径。
+ */
 function platformPaths(): { logPath: string | null; storagePath: string | null } {
   try {
     const platform = getPlayerPlatform();
@@ -19,7 +23,13 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-/** 渲染层兜底，避免单个组件异常导致整页白屏。 */
+/**
+ * 渲染层兜底，避免单个组件异常导致整页白屏。
+ *
+ * 捕获子树的渲染异常后展示错误页，提供“复制错误”（含堆栈与存档 / 日志路径）
+ * 与“重新加载”（整页刷新，存档仍保留在本地）两个出口。
+ * 仅捕获 React 渲染期错误，事件回调与异步错误仍需各自处理。
+ */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   override state: ErrorBoundaryState = { error: null };
 
@@ -27,14 +37,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { error };
   }
 
+  /** 记录组件栈到控制台，便于对照日志排查；不在此处写存储。 */
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[播放器] 渲染异常', error, info.componentStack);
   }
 
+  /** 整页刷新；游戏进度已落盘，刷新后可继续。 */
   private readonly reload = (): void => {
     window.location.reload();
   };
 
+  /** 把错误名、消息、堆栈与平台路径拼成可粘贴的诊断文本。 */
   private readonly copyError = (): void => {
     const error = this.state.error;
     if (!error) return;
