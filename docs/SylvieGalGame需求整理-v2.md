@@ -189,7 +189,8 @@
 - **V3 存档备注与导入导出**：导入导出已完成。存档面板支持全量 / 单档导出为 JSON，导入时校验格式与白名单键；桌面端走系统文件对话框，Web 端走浏览器下载 / 上传。保存时编辑备注仍待后续。
 - **C2 YAML Schema**：已完成。新增 `docs/script.schema.json`，覆盖清单、全部指令与常用字段；根目录与 monorepo 内的 `.vscode/settings.json` 已配置映射。
 - **C3 内容体检**：已完成。`pnpm validate` 增加未引用资源、不可达场景、资源体积 / 命名 / 扩展名检查，并输出资源、场景与语音覆盖统计。
-- 其余 M2 项（E5、A3、V6）仍待实现。
+- **E5 演出指令**：已完成。新增 `shake` / `flash` 指令；`bg` / `sprite` / `cg` 支持 `dissolve` / `slide-left` / `slide-right` / `wipe` 转场与逐条 `ease`；立绘新增 `flip`，移动 / 缩放 / 层级由 `position` / `scale` / `z` 控制，未知参数加载期告警。
+- 其余 M2 项（A3、V6）仍待实现。
 
 ## 十四、验收总则
 

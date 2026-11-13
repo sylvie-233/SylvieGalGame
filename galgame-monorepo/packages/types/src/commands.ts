@@ -1,6 +1,8 @@
 import type { VariableValue } from './variables';
 
-export type Transition = 'fade' | 'none';
+export type Transition = 'fade' | 'dissolve' | 'slide-left' | 'slide-right' | 'wipe' | 'none';
+
+export type TransitionEase = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
 
 export type SpritePosition = 'left' | 'center' | 'right' | number;
 
@@ -9,6 +11,7 @@ export interface BgCommand {
   /** null 表示回到纯黑背景。 */
   image: string | null;
   transition: Transition;
+  ease: TransitionEase;
   duration: number;
 }
 
@@ -23,7 +26,10 @@ export interface SpriteCommand {
   scale: number;
   /** 层级，数值越大越靠前。 */
   z: number;
+  /** 水平翻转。 */
+  flip: boolean;
   transition: Transition;
+  ease: TransitionEase;
   duration: number;
 }
 
@@ -32,6 +38,7 @@ export interface CgCommand {
   image: string | null;
   visible: boolean;
   transition: Transition;
+  ease: TransitionEase;
   duration: number;
 }
 
@@ -121,6 +128,20 @@ export interface EndingCommand {
   id: string;
 }
 
+export interface ShakeCommand {
+  kind: 'shake';
+  /** 最大偏移像素。 */
+  intensity: number;
+  duration: number;
+}
+
+export interface FlashCommand {
+  kind: 'flash';
+  color: 'white' | 'black';
+  opacity: number;
+  duration: number;
+}
+
 export type Command =
   | BgCommand
   | SpriteCommand
@@ -135,7 +156,9 @@ export type Command =
   | SetCommand
   | IfCommand
   | WaitCommand
-  | EndingCommand;
+  | EndingCommand
+  | ShakeCommand
+  | FlashCommand;
 
 export const COMMAND_KINDS = [
   'bg',
@@ -152,6 +175,8 @@ export const COMMAND_KINDS = [
   'if',
   'wait',
   'ending',
+  'shake',
+  'flash',
 ] as const;
 
 export type CommandKind = (typeof COMMAND_KINDS)[number];

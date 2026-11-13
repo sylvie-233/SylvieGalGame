@@ -35,6 +35,8 @@ commands:
       id: sylvie
       image: images/sprite/sylvie_smile.svg
       position: center
+      transition: dissolve
+      ease: easeOut
       duration: 500
 
   - text:
@@ -49,6 +51,9 @@ commands:
   - text:
       speaker: 旁白
       text: "她把摊开的书轻轻合上。封面是一片褪色的蓝，边角被翻得柔软。"
+
+  - shake: { intensity: 4, duration: 220 }
+  - flash: { color: white, opacity: 0.22, duration: 420 }
 
   - set:
       var: route

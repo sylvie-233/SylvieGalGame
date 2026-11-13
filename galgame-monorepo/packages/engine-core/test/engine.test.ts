@@ -36,7 +36,7 @@ imports:
 commands:
   - label: begin
   - bg: images/bg/room.png
-  - sprite: { id: girl, image: images/sprite/girl.png, position: center, scale: 1.2, z: 3 }
+  - sprite: { id: girl, image: images/sprite/girl.png, position: center, scale: 1.2, z: 3, flip: true, ease: easeOut }
   - text: { speaker: 少女, text: "第一句话。" }
   - set: { var: affection, op: "+=", value: 2 }
   - text: "第二句话。"
@@ -280,6 +280,8 @@ describe('game engine', () => {
     expect(snapshot.variables.affection).toBe(0);
     expect(snapshot.stage.sprites.girl?.scale).toBe(1.2);
     expect(snapshot.stage.sprites.girl?.z).toBe(3);
+    expect(snapshot.stage.sprites.girl?.flip).toBe(true);
+    expect(snapshot.stage.sprites.girl?.ease).toBe('easeOut');
 
     engine.advance();
     snapshot = engine.getSnapshot();
@@ -441,6 +443,49 @@ commands:
     expect(snapshot.variables.greeting).toBe('你好，旅人！');
     expect(snapshot.dialogue?.text).toBe('好感 3');
     expect(snapshot.chapter).toBe('after');
+  });
+
+  it('supports new transitions and one-shot shake / flash effects', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - bg: { image: images/bg/room.png, transition: wipe, ease: linear, duration: 700 }
+  - text: "第一句"
+  - shake: { intensity: 12, duration: 300 }
+  - flash: black
+  - text: "第二句"
+`;
+    const engine = new GameEngine({
+      host: {
+        assets: createAssets(files),
+        storage: createStorage(),
+        onWarning: () => {},
+      },
+    });
+    await engine.initialize();
+    const effects: string[] = [];
+    engine.onEffect((effect) => {
+      if (effect.type === 'shake') effects.push(`shake:${effect.intensity}:${effect.duration}`);
+      if (effect.type === 'flash') effects.push(`flash:${effect.color}:${effect.opacity}`);
+    });
+    engine.start();
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.stage.background.transition).toBe('wipe');
+    expect(snapshot.stage.background.ease).toBe('linear');
+    expect(snapshot.stage.background.duration).toBe(700);
+
+    engine.advance();
+    expect(effects).toEqual(['shake:12:300', 'flash:black:0.85']);
+    expect(engine.getSnapshot().dialogue?.text).toBe('第二句');
+  });
+
+  it('warns about unknown command parameters', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] =
+      'commands:\n  - shake: { intensity: 5, strength: 9 }\n';
+    const warnings: string[] = [];
+    await loadGame(createAssets(files), (message) => warnings.push(message));
+    expect(warnings.some((message) => message.includes('未知参数 strength'))).toBe(true);
   });
 
   it('interpolates variables when the text blocks', async () => {

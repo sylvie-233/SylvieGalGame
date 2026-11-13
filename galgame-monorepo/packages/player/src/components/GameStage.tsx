@@ -1,4 +1,4 @@
-import type { GameSnapshot, SpritePosition } from '@sylvie/types';
+import type { GameSnapshot, SpritePosition, TransitionEase } from '@sylvie/types';
 import type { RefObject } from 'react';
 
 import { ChoiceOverlay } from './ChoiceOverlay';
@@ -27,6 +27,13 @@ function spriteLeft(position: SpritePosition): string {
   return '50%';
 }
 
+const EASE_CSS: Record<TransitionEase, string> = {
+  linear: 'linear',
+  easeIn: 'cubic-bezier(0.42, 0, 1, 1)',
+  easeOut: 'cubic-bezier(0, 0, 0.58, 1)',
+  easeInOut: 'cubic-bezier(0.42, 0, 0.58, 1)',
+};
+
 const VIGNETTE =
   'bg-[radial-gradient(ellipse_at_50%_46%,transparent_42%,rgba(3,4,8,0.5)_100%),linear-gradient(0deg,rgba(4,5,9,0.72)_0%,transparent_38%),linear-gradient(180deg,rgba(4,5,9,0.28)_0%,transparent_22%)]';
 
@@ -54,7 +61,8 @@ export function GameStage({
           src={background.image}
           assetUrl={assetUrl}
           alt="背景"
-          fade={background.transition === 'fade'}
+          transition={background.transition}
+          ease={background.ease}
           duration={background.duration}
           imageClassName="object-cover brightness-[0.92] saturate-[0.96]"
         />
@@ -69,9 +77,12 @@ export function GameStage({
               left: spriteLeft(sprite.position),
               opacity: sprite.opacity,
               zIndex: sprite.z ?? 0,
-              transform: `translateX(-50%) scale(${sprite.scale ?? 1})`,
+              transform: `translateX(-50%) scale(${sprite.scale ?? 1}) scaleX(${
+                sprite.flip ? -1 : 1
+              })`,
               transformOrigin: 'bottom center',
-              transitionDuration: `${sprite.transition === 'fade' ? sprite.duration : 0}ms`,
+              transitionDuration: `${sprite.transition === 'none' ? 0 : sprite.duration}ms`,
+              transitionTimingFunction: EASE_CSS[sprite.ease ?? 'easeInOut'],
             }}
           >
             {sprite.image && (
@@ -79,7 +90,8 @@ export function GameStage({
                 src={sprite.image}
                 assetUrl={assetUrl}
                 alt={sprite.id}
-                fade={sprite.transition === 'fade'}
+                transition={sprite.transition}
+                ease={sprite.ease}
                 duration={sprite.duration}
                 imageClassName="object-contain object-bottom"
               />
@@ -92,7 +104,8 @@ export function GameStage({
         className="pointer-events-none absolute inset-0 z-[3] transition-opacity ease-in-out"
         style={{
           opacity: cg.visible ? 1 : 0,
-          transitionDuration: `${cg.transition === 'fade' ? cg.duration : 0}ms`,
+          transitionDuration: `${cg.transition === 'none' ? 0 : cg.duration}ms`,
+          transitionTimingFunction: EASE_CSS[cg.ease ?? 'easeInOut'],
         }}
         aria-hidden="true"
       >
@@ -101,7 +114,8 @@ export function GameStage({
             src={cg.image}
             assetUrl={assetUrl}
             alt="CG"
-            fade={cg.transition === 'fade'}
+            transition={cg.transition}
+            ease={cg.ease}
             duration={cg.duration}
             imageClassName="object-cover"
           />

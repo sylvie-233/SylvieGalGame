@@ -17,7 +17,7 @@ import {
   type SaveData,
 } from '@sylvie/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
 
 import { AudioManager } from '../audio';
 import { getPlayerPlatform } from '../player-config';
@@ -41,6 +41,13 @@ export function GameApp() {
   const platform = getPlayerPlatform();
 
   const [uiHidden, setUiHidden] = useState(false);
+  const [flash, setFlash] = useState<{
+    key: number;
+    color: 'white' | 'black';
+    opacity: number;
+    duration: number;
+  } | null>(null);
+  const shakeControls = useAnimationControls();
   const [gallery, setGallery] = useState<GalleryUnlocks>(() => emptyGalleryUnlocks());
   const galleryRef = useRef<GalleryUnlocks>(emptyGalleryUnlocks());
   const galleryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -165,6 +172,26 @@ export function GameApp() {
         case 'checkpoint':
           scheduleAutoSave(effect.block, effect.chapter);
           break;
+        case 'shake': {
+          const strength = Math.max(1, effect.intensity);
+          void shakeControls.start({
+            x: [0, -strength, strength, -strength * 0.6, strength * 0.6, 0],
+            y: [0, strength * 0.35, -strength * 0.35, strength * 0.2, -strength * 0.2, 0],
+            transition: {
+              duration: Math.max(0.1, effect.duration / 1000),
+              ease: 'easeInOut',
+            },
+          });
+          break;
+        }
+        case 'flash':
+          setFlash({
+            key: Date.now(),
+            color: effect.color,
+            opacity: effect.opacity,
+            duration: effect.duration,
+          });
+          break;
         case 'ended':
           setAuto(false);
           setSkip(false);
@@ -227,6 +254,7 @@ export function GameApp() {
     setSettings,
     setSkip,
     setSnapshot,
+    shakeControls,
   ]);
 
   useEffect(() => {
@@ -678,8 +706,10 @@ export function GameApp() {
           onQuit={platform.quit ? () => platform.quit?.() : undefined}
         />
       ) : (
-        <div
+        <motion.div
           className="absolute inset-0"
+          animate={shakeControls}
+          initial={{ x: 0, y: 0 }}
           onContextMenu={(event) => {
             event.preventDefault();
             toggleUiHidden();
@@ -718,7 +748,19 @@ export function GameApp() {
               onMenu={() => setOverlay({ kind: 'menu' })}
             />
           )}
-        </div>
+          {flash && (
+            <motion.div
+              key={flash.key}
+              className="pointer-events-none absolute inset-0 z-[45]"
+              style={{ backgroundColor: flash.color }}
+              initial={{ opacity: flash.opacity }}
+              animate={{ opacity: 0 }}
+              transition={{ duration: Math.max(0.05, flash.duration / 1000), ease: 'easeOut' }}
+              onAnimationComplete={() => setFlash(null)}
+              aria-hidden="true"
+            />
+          )}
+        </motion.div>
       )}
 
       {!ready && (

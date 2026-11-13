@@ -29,7 +29,7 @@ pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，
 pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
-pnpm test         # engine-core 的 Vitest（目前 28 个用例）
+pnpm test         # engine-core 的 Vitest（目前 30 个用例）
 pnpm validate     # 加载真实剧本、内容体检、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
@@ -67,7 +67,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
         └──存档 / 设置──▶ KeyValueStorage（Electron: JSON 文件 / Web: localStorage）
 ```
 
-- **engine-core**：解析 manifest 与递归 imports，按 `label` / `jump` / `choice` / `if` 等指令推进；采用指针 + 阻塞模型，`text` / `choice` / `wait` 阻塞，其余即时执行。`phase` 为 `idle | text | choice | wait | ended`，每次推进产生不可变 `GameSnapshot`，并通过 effect 事件通知 UI 播放 BGM / SE / 语音、预加载资源。每个阻塞点会记录最多 50 个完整状态快照供 `rollback()` 使用；`text` 的 `{变量}` 插值在阻塞时求值；到达文本 / 选项时发出 `checkpoint` 效果，供播放器节流自动存档。文本已读 id 默认按“块名 + 内容哈希”生成并兼容旧版 `block#下标`，显式 `id` 优先；`set` 支持 `expr`，`choice` 选项可带 `set` / `actions`，选中后先赋值再跳转。manifest 的 `chapters` / `endings` / `titleScreen` 由引擎解析，`ending` 指令结束本局并在快照中带出 `chapterName` 与 `ending`；`sprite` 支持 `scale` / `z`。
+- **engine-core**：解析 manifest 与递归 imports，按 `label` / `jump` / `choice` / `if` 等指令推进；采用指针 + 阻塞模型，`text` / `choice` / `wait` 阻塞，其余即时执行。`phase` 为 `idle | text | choice | wait | ended`，每次推进产生不可变 `GameSnapshot`，并通过 effect 事件通知 UI 播放 BGM / SE / 语音、预加载资源。每个阻塞点会记录最多 50 个完整状态快照供 `rollback()` 使用；`text` 的 `{变量}` 插值在阻塞时求值；到达文本 / 选项时发出 `checkpoint` 效果，供播放器节流自动存档。文本已读 id 默认按“块名 + 内容哈希”生成并兼容旧版 `block#下标`，显式 `id` 优先；`set` 支持 `expr`，`choice` 选项可带 `set` / `actions`，选中后先赋值再跳转。manifest 的 `chapters` / `endings` / `titleScreen` 由引擎解析，`ending` 指令结束本局并在快照中带出 `chapterName` 与 `ending`；`sprite` 支持 `scale` / `z` / `flip`。转场为 `fade | dissolve | slide-left | slide-right | wipe | none`，每条指令可带 `ease`；`shake` / `flash` 通过效果事件交给播放器一次性播放，不写入快照。
 - **player**：`GameApp` 只消费快照与事件；启动时必须先调用 `configurePlayer(PlayerPlatform)` 注入平台能力。UI 状态集中在 Zustand（`packages/player/src/store.ts`），音频由 `AudioManager` 管理。`player` 不直接访问 `window.sylvieGame`、`localStorage` 或任何文件系统 API。覆盖 / 删除 / 返回标题统一走 `useConfirm()` 应用内确认框，不要恢复原生 `window.confirm`；脚本警告汇总到 Zustand 的 `warnings` 并由 `WarningsPanel` 展示；宿主入口用 `ErrorBoundary` 包住 `GameApp`。图鉴解锁由 `GameApp` 监听快照（CG / BGM / 结局）后写入 `meta:gallery`，`GalleryPanel` 只读展示并提供 BGM 试听。
 - **Electron**：`main.ts` 注册 `app://sylvie/index.html` 与 `game://assets/...`，资源访问经过 `resolveInside` 防目录穿越；`preload.ts` 通过 `contextBridge` 暴露受控 API；存档写入 `userData/game-storage.json`。渲染进程的 CSP 禁止外部脚本，截图通过 `capturePage` 生成 640px 宽缩略图。
 - **Web**：`apps/web/src/platform.ts` 将同一套 `PlayerPlatform` 映射为 `fetch` + `localStorage` + `html-to-image` + Fullscreen API。Vite 配置把共享包别名到源码，开发期中间件把 `game-content/game` 挂到 `/game`（支持 HEAD / Range）；构建时把内容复制到 `dist/game`。`quit` 刻意不实现，播放器会自动隐藏“退出游戏”。
@@ -104,7 +104,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 
 ## 已知边界与常见坑
 
-- 一期只支持 `fade` / `none` 转场；无剧本编辑器；资源为松散文件，未加密或压缩。
+- 转场支持 `fade` / `dissolve` / `slide-left` / `slide-right` / `wipe` / `none` 与逐条 `ease`；`shake` / `flash` 为一次性效果，不进入存档或回滚快照。无剧本编辑器；资源为松散文件，未加密或压缩。
 - 回滚历史只存在当前会话内存中（最多 50 个阻塞点），`start()` / `restoreSave()` 会清空；它不写入存档，读档后不能继续回退到读档前的进度。
 - 脚本警告已汇总到播放器内面板，但暂未带 `scene.yaml` 行号，也没有错误 / 警告分级；渲染异常只做 ErrorBoundary 兜底，尚未把日志写入 `userData`。
 - 新增存档字段时必须同时提升 `SAVE_VERSION`、更新 `isSaveData()` 并在 `migrateSaveData()` 中补迁移逻辑，否则旧档会被当成坏档丢弃。

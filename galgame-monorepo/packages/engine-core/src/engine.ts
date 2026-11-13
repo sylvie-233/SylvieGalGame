@@ -477,6 +477,23 @@ export class GameEngine {
           this.applySet(command);
           this.pointer.index += 1;
           break;
+        case 'shake':
+          this.emitEffect({
+            type: 'shake',
+            intensity: command.intensity,
+            duration: command.duration,
+          });
+          this.pointer.index += 1;
+          break;
+        case 'flash':
+          this.emitEffect({
+            type: 'flash',
+            color: command.color,
+            opacity: command.opacity,
+            duration: command.duration,
+          });
+          this.pointer.index += 1;
+          break;
         case 'ending':
           this.applyEnding(command);
           return;
@@ -656,6 +673,7 @@ export class GameEngine {
     this.stage.background = {
       image: command.image,
       transition: command.transition,
+      ease: command.ease,
       duration: command.duration,
       revision: this.stage.background.revision + 1,
     };
@@ -672,7 +690,9 @@ export class GameEngine {
         opacity: command.image ? command.opacity : 0,
         scale: command.scale,
         z: command.z,
+        flip: command.flip,
         transition: command.transition,
+        ease: command.ease,
         duration: command.duration,
         revision: (previous?.revision ?? 0) + 1,
       },
@@ -685,6 +705,7 @@ export class GameEngine {
       image: command.image ?? previous.image,
       visible: command.visible,
       transition: command.transition,
+      ease: command.ease,
       duration: command.duration,
       revision: previous.revision + 1,
     };

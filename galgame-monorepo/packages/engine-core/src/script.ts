@@ -9,16 +9,19 @@ import type {
   CompiledScene,
   EndingCommand,
   EndingDefinition,
+  FlashCommand,
   GameManifest,
   IfCommand,
   JumpCommand,
   LabelCommand,
   SeCommand,
   SetCommand,
+  ShakeCommand,
   SpriteCommand,
   SpritePosition,
   TextCommand,
   Transition,
+  TransitionEase,
   VariableValue,
   VoiceCommand,
   WaitCommand,
@@ -75,8 +78,43 @@ function asVariableValue(value: unknown): VariableValue | null {
   return null;
 }
 
+const TRANSITIONS: readonly Transition[] = [
+  'fade',
+  'dissolve',
+  'slide-left',
+  'slide-right',
+  'wipe',
+  'none',
+];
+
+const EASES: readonly TransitionEase[] = ['linear', 'easeIn', 'easeOut', 'easeInOut'];
+
 function parseTransition(value: unknown, fallback: Transition): Transition {
-  return value === 'fade' || value === 'none' ? value : fallback;
+  return TRANSITIONS.includes(value as Transition) ? (value as Transition) : fallback;
+}
+
+function parseEase(
+  value: unknown,
+  context: string,
+  warn: Warn,
+  fallback: TransitionEase = 'easeInOut',
+): TransitionEase {
+  if (value === undefined) return fallback;
+  if (EASES.includes(value as TransitionEase)) return value as TransitionEase;
+  warn(`[脚本] ${context}：ease 只能是 ${EASES.join(' / ')}，已按 ${fallback} 处理`);
+  return fallback;
+}
+
+function warnUnknownKeys(
+  payload: Record<string, unknown>,
+  allowed: string[],
+  context: string,
+  warn: Warn,
+): void {
+  const unknown = Object.keys(payload).filter((key) => !allowed.includes(key));
+  if (unknown.length > 0) {
+    warn(`[脚本] ${context}：未知参数 ${unknown.join(', ')}`);
+  }
 }
 
 function parseSpritePosition(
@@ -340,6 +378,7 @@ function parseSceneDocument(name: string, source: string, warn: Warn): RawSceneD
 function parseBg(payload: unknown, block: string, index: number, warn: Warn): BgCommand {
   let image: string | null = null;
   let transition: Transition = 'fade';
+  let ease: TransitionEase = 'easeInOut';
   let duration = 600;
 
   if (typeof payload === 'string') {
@@ -348,6 +387,12 @@ function parseBg(payload: unknown, block: string, index: number, warn: Warn): Bg
     transition = 'none';
     duration = 0;
   } else if (isRecord(payload)) {
+    warnUnknownKeys(
+      payload,
+      ['image', 'hide', 'transition', 'duration', 'ease'],
+      `${block} 第 ${index + 1} 条 bg`,
+      warn,
+    );
     if (asBoolean(payload.hide) === true) {
       image = null;
     } else if (payload.image === null) {
@@ -361,6 +406,7 @@ function parseBg(payload: unknown, block: string, index: number, warn: Warn): Bg
       }
     }
     transition = parseTransition(payload.transition, image === null ? 'none' : 'fade');
+    ease = parseEase(payload.ease, `${block} 第 ${index + 1} 条 bg`, warn);
     const parsedDuration = asFiniteNumber(payload.duration);
     if (parsedDuration !== null && parsedDuration >= 0) {
       duration = parsedDuration;
@@ -370,7 +416,7 @@ function parseBg(payload: unknown, block: string, index: number, warn: Warn): Bg
     warn(`[脚本] ${block} 第 ${index + 1} 条 bg：参数应为路径或映射`);
   }
 
-  return { kind: 'bg', image, transition, duration };
+  return { kind: 'bg', image, transition, ease, duration };
 }
 
 function parseSprite(
@@ -383,6 +429,12 @@ function parseSprite(
     warn(`[脚本] ${block} 第 ${index + 1} 条 sprite：参数必须是映射，例如 { id, image }`);
     return null;
   }
+  warnUnknownKeys(
+    payload,
+    ['id', 'image', 'hide', 'position', 'opacity', 'scale', 'z', 'flip', 'transition', 'ease', 'duration'],
+    `${block} 第 ${index + 1} 条 sprite`,
+    warn,
+  );
   const id = asString(payload.id);
   if (!id) {
     warn(`[脚本] ${block} 第 ${index + 1} 条 sprite：缺少 id`);
@@ -418,7 +470,9 @@ function parseSprite(
     opacity,
     scale,
     z,
+    flip: asBoolean(payload.flip) ?? false,
     transition: parseTransition(payload.transition, 'fade'),
+    ease: parseEase(payload.ease, `${block} 第 ${index + 1} 条 sprite "${id}"`, warn),
     duration: Math.max(0, asFiniteNumber(payload.duration) ?? 600),
   };
 }
@@ -426,12 +480,32 @@ function parseSprite(
 function parseCg(payload: unknown, block: string, index: number, warn: Warn): CgCommand {
   if (typeof payload === 'string') {
     if (payload === 'hide' || payload === 'none') {
-      return { kind: 'cg', image: null, visible: false, transition: 'fade', duration: 600 };
+      return {
+        kind: 'cg',
+        image: null,
+        visible: false,
+        transition: 'fade',
+        ease: 'easeInOut',
+        duration: 600,
+      };
     }
-    return { kind: 'cg', image: payload, visible: true, transition: 'fade', duration: 600 };
+    return {
+      kind: 'cg',
+      image: payload,
+      visible: true,
+      transition: 'fade',
+      ease: 'easeInOut',
+      duration: 600,
+    };
   }
 
   if (isRecord(payload)) {
+    warnUnknownKeys(
+      payload,
+      ['image', 'visible', 'transition', 'duration', 'ease'],
+      `${block} 第 ${index + 1} 条 cg`,
+      warn,
+    );
     const image = asString(payload.image);
     const explicitVisibility = asBoolean(payload.visible);
     const visible = explicitVisibility ?? image !== null;
@@ -440,12 +514,20 @@ function parseCg(payload: unknown, block: string, index: number, warn: Warn): Cg
       image,
       visible,
       transition: parseTransition(payload.transition, 'fade'),
+      ease: parseEase(payload.ease, `${block} 第 ${index + 1} 条 cg`, warn),
       duration: Math.max(0, asFiniteNumber(payload.duration) ?? 600),
     };
   }
 
   warn(`[脚本] ${block} 第 ${index + 1} 条 cg：参数应为路径、hide 或映射`);
-  return { kind: 'cg', image: null, visible: false, transition: 'fade', duration: 600 };
+  return {
+    kind: 'cg',
+    image: null,
+    visible: false,
+    transition: 'fade',
+    ease: 'easeInOut',
+    duration: 600,
+  };
 }
 
 function parseText(payload: unknown, block: string, index: number, warn: Warn): TextCommand | null {
@@ -669,6 +751,51 @@ function parseIf(payload: unknown, block: string, index: number, warn: Warn): If
   };
 }
 
+function parseShake(payload: unknown, block: string, index: number, warn: Warn): ShakeCommand {
+  const context = `${block} 第 ${index + 1} 条 shake`;
+  if (typeof payload === 'number' && Number.isFinite(payload)) {
+    return { kind: 'shake', intensity: 8, duration: Math.max(0, payload) };
+  }
+  if (isRecord(payload)) {
+    warnUnknownKeys(payload, ['intensity', 'duration'], context, warn);
+    return {
+      kind: 'shake',
+      intensity: Math.min(40, Math.max(1, asFiniteNumber(payload.intensity) ?? 8)),
+      duration: Math.max(0, asFiniteNumber(payload.duration) ?? 400),
+    };
+  }
+  warn(`[脚本] ${context}：参数应为时长数字或 { intensity, duration } 映射`);
+  return { kind: 'shake', intensity: 8, duration: 400 };
+}
+
+function parseFlash(payload: unknown, block: string, index: number, warn: Warn): FlashCommand {
+  const context = `${block} 第 ${index + 1} 条 flash`;
+  const color = (value: unknown): 'white' | 'black' | null =>
+    value === 'white' || value === 'black' ? value : null;
+
+  if (typeof payload === 'string') {
+    const parsed = color(payload);
+    if (parsed) return { kind: 'flash', color: parsed, opacity: 0.85, duration: 500 };
+    warn(`[脚本] ${context}：颜色只能是 white / black`);
+    return { kind: 'flash', color: 'white', opacity: 0.85, duration: 500 };
+  }
+  if (isRecord(payload)) {
+    warnUnknownKeys(payload, ['color', 'opacity', 'duration'], context, warn);
+    const parsedColor = color(payload.color);
+    if (payload.color !== undefined && !parsedColor) {
+      warn(`[脚本] ${context}：颜色只能是 white / black，已按 white 处理`);
+    }
+    return {
+      kind: 'flash',
+      color: parsedColor ?? 'white',
+      opacity: Math.min(1, Math.max(0, asFiniteNumber(payload.opacity) ?? 0.85)),
+      duration: Math.max(0, asFiniteNumber(payload.duration) ?? 500),
+    };
+  }
+  warn(`[脚本] ${context}：参数应为 white / black 或 { color, opacity, duration } 映射`);
+  return { kind: 'flash', color: 'white', opacity: 0.85, duration: 500 };
+}
+
 function parseEnding(
   payload: unknown,
   block: string,
@@ -753,6 +880,10 @@ function parseCommand(raw: unknown, block: string, index: number, warn: Warn): C
       return parseWait(payload, block, index, warn);
     case 'ending':
       return parseEnding(payload, block, index, warn);
+    case 'shake':
+      return parseShake(payload, block, index, warn);
+    case 'flash':
+      return parseFlash(payload, block, index, warn);
     case 'import':
       warn(`[脚本] ${block} 第 ${index + 1} 条 import：请写在场景文件顶部的 imports 字段`);
       return null;

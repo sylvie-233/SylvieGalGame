@@ -1,4 +1,4 @@
-import type { SpritePosition, Transition } from './commands';
+import type { SpritePosition, Transition, TransitionEase } from './commands';
 import type { EndingDefinition } from './script';
 import type { VariableTable } from './variables';
 
@@ -7,6 +7,7 @@ export type Phase = 'idle' | 'text' | 'choice' | 'wait' | 'ended';
 export interface BackgroundState {
   image: string | null;
   transition: Transition;
+  ease?: TransitionEase;
   duration: number;
   /** UI 用：同一张图重复切换时也能触发动画。 */
   revision: number;
@@ -21,7 +22,9 @@ export interface SpriteState {
   scale?: number;
   /** 旧存档可能没有该字段，渲染时按 0 处理。 */
   z?: number;
+  flip?: boolean;
   transition: Transition;
+  ease?: TransitionEase;
   duration: number;
   revision: number;
 }
@@ -30,6 +33,7 @@ export interface CgState {
   image: string | null;
   visible: boolean;
   transition: Transition;
+  ease?: TransitionEase;
   duration: number;
   revision: number;
 }
@@ -103,4 +107,6 @@ export type EngineEffect =
   | { type: 'voice'; sound: string }
   /** 到达新的对话 / 选项，播放器可据此自动存档。 */
   | { type: 'checkpoint'; block: 'text' | 'choice'; chapter: string }
+  | { type: 'shake'; intensity: number; duration: number }
+  | { type: 'flash'; color: 'white' | 'black'; opacity: number; duration: number }
   | { type: 'ended' };
