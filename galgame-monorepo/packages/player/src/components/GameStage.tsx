@@ -28,6 +28,8 @@ interface GameStageProps {
   onChoose: (optionIndex: number) => void;
   /** 隐藏对话与舞台 UI，只保留画面；由外层提供恢复入口。 */
   uiHidden?: boolean;
+  /** 有覆盖层打开时暂停自动播放与选项快捷键，避免在面板背后推进剧情。 */
+  paused?: boolean;
 }
 
 /** 把数值或 left / center / right 语义位置转成 CSS left 百分比。 */
@@ -66,6 +68,7 @@ export function GameStage({
   onInteract,
   onChoose,
   uiHidden = false,
+  paused = false,
 }: GameStageProps) {
   const background = snapshot.stage.background;
   const cg = snapshot.stage.cg;
@@ -155,10 +158,11 @@ export function GameStage({
           auto={auto}
           autoDelay={autoDelay}
           onAutoAdvance={onAutoAdvance}
+          paused={paused}
         />
       )}
 
-      <ChoiceOverlay choice={snapshot.choice} onChoose={onChoose} />
+      <ChoiceOverlay choice={snapshot.choice} onChoose={onChoose} paused={paused} />
     </div>
   );
 }

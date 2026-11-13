@@ -36,18 +36,68 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 // 仍可迁移的历史版本；新增 SAVE_VERSION 时要同步扩展这里。
 const LEGACY_SAVE_VERSIONS = new Set([1, 2]);
 
-/** 结构性检查：字段齐全且类型正确，但不校验具体内容是否合法。 */
+/** 字符串或 null；用于立绘 / CG / BGM 这类允许为空的字段。 */
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+/** 剧情变量只允许数字 / 布尔 / 字符串，数字必须是有限值。 */
+function isVariableValue(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isFinite(value);
+  return typeof value === 'string' || typeof value === 'boolean';
+}
+
+/** Backlog 每一行的结构；缺失或类型错误会导致播放器渲染异常。 */
+function isBacklogEntry(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (typeof value.id !== 'string' || typeof value.text !== 'string') return false;
+  if (!isNullableString(value.speaker) || !isNullableString(value.voice)) return false;
+  return typeof value.at === 'number' && Number.isFinite(value.at);
+}
+
+/**
+ * 舞台快照的结构检查。
+ * `restoreSave` 会直接遍历 `stage.sprites`，因此这里必须确认它是对象表，
+ * 而不是仅检查 `stage` 本身是对象——后者会让损坏存档在读档路径抛出 TypeError。
+ */
+function hasStageShape(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (!isRecord(value.background) || !isNullableString(value.background.image)) return false;
+  if (!isRecord(value.cg) || !isNullableString(value.cg.image)) return false;
+  if (typeof value.cg.visible !== 'boolean') return false;
+  if (!isRecord(value.sprites)) return false;
+  return Object.values(value.sprites).every(
+    (sprite) => isRecord(sprite) && typeof sprite.id === 'string' && isNullableString(sprite.image),
+  );
+}
+
+/**
+ * 结构性检查：字段齐全且类型正确，但不校验具体内容是否合法。
+ * 校验深度以「读档 / 渲染路径不会抛异常」为准，嵌套字段缺失视为坏档。
+ */
 function hasSaveShape(value: Record<string, unknown>): boolean {
   if (typeof value.scene !== 'string' || typeof value.chapter !== 'string') return false;
-  if (typeof value.createdAt !== 'number') return false;
+  if (typeof value.createdAt !== 'number' || !Number.isFinite(value.createdAt)) return false;
   if (!isRecord(value.pointer)) return false;
-  if (typeof value.pointer.block !== 'string' || typeof value.pointer.index !== 'number') {
+  if (typeof value.pointer.block !== 'string') return false;
+  if (
+    typeof value.pointer.index !== 'number' ||
+    !Number.isInteger(value.pointer.index) ||
+    value.pointer.index < 0
+  ) {
     return false;
   }
   if (!isRecord(value.variables)) return false;
-  if (!isRecord(value.stage)) return false;
-  if (!isRecord(value.audio)) return false;
-  if (!Array.isArray(value.readMarks) || !Array.isArray(value.backlog)) return false;
+  if (!Object.values(value.variables).every(isVariableValue)) return false;
+  if (!hasStageShape(value.stage)) return false;
+  if (!isRecord(value.audio) || !isNullableString(value.audio.bgm)) return false;
+  if (!Array.isArray(value.readMarks) || !value.readMarks.every((id) => typeof id === 'string')) {
+    return false;
+  }
+  if (!Array.isArray(value.backlog) || !value.backlog.every(isBacklogEntry)) return false;
+  // note / screenshot 是较新的字段：旧版本迁移时允许缺失，只校验存在时的类型。
+  if (value.note !== undefined && typeof value.note !== 'string') return false;
+  if (value.screenshot !== undefined && !isNullableString(value.screenshot)) return false;
   return true;
 }
 

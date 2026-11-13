@@ -23,6 +23,8 @@ interface DialogueBoxProps {
   autoDelay: number;
   /** 自动播放计时结束时的推进回调。 */
   onAutoAdvance: () => void;
+  /** 有覆盖层（历史 / 存读档 / 设置等）打开时暂停自动推进。 */
+  paused?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface DialogueBoxProps {
  * 文本显示完后启动一次定时器调用 `onAutoAdvance`。打字进度以对话 id 重置。
  */
 export const DialogueBox = forwardRef<DialogueHandle, DialogueBoxProps>(function DialogueBox(
-  { dialogue, typingSpeed, skip, auto, autoDelay, onAutoAdvance },
+  { dialogue, typingSpeed, skip, auto, autoDelay, onAutoAdvance, paused = false },
   ref,
 ) {
   const text = dialogue?.text ?? '';
@@ -61,12 +63,13 @@ export const DialogueBox = forwardRef<DialogueHandle, DialogueBoxProps>(function
   }, [dialogue, text.length, typingSpeed, skip, typed]);
 
   // 自动播放：仅在文本完整显示后启动一次等待，任何依赖变化都会取消旧计时。
+  // 覆盖层打开（paused）时不启动，避免玩家在面板背后被推进剧情。
   useEffect(() => {
-    if (!dialogue || !auto || skip) return;
+    if (!dialogue || !auto || skip || paused) return;
     if (typed < text.length) return;
     const timer = window.setTimeout(onAutoAdvance, autoDelay);
     return () => window.clearTimeout(timer);
-  }, [dialogue, auto, skip, typed, text.length, autoDelay, onAutoAdvance]);
+  }, [dialogue, auto, skip, paused, typed, text.length, autoDelay, onAutoAdvance]);
 
   // 句柄只暴露查询与补全；内部通过 ref 读取最新长度，避免依赖过期闭包。
   useImperativeHandle(

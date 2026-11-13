@@ -1,4 +1,4 @@
-import type { AssetHost, EngineHost, KeyValueStorage } from '@sylvie/types';
+import type { AssetHost, EngineHost, KeyValueStorage, SaveData } from '@sylvie/types';
 import { manualSaveKey } from '@sylvie/types';
 import { describe, expect, it } from 'vitest';
 
@@ -355,6 +355,40 @@ describe('game engine', () => {
     expect(snapshot.variables.affection).toBe(2);
     expect(snapshot.backlog).toHaveLength(2);
     expect(snapshot.choice?.options).toHaveLength(2);
+  });
+
+  it('rejects a corrupted save without touching the current state', async () => {
+    const engine = await createEngine();
+    engine.start();
+    const save = engine.createSave();
+    const badStage = { ...save.stage, sprites: null } as unknown as typeof save.stage;
+
+    expect(engine.getSnapshot().dialogue?.text).toBe('第一句话。');
+    expect(engine.restoreSave({ ...save, stage: badStage })).toBe(false);
+    // 校验发生在写入状态之前：坏档不能覆盖当前进度。
+    expect(engine.getSnapshot().dialogue?.text).toBe('第一句话。');
+    expect(engine.getSnapshot().phase).toBe('text');
+  });
+
+  it('rejects a shallow save object', async () => {
+    const engine = await createEngine();
+    engine.start();
+
+    const shallow = {
+      scene: 'start',
+      pointer: { block: 'start', index: 0 },
+      variables: {},
+      audio: { bgm: null },
+      readMarks: [],
+      backlog: [],
+      stage: {},
+      createdAt: Date.now(),
+      version: 3,
+      contentVersion: '',
+      bgmPosition: 0,
+      chapter: '',
+    };
+    expect(engine.restoreSave(shallow as unknown as SaveData)).toBe(false);
   });
 
   it('emits bgm position when restoring a save', async () => {

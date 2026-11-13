@@ -20,6 +20,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
 
 import { AudioManager } from '../audio';
+import { isButtonLikeTarget, isEditableTarget } from '../dom';
 import { getPlayerPlatform } from '../player-config';
 import { usePlayerStore } from '../store';
 import { useConfirm } from './ConfirmDialog';
@@ -131,6 +132,30 @@ export function GameApp() {
   const dialogueRef = useRef<DialogueHandle | null>(null);
   // 设置持久化的防抖计时器；音频音量本身即时生效，不等待落盘。
   const settingsTimer = useRef<number | null>(null);
+  // 自动存档的立即落盘入口：由初始化 effect 注入，供返回标题 / 页面卸载时调用。
+  const autoSaveFlushRef = useRef<() => void>(() => {});
+
+  /** 把尚未落盘的设置立即写入；定时器已结束时为空操作。 */
+  const flushSettings = useCallback(() => {
+    if (!settingsTimer.current) return;
+    window.clearTimeout(settingsTimer.current);
+    settingsTimer.current = null;
+    void persistSettings(platform.storage, usePlayerStore.getState().settings).catch(
+      (error: unknown) => {
+        console.warn('[设置] 保存失败', error);
+      },
+    );
+  }, [platform.storage]);
+
+  /** 把尚未落盘的图鉴解锁立即写入；galleryRef 始终保存最新集合。 */
+  const flushGallery = useCallback(() => {
+    if (!galleryTimer.current) return;
+    clearTimeout(galleryTimer.current);
+    galleryTimer.current = null;
+    void persistGalleryUnlocks(platform.storage, galleryRef.current).catch((error: unknown) => {
+      console.warn('[图鉴] 解锁记录保存失败', error);
+    });
+  }, [platform.storage]);
   // 区分“按住 Ctrl 跳过已读”和 Ctrl+S / Ctrl+L 组合键：
   // 组合键使用后置位 ctrlComboUsed，松开 Ctrl 时不再触发跳过。
   const ctrlDown = useRef(false);
@@ -142,6 +167,10 @@ export function GameApp() {
     // active 用于阻止组件卸载后仍在进行的异步初始化继续写状态。
     let active = true;
     let autoSaveTimer: number | null = null;
+    // 待写入自动存档的元信息；BGM 位置在 checkpoint 当时记录，
+    // 避免返回标题 / 停止音频后才触发定时器，把位置写成 0。
+    let pendingAutoSave: { block: 'text' | 'choice'; chapter: string; bgmPosition: number } | null =
+      null;
     let lastScreenshotChapter: string | null = null;
     let lastScreenshot: string | null = null;
     const preloadedImages = new Set<string>();
@@ -171,26 +200,32 @@ export function GameApp() {
      * 写入本身由 `writeAutoSave` 完成槽位轮换（1 → 2 → 3）。
      */
     const scheduleAutoSave = (block: 'text' | 'choice', chapter: string) => {
+      pendingAutoSave = { block, chapter, bgmPosition: audio.getBgmPosition() };
       if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
       autoSaveTimer = window.setTimeout(() => {
+        autoSaveTimer = null;
+        // 定时器触发时清空 pending，之后的写入使用触发前记录的 BGM 位置。
+        const pending = pendingAutoSave;
+        pendingAutoSave = null;
+        if (!pending) return;
         void (async () => {
           try {
             let screenshot = lastScreenshot;
             const shouldCapture =
               platform.captureScreenshot &&
-              (block === 'choice' || chapter !== lastScreenshotChapter);
+              (pending.block === 'choice' || pending.chapter !== lastScreenshotChapter);
             if (shouldCapture && platform.captureScreenshot) {
               const captured = await platform.captureScreenshot().catch(() => null);
               if (captured) {
                 lastScreenshot = captured;
                 screenshot = captured;
               }
-              lastScreenshotChapter = chapter;
+              lastScreenshotChapter = pending.chapter;
             }
             const data = engine.createSave({
               screenshot,
               note: '自动存档',
-              bgmPosition: audio.getBgmPosition(),
+              bgmPosition: pending.bgmPosition,
             });
             await writeAutoSave(platform.storage, data);
           } catch (error) {
@@ -199,6 +234,33 @@ export function GameApp() {
         })();
       }, 900);
     };
+
+    /**
+     * 立即写入待处理的自动存档（不再抓新截图）。
+     * 返回标题 / 页面卸载 / 组件销毁前调用，避免 900ms 内的最后一句进度丢失。
+     */
+    const flushAutoSave = () => {
+      const pending = pendingAutoSave;
+      pendingAutoSave = null;
+      if (autoSaveTimer) {
+        window.clearTimeout(autoSaveTimer);
+        autoSaveTimer = null;
+      }
+      if (!pending) return;
+      try {
+        const data = engine.createSave({
+          screenshot: lastScreenshot,
+          note: '自动存档',
+          bgmPosition: pending.bgmPosition,
+        });
+        void writeAutoSave(platform.storage, data).catch((error: unknown) => {
+          console.warn('[自动存档] 写入失败', error);
+        });
+      } catch (error) {
+        console.warn('[自动存档] 创建失败', error);
+      }
+    };
+    autoSaveFlushRef.current = flushAutoSave;
 
     // 状态订阅：引擎每次推进都会推送不可变快照，这里同步到 Zustand。
     const unsubscribeState = engine.subscribe((next) => {
@@ -294,11 +356,16 @@ export function GameApp() {
         setInitError(error instanceof Error ? error.message : String(error));
       });
 
-    // 卸载：停止未完成的异步、清理定时器、移除订阅并释放引擎与音频资源。
+    // 卸载：先把防抖中的数据落盘，再停止异步、清理定时器、移除订阅并释放资源。
     return () => {
       active = false;
+      // flush 必须在 engine / audio 释放前执行，createSave 与 BGM 位置都依赖它们。
+      flushAutoSave();
+      flushSettings();
+      flushGallery();
       if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
       if (settingsTimer.current) window.clearTimeout(settingsTimer.current);
+      autoSaveFlushRef.current = () => {};
       unsubscribeState();
       unsubscribeEffect();
       engine.dispose();
@@ -308,6 +375,8 @@ export function GameApp() {
     engine,
     audio,
     platform,
+    flushGallery,
+    flushSettings,
     setAuto,
     setInitError,
     setManifest,
@@ -388,13 +457,8 @@ export function GameApp() {
     }, 300);
   }, [manifest, platform.storage, snapshot]);
 
-  // 卸载时取消尚未落盘的图鉴写入（已写入的部分不受影响）。
-  useEffect(
-    () => () => {
-      if (galleryTimer.current) clearTimeout(galleryTimer.current);
-    },
-    [],
-  );
+  // 卸载时把尚未落盘的图鉴写入立即刷掉，而不是只取消定时器。
+  useEffect(() => flushGallery, [flushGallery]);
 
   // 选项 / 结局出现时退出自动播放；结局还会退出跳过并弹出结束页（仅游戏内）。
   useEffect(() => {
@@ -475,6 +539,8 @@ export function GameApp() {
   );
 
   const handleAutoAdvance = useCallback(() => {
+    // 双保险：即使计时器已在覆盖层打开前启动，也不在面板背后推进。
+    if (usePlayerStore.getState().overlay) return;
     engine.advance();
   }, [engine]);
 
@@ -509,11 +575,15 @@ export function GameApp() {
   /**
    * 统一读档入口（存档面板、快速读档、继续游戏共用）：
    * 先清空音频，再让引擎恢复状态并切到游戏视图；返回恢复是否成功。
+   * 恢复失败时把读档前的 BGM 重新播回来，避免坏档让整局静音。
    */
   const applyLoadedSave = useCallback(
     (data: SaveData): boolean => {
+      const previousBgm = snapshotRef.current.audio.bgm;
+      const previousPosition = audio.getBgmPosition();
       audio.stopAll();
       if (!engine.restoreSave(data)) {
+        if (previousBgm) audio.playBgm(previousBgm, 300, true, previousPosition);
         showToast('存档无法读取');
         return false;
       }
@@ -596,11 +666,6 @@ export function GameApp() {
    * 通过 ctrlComboUsed 区分组合键与“按住 Ctrl 跳过”，避免按 Ctrl+S 时误开跳过。
    */
   useEffect(() => {
-    /** 焦点位于输入框、文本域或 contentEditable 时，快捷键不生效。 */
-    const isEditableTarget = (target: EventTarget | null): boolean =>
-      target instanceof HTMLElement &&
-      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
 
@@ -648,6 +713,8 @@ export function GameApp() {
         return;
       }
       if (event.key === ' ' || event.key === 'Enter') {
+        // 焦点在按钮 / 链接上时交给控件自身，否则键盘用户无法激活快捷栏按钮。
+        if (isButtonLikeTarget(event.target)) return;
         event.preventDefault();
         handleInteract();
         return;
@@ -702,14 +769,32 @@ export function GameApp() {
     return () => window.removeEventListener('wheel', onWheel);
   }, [engine, overlay, ready, rollback, view]);
 
-  /** 返回标题：停止音频与自动 / 跳过状态，但保留引擎当前进度以便再次开始。 */
+  /**
+   * 返回标题：先刷掉待写入的自动存档，再停止音频与自动 / 跳过状态。
+   * 顺序不能反：停止音频后再取 BGM 位置会得到 0，读档续播会从头开始。
+   */
   const backToTitle = useCallback(() => {
+    autoSaveFlushRef.current();
+    flushSettings();
+    flushGallery();
     audio.stopAll();
     setView('title');
     setOverlay(null);
     setAuto(false);
     setSkip(false);
-  }, [audio, setAuto, setOverlay, setSkip, setView]);
+  }, [audio, flushGallery, flushSettings, setAuto, setOverlay, setSkip, setView]);
+
+  // 页面被关闭 / 切换到后台时，尽量把防抖中的数据刷入存储。
+  // pagehide 在桌面端关闭窗口与浏览器刷新时都会触发；写入失败只影响本次会话。
+  useEffect(() => {
+    const onPageHide = () => {
+      autoSaveFlushRef.current();
+      flushSettings();
+      flushGallery();
+    };
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, [flushGallery, flushSettings]);
 
   /**
    * 图鉴 BGM 试听：传入曲目时播放；传入 null 表示停止试听，
@@ -842,6 +927,7 @@ export function GameApp() {
             onInteract={handleInteract}
             onChoose={handleChoose}
             uiHidden={uiHidden}
+            paused={overlay !== null}
           />
           {uiHidden ? (
             <div

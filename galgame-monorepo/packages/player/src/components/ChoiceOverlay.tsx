@@ -2,11 +2,15 @@ import type { ChoiceSnapshot } from '@sylvie/types';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
+import { isEditableTarget } from '../dom';
+
 interface ChoiceOverlayProps {
   /** 当前选项快照；null 时不渲染遮罩。 */
   choice: ChoiceSnapshot | null;
   /** 玩家确认选项，参数为选项在剧本中的原始下标（不是渲染序号）。 */
   onChoose: (optionIndex: number) => void;
+  /** 上层覆盖层打开时暂停快捷键，避免在备注输入框里误选分支。 */
+  paused?: boolean;
 }
 
 /**
@@ -14,7 +18,7 @@ interface ChoiceOverlayProps {
  * 焦点与高亮通过 active / activeRef 同步：ref 供事件处理器读取最新值，
  * state 驱动样式；选项出现时自动聚焦第一项。
  */
-export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
+export function ChoiceOverlay({ choice, onChoose, paused = false }: ChoiceOverlayProps) {
   const [active, setActive] = useState(0);
   const activeRef = useRef(0);
   const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
@@ -27,7 +31,7 @@ export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
   };
 
   useEffect(() => {
-    if (!choice) return;
+    if (!choice || paused) return;
     activeRef.current = 0;
     setActive(0);
     const frame = requestAnimationFrame(() => {
@@ -37,6 +41,8 @@ export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
     // 选项出现时接管方向键 / 数字键 / 回车；鼠标点击仍然有效。
     // 使用捕获阶段并挂在 window 上，确保优先于外层推进 / 回退快捷键。
     const onKeyDown = (event: KeyboardEvent) => {
+      // 备注输入框等文本控件拥有自己的键行为，不能被选项快捷键截走。
+      if (isEditableTarget(event.target)) return;
       const options = choice.options;
       if (options.length === 0) return;
       const key = event.key;
@@ -73,7 +79,7 @@ export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
       cancelAnimationFrame(frame);
       window.removeEventListener('keydown', onKeyDown, true);
     };
-  }, [choice, onChoose]);
+  }, [choice, onChoose, paused]);
 
   return (
     <AnimatePresence>

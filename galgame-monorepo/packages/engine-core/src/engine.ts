@@ -33,6 +33,7 @@ import { READ_MARKS_KEY, SAVE_VERSION } from '@sylvie/types';
 import { evaluateCondition, evaluateExpression } from './expression';
 import { interpolateText } from './interpolate';
 import { loadGame, type LoadedGame } from './script';
+import { isSaveData } from './storage';
 
 /** Backlog 只保留最近 400 行，避免长时间游玩后快照无限膨胀。 */
 const MAX_BACKLOG = 400;
@@ -257,6 +258,12 @@ export class GameEngine {
    */
   restoreSave(data: SaveData): boolean {
     const loaded = this.requireLoaded();
+    // 导入的存档只经过键名白名单，不能假定嵌套字段完整；先做结构校验，
+    // 否则 cloneStage 遇到缺失的 sprites 会抛异常并留下半恢复状态。
+    if (!isSaveData(data)) {
+      this.warn('[存档] 存档结构不完整，无法恢复');
+      return false;
+    }
     const scene = loaded.scenes.get(data.scene);
     if (!scene) {
       this.warn(`[存档] 存档指向的场景 "${data.scene}" 不存在`);
@@ -268,8 +275,16 @@ export class GameEngine {
       return false;
     }
 
+    let stage: StageSnapshot;
+    try {
+      stage = cloneStage(data.stage);
+    } catch (error) {
+      this.warn(`[存档] 舞台状态无法恢复：${String(error)}`);
+      return false;
+    }
+
     this.variables = { ...loaded.manifest.variables, ...data.variables };
-    this.stage = cloneStage(data.stage);
+    this.stage = stage;
     this.audio = { bgm: data.audio?.bgm ?? null };
     this.backlog = data.backlog.slice(-MAX_BACKLOG);
     this.dialogue = null;

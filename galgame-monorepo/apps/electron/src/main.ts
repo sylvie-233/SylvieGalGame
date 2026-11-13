@@ -14,6 +14,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import {
   access,
   appendFile,
+  copyFile,
   mkdir,
   readFile,
   readdir,
@@ -125,10 +126,11 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 // mainWindow：单实例 / macOS activate 时复用；storageCache：game-storage.json 的内存副本；
-// storageWriteQueue：保证多次写盘按调用顺序落盘。
+// storageWriteQueue：保证多次写盘按调用顺序落盘；storageBackedUp：本次进程是否已备份过旧存档。
 let mainWindow: BrowserWindow | null = null;
 let storageCache: Record<string, string> | null = null;
 let storageWriteQueue: Promise<void> = Promise.resolve();
+let storageBackedUp = false;
 
 /**
  * 必须在 app ready 之前注册。
@@ -293,15 +295,32 @@ function storageFilePath(): string {
 }
 
 /**
+ * 把损坏的存档文件改名留档，避免下一次写入直接覆盖用户数据。
+ * 改名失败只记录日志：此时仍然从空存储继续运行，不阻塞游戏启动。
+ */
+async function quarantineStorageFile(file: string, reason: unknown): Promise<void> {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const target = `${file}.corrupt-${stamp}`;
+  try {
+    await rename(file, target);
+    console.error(`[存储] 存档文件无法解析（${String(reason)}），已另存为 ${target}`);
+  } catch (error) {
+    console.error('[存储] 损坏存档文件留档失败', error);
+  }
+}
+
+/**
  * 读取并缓存键值存储。
- * 文件不存在或 JSON 损坏时从空对象开始（不覆盖原始文件，直到下一次写入）；
+ * 文件不存在时从空对象开始；JSON 损坏或顶层结构不对时先把原文件改名留档，
+ * 再以空存储继续，确保下一次写入不会覆盖用户数据。
  * 只接受字符串值，其余字段丢弃。缓存避免每次 IPC 都读盘。
  */
 async function loadStorage(): Promise<Record<string, string>> {
   if (storageCache) return storageCache;
 
+  const file = storageFilePath();
   try {
-    const text = await readFile(storageFilePath(), 'utf8');
+    const text = await readFile(file, 'utf8');
     const parsed: unknown = JSON.parse(text);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const map: Record<string, string> = {};
@@ -311,8 +330,12 @@ async function loadStorage(): Promise<Record<string, string>> {
       storageCache = map;
       return map;
     }
-  } catch {
-    // 首次运行或文件损坏：从空存储开始。
+    await quarantineStorageFile(file, '顶层不是对象');
+  } catch (error) {
+    // 首次运行（ENOENT）无需留档；其余情况（解析失败 / 读失败）都保留原文件。
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      await quarantineStorageFile(file, error);
+    }
   }
 
   storageCache = {};
@@ -321,22 +344,38 @@ async function loadStorage(): Promise<Record<string, string>> {
 
 /**
  * 把内存副本原子落盘：先写 .tmp 再 rename，避免崩溃时留下半个 JSON。
- * 写入串行排队；返回的 Promise 在本次快照写完（或失败）后 resolve。
+ * 本次进程第一次写入前把现有文件备份为 `.bak`，给用户留一份上次会话的数据。
+ * 写入串行排队；单次失败不会堵死后续写入，但会把错误交给本次调用方。
  */
 function persistStorage(): Promise<void> {
   const snapshot = JSON.stringify(storageCache ?? {}, null, 2);
-  storageWriteQueue = storageWriteQueue
-    .then(async () => {
-      const file = storageFilePath();
-      await mkdir(path.dirname(file), { recursive: true });
-      const temp = `${file}.tmp`;
-      await writeFile(temp, snapshot, 'utf8');
-      await rename(temp, file);
-    })
-    .catch((error: unknown) => {
-      console.error('[存储] 写入失败', error);
-    });
-  return storageWriteQueue;
+  const write = storageWriteQueue.then(async () => {
+    const file = storageFilePath();
+    await mkdir(path.dirname(file), { recursive: true });
+    if (!storageBackedUp) {
+      try {
+        await copyFile(file, `${file}.bak`);
+      } catch (error) {
+        // 首次运行没有旧文件（ENOENT）属于正常情况，其他错误只记日志，不阻止存档。
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error('[存储] 备份旧存档失败', error);
+        }
+      }
+      storageBackedUp = true;
+    }
+    const temp = `${file}.tmp`;
+    await writeFile(temp, snapshot, 'utf8');
+    await rename(temp, file);
+  });
+  // 队列自身始终保持 resolved，避免一次磁盘错误阻断之后的所有写入。
+  storageWriteQueue = write.then(
+    () => undefined,
+    () => undefined,
+  );
+  write.catch((error: unknown) => {
+    console.error('[存储] 写入失败', error);
+  });
+  return write;
 }
 
 /** 键名约束：非空字符串且不超过 200 字符，防止异常键名污染存档文件。 */
@@ -392,18 +431,40 @@ function registerIpc(): void {
     return store[key] ?? null;
   });
 
+  // 写盘失败时回滚内存副本并把错误抛回渲染进程，避免界面提示「已保存」但磁盘没有数据。
   ipcMain.handle('storage:set', async (_event, key: unknown, value: unknown) => {
     if (!isValidKey(key) || typeof value !== 'string') return;
     const store = await loadStorage();
+    const previous = store[key];
     store[key] = value;
-    await persistStorage();
+    try {
+      await persistStorage();
+    } catch (error) {
+      // 仅当该键仍保持本次写入的值时回滚，避免覆盖期间其他请求写入的新值。
+      if (store[key] === value) {
+        if (previous === undefined) delete store[key];
+        else store[key] = previous;
+      }
+      console.error('[存储] 保存失败', error);
+      throw new Error('存档写入失败');
+    }
   });
 
   ipcMain.handle('storage:delete', async (_event, key: unknown) => {
     if (!isValidKey(key)) return;
     const store = await loadStorage();
+    const previous = store[key];
     delete store[key];
-    await persistStorage();
+    try {
+      await persistStorage();
+    } catch (error) {
+      // 删除期间若已有新写入，保留新值；否则恢复被删除的旧值。
+      if (!Object.prototype.hasOwnProperty.call(store, key) && previous !== undefined) {
+        store[key] = previous;
+      }
+      console.error('[存储] 删除失败', error);
+      throw new Error('存档删除失败');
+    }
   });
 
   // 截取当前窗口并缩放到 640px 宽，返回 data URL 供存档缩略图使用；失败返回 null。
@@ -726,6 +787,22 @@ if (!gotSingleInstanceLock) {
   app.whenReady().then(bootstrap).catch((error: unknown) => {
     console.error('[桌面端] 启动失败', error);
     app.quit();
+  });
+
+  // 退出前等待写盘队列落定，确保最后一次自动 / 手动存档不会因直接 quit 而丢失。
+  // 只拦截一次：队列结束后再次 app.quit()，第二次 before-quit 直接放行。
+  // 最多等 3 秒，避免磁盘异常时应用无法退出。
+  let quittingAfterStorageFlush = false;
+  app.on('before-quit', (event) => {
+    if (quittingAfterStorageFlush) return;
+    quittingAfterStorageFlush = true;
+    event.preventDefault();
+    const timeout = new Promise<void>((resolve) => {
+      setTimeout(resolve, 3000);
+    });
+    void Promise.race([storageWriteQueue, timeout]).finally(() => {
+      app.quit();
+    });
   });
 
   app.on('window-all-closed', () => {
