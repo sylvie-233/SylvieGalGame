@@ -16,24 +16,34 @@ import {
   type GameSettings,
   type SaveData,
 } from '@sylvie/types';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimationControls } from 'motion/react';
 
 import { AudioManager } from '../audio';
 import { getPlayerPlatform } from '../player-config';
 import { usePlayerStore } from '../store';
-import { BacklogPanel } from './BacklogPanel';
 import { useConfirm } from './ConfirmDialog';
 import type { DialogueHandle } from './DialogueBox';
-import { GalleryPanel } from './GalleryPanel';
 import { GameStage } from './GameStage';
 import { MenuOverlay } from './MenuOverlay';
 import { QuickBar } from './QuickBar';
-import { SaveLoadPanel } from './SaveLoadPanel';
-import { SettingsPanel } from './SettingsPanel';
 import { TitleScreen } from './TitleScreen';
 import { Toast } from './Toast';
 import { WarningsPanel } from './WarningsPanel';
+
+// 面板首次打开时再加载，减小首屏包体。
+const BacklogPanel = lazy(() =>
+  import('./BacklogPanel').then((module) => ({ default: module.BacklogPanel })),
+);
+const GalleryPanel = lazy(() =>
+  import('./GalleryPanel').then((module) => ({ default: module.GalleryPanel })),
+);
+const SaveLoadPanel = lazy(() =>
+  import('./SaveLoadPanel').then((module) => ({ default: module.SaveLoadPanel })),
+);
+const SettingsPanel = lazy(() =>
+  import('./SettingsPanel').then((module) => ({ default: module.SettingsPanel })),
+);
 
 const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp|gif|svg|avif)$/i;
 /** 单次场景预加载的图片 / 音频上限，超出部分在真正显示或播放时按需加载。 */
@@ -802,44 +812,46 @@ export function GameApp() {
         />
       )}
 
-      {overlay?.kind === 'saves' && (
-        <SaveLoadPanel
-          mode={overlay.mode}
-          engine={engine}
-          platform={platform}
-          onLoad={applyLoadedSave}
-          onClose={() => setOverlay(null)}
-          notify={showToast}
-          getAudioPosition={() => audio.getBgmPosition()}
-        />
-      )}
+      <Suspense fallback={null}>
+        {overlay?.kind === 'saves' && (
+          <SaveLoadPanel
+            mode={overlay.mode}
+            engine={engine}
+            platform={platform}
+            onLoad={applyLoadedSave}
+            onClose={() => setOverlay(null)}
+            notify={showToast}
+            getAudioPosition={() => audio.getBgmPosition()}
+          />
+        )}
 
-      {overlay?.kind === 'settings' && (
-        <SettingsPanel
-          settings={settings}
-          onChange={updateSettings}
-          onClose={() => setOverlay(null)}
-          platform={platform}
-        />
-      )}
+        {overlay?.kind === 'settings' && (
+          <SettingsPanel
+            settings={settings}
+            onChange={updateSettings}
+            onClose={() => setOverlay(null)}
+            platform={platform}
+          />
+        )}
 
-      {overlay?.kind === 'backlog' && (
-        <BacklogPanel
-          entries={snapshot.backlog}
-          onClose={() => setOverlay(null)}
-          onReplay={(voice) => audio.playVoice(voice)}
-        />
-      )}
+        {overlay?.kind === 'backlog' && (
+          <BacklogPanel
+            entries={snapshot.backlog}
+            onClose={() => setOverlay(null)}
+            onReplay={(voice) => audio.playVoice(voice)}
+          />
+        )}
 
-      {overlay?.kind === 'gallery' && manifest && (
-        <GalleryPanel
-          manifest={manifest}
-          unlocks={gallery}
-          assetUrl={(path) => platform.assetUrl(path)}
-          onPreviewBgm={previewBgm}
-          onClose={() => setOverlay(null)}
-        />
-      )}
+        {overlay?.kind === 'gallery' && manifest && (
+          <GalleryPanel
+            manifest={manifest}
+            unlocks={gallery}
+            assetUrl={(path) => platform.assetUrl(path)}
+            onPreviewBgm={previewBgm}
+            onClose={() => setOverlay(null)}
+          />
+        )}
+      </Suspense>
 
       {overlay?.kind === 'warnings' && (
         <WarningsPanel warnings={warnings} onClose={() => setOverlay(null)} />

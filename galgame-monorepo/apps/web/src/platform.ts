@@ -1,5 +1,3 @@
-import { toJpeg } from 'html-to-image';
-
 import type { PlayerPlatform } from '@sylvie/types';
 
 const STORAGE_PREFIX = 'sylvie:';
@@ -249,6 +247,8 @@ async function captureScreenshot(): Promise<string | null> {
     await nextFrames();
     // 与 Electron 存档缩略图（640px 宽）保持一致的清晰度。
     const pixelRatio = Math.min(1, 640 / window.innerWidth);
+    // 截图库只在真正需要缩略图时加载，避免拖慢首屏。
+    const { toJpeg } = await import('html-to-image');
     // 存档缩略图用 JPEG 压缩：IndexedDB 空间更宽裕，回退 localStorage 时也更安全。
     return await toJpeg(root, {
       pixelRatio,

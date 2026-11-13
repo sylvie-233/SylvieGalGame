@@ -115,6 +115,6 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - `ELECTRON_RUN_AS_NODE=1` 会让 Electron 退化为 Node 并报 `bad option`；`manage.ps1` 与 `scripts/smoke-app.mjs` 已处理。
 - 打包产物较大（Electron + 游戏资源）；NSIS 安装包未签名，Windows SmartScreen 可能提示。
 - Web 的 BGM 受浏览器自动播放策略限制，首次点击“开始新游戏”后才解锁；全屏若由持久化设置自动恢复可能被浏览器拒绝，已捕获且不影响游戏。
-- Web 构建会提示单 chunk 超过 500 kB，这是预览壳的已知警告，不影响运行。
+- Web 构建已按 `react` / `motion` / `audio` / `zustand` 拆分 vendor，存读档、设置、图鉴、历史面板与截图库均按需加载；新增重型依赖时仍应观察 chunk 体积。
 - Nginx 默认 mime.types 不含 YAML，也不含 wav / flac；`apps/web/nginx.conf` 用正则 location 分别返回 `text/yaml`、`audio/wav`、`audio/mp4`、`audio/flac`、`audio/webm`，不要删除。
 - 修改 Dockerfile 的 `COPY` 清单时，必须包含 Web 构建所需的全部 workspace `package.json`，否则 `pnpm install --frozen-lockfile` 或 `--filter @sylvie/web... build` 会失败。

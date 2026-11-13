@@ -181,5 +181,29 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+            },
+            {
+              name: 'motion',
+              test: /node_modules[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/,
+            },
+            {
+              name: 'audio',
+              test: /node_modules[\\/]howler[\\/]/,
+            },
+            {
+              name: 'zustand',
+              test: /node_modules[\\/]zustand[\\/]/,
+            },
+          ],
+        },
+      },
+    },
   },
 });

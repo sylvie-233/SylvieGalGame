@@ -39,7 +39,7 @@
 - **诊断与兜底**：脚本警告汇总到播放器内面板，可复制诊断信息；覆盖 / 删除 / 返回标题使用应用内确认框；渲染异常由 ErrorBoundary 兜底，避免白屏。
 - **内容与代码分离**：打包时内容包被复制到 `resources/game`，替换资源即可更新剧情，无需重新编译。
 - **桌面交付**：Electron 自定义协议限制资源访问，关闭 Node 集成；Forge + NSIS 生成 Windows 安装包；单实例运行并记忆窗口大小 / 位置。
-- **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + IndexedDB（localStorage 回退）平台适配器在浏览器中运行，改 UI / 剧本即时热更新。
+- **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + IndexedDB（localStorage 回退）平台适配器在浏览器中运行，改 UI / 剧本即时热更新；vendor、面板与截图库按需拆包。
 
 ## 页面预览
 
