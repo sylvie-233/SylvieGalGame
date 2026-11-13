@@ -140,8 +140,7 @@ pnpm make
    - `SylvieGalGame-<version>-win32-x64.zip`（免安装版）
    - `SylvieGalGame-Setup-<version>.exe`（NSIS 安装包）
    - `SHA256SUMS.txt`
-5. 同一 tag 会构建并推送 Web 镜像到 `ghcr.io/<owner>/<repo>/sylvie-web`。
-6. 配置仓库 Secrets `WINDOWS_CERTIFICATE_PFX`（base64 的 pfx）与 `WINDOWS_CERTIFICATE_PASSWORD` 后，Release 产物会自动签名。
+5. 配置仓库 Secrets `WINDOWS_CERTIFICATE_PFX`（base64 的 pfx）与 `WINDOWS_CERTIFICATE_PASSWORD` 后，Release 产物会自动签名。
 
 ## Web 容器化
 

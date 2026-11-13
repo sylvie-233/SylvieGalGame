@@ -205,7 +205,7 @@
 - **E8 错误与校验体系**：已完成。引擎在编译与跳转校验时输出 `scripts/scenes/x.yaml:行号`，缺失资源带首次引用位置；`pnpm validate` 按错误（Schema / 阻断）与警告（可继续）分组输出，即使分支回放失败也会先打印已收集的诊断。
 - **U1 错误边界与日志**：已完成。桌面端把渲染进程 console、加载失败、preload 错误、崩溃与主进程异常写入 `userData/logs/runtime-YYYY-MM-DD.log`（保留 7 天）；ErrorBoundary 与启动失败页显示存档 / 日志路径，复制诊断信息时一并带上。
 - **Q5 桌面交付**：已完成主体。根 `package.json` 作为版本源，`pnpm version:set <版本>` 同步 Electron / Web / 内容包与 `game.yaml`，`validate` / `version:check` 拦截不一致；Forge 在设置 `WINDOWS_CERTIFICATE_FILE` / `WINDOWS_CERTIFICATE_PASSWORD` 时对 exe 与 NSIS 安装包签名，未设置时保持未签名。自动更新仍按可选处理。
-- **Q7 发布流程**：已完成。新增根 `CHANGELOG.md`（Keep a Changelog）与 `.github/workflows/release.yml`：推送 `v*` tag 时校验 `version:expect`、跑全部校验，在 Windows 上打包 + 冒烟 + NSIS，上传免安装 zip、安装包与 SHA256；同时构建并推送 GHCR Web 镜像。支持通过仓库 Secrets 提供 pfx 自动签名。
+- **Q7 发布流程**：已完成。新增根 `CHANGELOG.md`（Keep a Changelog）与 `.github/workflows/release.yml`：推送 `v*` tag 时校验 `version:expect`、跑全部校验，在 Windows 上打包 + 冒烟 + NSIS，上传免安装 zip、安装包与 SHA256。发布流水线不构建 Docker 镜像；支持通过仓库 Secrets 提供 pfx 自动签名。
 
 ## 十四、验收总则
 
