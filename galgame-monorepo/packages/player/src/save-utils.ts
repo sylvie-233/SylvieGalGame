@@ -9,6 +9,11 @@ export function formatChapterName(
   return manifest?.chapters[chapter] ?? chapter;
 }
 
+/** 统一存档备注：去掉首尾空白并限制长度。 */
+export function normalizeSaveNote(value: string, maxLength = 40): string {
+  return value.trim().slice(0, maxLength);
+}
+
 /** 生成存档导出文件名；单档导出时带上原始键名。 */
 export function saveExportFilename(keys?: string[], now = new Date()): string {
   const stamp = now.toISOString().slice(0, 10);

@@ -30,7 +30,7 @@ pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，
 pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
-pnpm test         # Vitest：engine-core 31 个 + player 7 个用例
+pnpm test         # Vitest：engine-core 31 个 + player 8 个用例
 pnpm validate     # 加载真实剧本、内容体检、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
@@ -92,6 +92,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - 键名：`save:auto`、`save:auto:2..3`（`AUTO_SAVE_COUNT = 3`）、`save:quick`、`save:slot:1..20`（`MANUAL_SAVE_COUNT = 20`）、`meta:read-marks`、`meta:settings`、`meta:gallery`。
 - 存档包含场景 / 指针、变量、图层、BGM 及播放位置（`bgmPosition`）、已读标记、Backlog、章节备注、截图缩略图、`contentVersion`；`SAVE_VERSION = 3`，`migrateSaveData()` 负责把 `version: 1` / `2` 的旧档补成 v3，迁移失败不得覆盖原始数据。BGM 位置由播放器通过 `createSave({ bgmPosition })` 写入，引擎不认识音频实例。
 - 自动存档由 `checkpoint` 效果触发（900ms 防抖），写入 `save:auto` 并把旧档轮换到 `save:auto:2` / `save:auto:3`；截图只在选项节点或章节变化时重新抓取，普通文本复用上一张，避免每条台词都 `capturePage`。「继续游戏」通过 `readLatestSave()` 读取自动 / 快速 / 手动存档中最新的一份。
+- 手动存档点击槽位后先弹出备注输入框（覆盖时预填原备注，`normalizeSaveNote()` 去空白并限制 40 字），确认后才截图并写入；自动 / 快速存档没有备注编辑。
 - 存档导出格式为 `{ format: 'sylvie-save-export', version: 1, exportedAt, saves }`；导入时只接受白名单键（存档、已读、设置、图鉴），未知键与非字符串值直接跳过，格式错误不得写入任何数据。
 - Electron 落盘在 `%APPDATA%\SylvieGalGame\game-storage.json`。
 - Web 优先使用 IndexedDB（库 `sylvie-web`，store `kv`，键为原始键）；localStorage 仅作回退，键统一加 `sylvie:` 前缀。启动时把旧 `sylvie:` 键迁移进 IndexedDB 后删除旧副本。缩略图使用 JPEG（640px）控制体积。容量不足时提示执行 `await window.sylvieWeb.resetStorage()`；`storageKeys()` / `storageDelete(key)` / `resetStorage()` 均已改为异步。
@@ -101,7 +102,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 
 - 提交前至少运行 `pnpm lint`、`pnpm typecheck`；改动引擎或存档逻辑再加 `pnpm test`；改动剧本或资源必须 `pnpm validate`。根目录 `pwsh ./manage.ps1 verify` 会依次跑完这四项。
 - 改动 UI 后优先用 `pnpm dev:web` 在浏览器验收；需要自动化 Web 回归时运行 `pnpm smoke:web`（会自行构建 + preview，需 Chrome / Edge；`CHROME_PATH` 可覆盖）。需要验证桌面交付时运行 `pwsh ./manage.ps1 smoke`（依赖已 packge 的 exe 与 Node 22+）。
-- 桌面冒烟脚本在覆盖存档槽位 01 前会先执行 `window.sylvieGame.storageDelete('save:slot:1')`，避免覆盖确认框打断后续 CDP 步骤。新增自动化步骤时保留该处理；若需要测试确认框，应显式点击「取消 / 覆盖」按钮而不是依赖原生对话框。
+- 桌面 / Web 冒烟脚本在覆盖存档槽位 01 前会先执行 `storageDelete('save:slot:1')`，并在点击槽位后确认备注弹窗的「保存」按钮。槽位卡片带 `data-slot` 属性（01、快速存档等），自动化请用精确选择器，不要用包含匹配——自动存档时间戳也可能包含 "01"。
 - Docker 构建改动后至少执行一次 `pwsh ./manage.ps1 docker:build`；运行验收用 `docker:up`，再检查 `/health`、`/game/scripts/game.yaml` 与音频 Range 请求。
 
 ## 已知边界与常见坑

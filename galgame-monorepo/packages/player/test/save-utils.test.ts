@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatChapterName, saveExportFilename } from '../src/save-utils';
+import { formatChapterName, normalizeSaveNote, saveExportFilename } from '../src/save-utils';
 
 describe('save utils', () => {
   it('resolves readable chapter names with label fallback', () => {
@@ -9,6 +9,12 @@ describe('save utils', () => {
     expect(formatChapterName(manifest, 'unknown')).toBe('unknown');
     expect(formatChapterName(null, 'prologue_start')).toBe('prologue_start');
     expect(formatChapterName(manifest, '')).toBe('');
+  });
+
+  it('trims and limits save notes', () => {
+    expect(normalizeSaveNote('  黄昏之前  ')).toBe('黄昏之前');
+    expect(normalizeSaveNote('', 10)).toBe('');
+    expect(normalizeSaveNote('abcdefghijklmnop', 10)).toBe('abcdefghij');
   });
 
   it('builds full and single-slot export file names', () => {

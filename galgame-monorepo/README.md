@@ -100,7 +100,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm build` | Turbo 构建全部包（含 Web 预览） |
 | `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
-| `pnpm test` | 单元测试（Vitest）：引擎 31 个 + 播放器状态 / 存档工具 7 个 |
+| `pnpm test` | 单元测试（Vitest）：引擎 31 个 + 播放器状态 / 存档工具 8 个 |
 | `pnpm validate` | 加载真实剧本、跑通两条分支、检查资源与脚本警告 |
 | `pnpm assets` | 重新生成占位美术与音频 |
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
@@ -170,7 +170,7 @@ pnpm validate
 
 ## 存档
 
-- 手动槽位 20 个，另有快速存档与 3 份轮换的自动存档（`save:auto`、`save:auto:2`、`save:auto:3`）。「继续游戏」读取自动 / 快速 / 手动存档中时间最新的一份。
+- 手动槽位 20 个，另有快速存档与 3 份轮换的自动存档（`save:auto`、`save:auto:2`、`save:auto:3`）。「继续游戏」读取自动 / 快速 / 手动存档中时间最新的一份。保存到手动槽位时可填写备注（最长 40 字），覆盖时自动预填原备注。
 - 图鉴解锁单独写入 `meta:gallery`（CG / BGM / 结局 id），与存档互不影响；标题页与游戏内菜单均可打开「回忆图鉴」。
 - 存档面板支持「导出全部存档」与单档导出为 JSON，也可导入同格式文件；导出包含存档、已读、设置与图鉴记录，导入会覆盖同键数据并跳过未知键。桌面端走系统文件对话框，Web 端走浏览器下载 / 上传。
 - 存档内容：场景与指针、全部变量、图层状态、BGM、已读标记、Backlog、章节备注、截图缩略图、内容版本号。

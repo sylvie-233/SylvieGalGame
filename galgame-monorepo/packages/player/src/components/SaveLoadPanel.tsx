@@ -20,7 +20,7 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { formatChapterName, saveExportFilename } from '../save-utils';
+import { formatChapterName, normalizeSaveNote, saveExportFilename } from '../save-utils';
 import { useConfirm } from './ConfirmDialog';
 import { Modal } from './Modal';
 
@@ -68,6 +68,7 @@ function SlotCard({
           : 'cursor-pointer border-sg-ink/10 bg-white/[0.025] hover:border-sg-line hover:bg-sg-accent/5 focus-visible:border-sg-line focus-visible:bg-sg-accent/5'
       }`}
       role="button"
+      data-slot={title}
       tabIndex={disabled ? -1 : 0}
       onClick={() => {
         if (!disabled) onActivate();
@@ -157,6 +158,10 @@ export function SaveLoadPanel({
   const [auto, setAuto] = useState<AutoSaveEntry[]>([]);
   const [quick, setQuick] = useState<SaveData | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<{ key: string; existing: SaveData | null } | null>(
+    null,
+  );
+  const [note, setNote] = useState('');
   const { confirm, dialog } = useConfirm();
 
   const formatChapter = (chapter: string): string =>
@@ -173,16 +178,14 @@ export function SaveLoadPanel({
     void refresh();
   }, [refresh]);
 
-  const saveTo = async (key: string, existing: SaveData | null) => {
+  const beginSave = (key: string, existing: SaveData | null) => {
     if (busy) return;
-    if (existing) {
-      const confirmed = await confirm('该槽位已有存档，确定覆盖吗？', {
-        title: '覆盖存档',
-        confirmLabel: '覆盖',
-        danger: true,
-      });
-      if (!confirmed) return;
-    }
+    setNote(existing?.note ?? '');
+    setPending({ key, existing });
+  };
+
+  const saveTo = async (key: string, noteText: string) => {
+    if (busy) return;
     setBusy(true);
     try {
       const screenshot = platform.captureScreenshot
@@ -190,7 +193,7 @@ export function SaveLoadPanel({
         : null;
       const data = engine.createSave({
         screenshot,
-        note: existing?.note ?? '',
+        note: normalizeSaveNote(noteText),
         bgmPosition: getAudioPosition(),
       });
       await writeSave(platform.storage, key, data);
@@ -202,6 +205,13 @@ export function SaveLoadPanel({
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmSave = () => {
+    if (!pending) return;
+    const target = pending;
+    setPending(null);
+    void saveTo(target.key, note);
   };
 
   const remove = async (key: string) => {
@@ -341,7 +351,7 @@ export function SaveLoadPanel({
               formatChapter={formatChapter}
               onActivate={() => {
                 if (mode === 'save') {
-                  void saveTo(manualSaveKey(entry.slot), entry.data);
+                  beginSave(manualSaveKey(entry.slot), entry.data);
                 } else if (entry.data) {
                   loadData(entry.data);
                 }
@@ -354,6 +364,55 @@ export function SaveLoadPanel({
           ))}
         </div>
       </Modal>
+
+      {pending && (
+        <Modal
+          title={pending.existing ? '覆盖存档' : '保存进度'}
+          onClose={() => setPending(null)}
+        >
+          <p className="m-0 mb-3 text-[13px] leading-[1.7] tracking-[0.04em] text-sg-muted">
+            {pending.existing
+              ? '该槽位已有存档，保存后会覆盖原进度。'
+              : `写入槽位 ${pending.key.split(':').pop()?.padStart(2, '0') ?? ''}。`}
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs tracking-[0.14em] text-sg-dim">备注（可选）</span>
+            <input
+              type="text"
+              maxLength={40}
+              value={note}
+              autoFocus
+              placeholder="例如：书页分支 · 黄昏之前"
+              className="w-full rounded-sm border border-sg-ink/15 bg-black/30 px-3 py-2 text-[13px] tracking-[0.04em] text-sg-ink outline-none transition-colors placeholder:text-sg-ink/25 focus:border-sg-line-strong"
+              onChange={(event) => setNote(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  confirmSave();
+                }
+              }}
+            />
+          </label>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-sm border border-sg-ink/15 px-4 py-2 text-[12px] tracking-[0.12em] text-sg-muted transition-colors hover:border-sg-line hover:text-sg-ink"
+              onClick={() => setPending(null)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-sm border border-sg-line bg-sg-accent/10 px-4 py-2 text-[12px] tracking-[0.12em] text-sg-ink transition-colors hover:border-sg-line-strong hover:bg-sg-accent/20 disabled:opacity-40"
+              onClick={confirmSave}
+            >
+              保存
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {dialog}
     </>
   );

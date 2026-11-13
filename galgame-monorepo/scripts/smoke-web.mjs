@@ -307,8 +307,8 @@ async function main() {
 
     const clickSlot = (title) =>
       evaluate(`(() => {
-        const card = [...document.querySelectorAll('[role="button"]')].find((item) =>
-          (item.textContent ?? '').includes(${JSON.stringify(title)}),
+        const card = [...document.querySelectorAll('[data-slot]')].find(
+          (item) => item.getAttribute('data-slot') === ${JSON.stringify(title)},
         );
         if (!card) return false;
         card.click();
@@ -367,8 +367,24 @@ async function main() {
     await sleep(600);
     await shot('save-panel');
     if (!(await clickSlot('01'))) throw new Error('存档面板中未找到槽位 01');
+    await sleep(400);
+    // 新的保存流程会弹出备注输入框，填写后确认才写入。
+    const noteValue = await evaluate(`(() => {
+      const input = document.querySelector('input[type="text"]');
+      if (!input) return null;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, '冒烟备注');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return input.value;
+    })()`);
+    if (noteValue !== '冒烟备注') throw new Error('备注输入框不可用');
+    if (!(await clickButton('保存'))) throw new Error('未找到备注确认按钮');
     await sleep(1200);
     await shot('saved-slot');
+    const savedPanel = await state();
+    if (!savedPanel.dialog.includes('冒烟备注')) {
+      throw new Error('保存后未显示自定义备注');
+    }
     const keys = await evaluate('window.sylvieWeb.storageKeys()');
     if (!keys.includes('save:slot:1')) throw new Error('存档未写入 save:slot:1');
     await clickButton('×');
