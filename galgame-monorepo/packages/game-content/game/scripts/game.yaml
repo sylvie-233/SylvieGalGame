@@ -5,7 +5,7 @@ start: prologue
 
 titleScreen:
   background: images/bg/title.svg
-  bgm: audio/bgm/night.wav
+  bgm: audio/bgm/music_box.mp3
   subtitle: 一枚硬币，两个失眠的人，和一辆不会来的末班车
   showVersion: true
 
@@ -60,10 +60,6 @@ gallery:
     - { id: rooftop_sky, image: images/cg/rooftop_sky.svg, title: "第二个秘密" }
     - { id: letter_spring, image: images/cg/letter_spring.svg, title: "春天的回信" }
   bgms:
-    - { id: night, track: audio/bgm/night.wav, title: "售货机的白光" }
-    - { id: afternoon, track: audio/bgm/afternoon.wav, title: "午后" }
-    - { id: sunset, track: audio/bgm/sunset.wav, title: "黄昏" }
-    - { id: music_box, track: audio/bgm/music_box.wav, title: "旧音乐盒" }
-    - { id: rooftop, track: audio/bgm/rooftop.wav, title: "屋顶的风" }
-    - { id: rain, track: audio/bgm/rain.wav, title: "雨前的图书馆" }
-    - { id: river, track: audio/bgm/river.wav, title: "沿河的路" }
+    - { id: night, track: audio/bgm/night.mp3, title: "夜行" }
+    - { id: afternoon, track: audio/bgm/afternoon.mp3, title: "午后" }
+    - { id: music_box, track: audio/bgm/music_box.mp3, title: "八音盒" }

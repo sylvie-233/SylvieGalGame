@@ -19,7 +19,7 @@ commands:
       value: 1
 
   - se:
-      sound: audio/se/coin.wav
+      sound: audio/se/coin.ogg
       volume: 0.7
 
   - text:
@@ -85,7 +85,7 @@ commands:
       transition: dissolve
       duration: 1000
   - bgm:
-      track: audio/bgm/music_box.wav
+      track: audio/bgm/music_box.mp3
       fade: 900
       loop: true
 
@@ -116,7 +116,7 @@ commands:
       transition: dissolve
       duration: 1000
   - se:
-      sound: audio/se/chair.wav
+      sound: audio/se/chair.ogg
       volume: 0.5
 
   - text:

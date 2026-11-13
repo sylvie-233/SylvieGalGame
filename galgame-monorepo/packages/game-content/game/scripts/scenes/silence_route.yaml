@@ -36,7 +36,7 @@ commands:
       transition: fade
       duration: 900
   - bgm:
-      track: audio/bgm/rain.wav
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 
@@ -45,7 +45,7 @@ commands:
       text: "第二天下午，图书馆靠窗的位置空着。桌上放着一本蓝色笔记本，压在一枚一百二十元硬币下面。"
 
   - se:
-      sound: audio/se/page_turn.wav
+      sound: audio/se/page_turn.ogg
       volume: 0.6
 
   - text:
@@ -70,7 +70,7 @@ commands:
       transition: fade
       duration: 900
   - bgm:
-      track: audio/bgm/night.wav
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 

@@ -12,7 +12,7 @@ commands:
       transition: fade
       duration: 900
   - bgm:
-      track: audio/bgm/night.wav
+      track: audio/bgm/night.mp3
       fade: 800
       loop: true
 

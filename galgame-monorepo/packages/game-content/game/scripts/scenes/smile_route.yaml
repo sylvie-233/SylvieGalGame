@@ -19,7 +19,7 @@ commands:
       value: 1
 
   - se:
-      sound: audio/se/coin.wav
+      sound: audio/se/coin.ogg
       volume: 0.6
 
   - text:
@@ -48,7 +48,7 @@ commands:
       text: "你刚才说，热的，什么都行。"
 
   - se:
-      sound: audio/se/can.wav
+      sound: audio/se/can.ogg
       volume: 0.6
 
   - text:
@@ -70,7 +70,7 @@ commands:
       transition: fade
       duration: 900
   - bgm:
-      track: audio/bgm/afternoon.wav
+      track: audio/bgm/afternoon.mp3
       fade: 900
       loop: true
 
@@ -99,7 +99,7 @@ commands:
       voice: audio/voice/sylvie_04.wav
 
   - se:
-      sound: audio/se/tea_cup.wav
+      sound: audio/se/tea_cup.ogg
       volume: 0.5
 
   - cg:
@@ -135,7 +135,7 @@ commands:
       transition: slide-left
       duration: 1100
   - bgm:
-      track: audio/bgm/rooftop.wav
+      track: audio/bgm/afternoon.mp3
       fade: 900
       loop: true
 

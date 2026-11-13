@@ -7,7 +7,7 @@
  * 否则新素材会被占位内容覆盖。
  */
 import { deflateSync } from 'node:zlib';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,12 +17,31 @@ const ROOT = path.resolve(HERE, '..');
 const GAME = path.join(ROOT, 'packages/game-content/game');
 const ASSETS = path.join(ROOT, 'apps/electron/assets');
 
+/** 音频占位写入：已有文件默认跳过，避免覆盖下载 / 正式素材。 */
+const writeAudio = async (file, data) => {
+  if (!FORCE_AUDIO) {
+    try {
+      await access(file);
+      console.log(`  · 跳过已有音频 ${path.relative(ROOT, file)}`);
+      return;
+    } catch {
+      // 文件不存在，继续写占位。
+    }
+  }
+  await write(file, data);
+};
+
 /** 确保目录存在并返回拼接后的绝对路径。 */
 const ensure = async (...segments) => {
   const target = path.join(...segments);
   await mkdir(target, { recursive: true });
   return target;
 };
+
+/** 默认不覆盖已经替换过的正式音频；需要重建占位音频时加 --force-audio。 */
+const FORCE_AUDIO = process.argv.includes('--force-audio');
+/** 仓库已改用 CC0 正式音频，默认不再生成 WAV 占位；需要旧占位时显式开启。 */
+const PLACEHOLDER_AUDIO = process.argv.includes('--placeholder-audio');
 
 /** 写入文件（自动建目录）并打印相对仓库根的输出路径。 */
 const write = async (file, data) => {
@@ -1324,54 +1343,55 @@ async function main() {
   await write(path.join(cgDir, 'rooftop_sky.svg'), rooftopSkyCg);
   await write(path.join(cgDir, 'letter_spring.svg'), letterSpringCg);
 
-  console.log('生成音频…');
+  if (PLACEHOLDER_AUDIO) {
+  console.log('生成占位音频…');
   const afternoon = [261.63, 329.63, 392.0, 440.0, 329.63, 392.0, 523.25, 440.0];
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'afternoon.wav'),
     writeWav({ seconds: 16, sample: bgmSample(afternoon, 16, 101) }),
   );
   const sunset = [220.0, 261.63, 329.63, 349.3, 261.63, 329.63, 392.0, 349.3];
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'sunset.wav'),
     writeWav({ seconds: 16, sample: bgmSample(sunset, 16, 202) }),
   );
   const musicBox = [523.25, 659.25, 783.99, 659.25, 587.33, 493.88, 523.25, 392.0];
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'music_box.wav'),
     writeWav({ seconds: 16, sample: bgmSample(musicBox, 16, 303) }),
   );
   const rooftop = [293.66, 369.99, 440.0, 369.99, 329.63, 415.3, 493.88, 415.3];
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'rooftop.wav'),
     writeWav({ seconds: 16, sample: bgmSample(rooftop, 16, 404) }),
   );
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'rain.wav'),
     writeWav({ seconds: 16, sample: rainSample(505) }),
   );
   const night = [196.0, 246.94, 293.66, 329.63, 246.94, 293.66, 369.99, 329.63];
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'night.wav'),
     writeWav({ seconds: 16, sample: bgmSample(night, 16, 606) }),
   );
   const river = [174.61, 220.0, 261.63, 329.63, 261.63, 220.0, 196.0, 174.61];
-  await write(
+  await writeAudio(
     path.join(bgmDir, 'river.wav'),
     writeWav({ seconds: 16, sample: bgmSample(river, 16, 707) }),
   );
 
-  await write(
+  await writeAudio(
     path.join(seDir, 'page_turn.wav'),
     writeWav({ seconds: 0.42, sample: seSample('page') }),
   );
-  await write(
+  await writeAudio(
     path.join(seDir, 'tea_cup.wav'),
     writeWav({ seconds: 0.6, sample: seSample('cup') }),
   );
-  await write(path.join(seDir, 'bell.wav'), writeWav({ seconds: 2.8, sample: bellSample() }));
-  await write(path.join(seDir, 'chair.wav'), writeWav({ seconds: 0.52, sample: chairSample() }));
-  await write(path.join(seDir, 'coin.wav'), writeWav({ seconds: 0.36, sample: coinSample() }));
-  await write(path.join(seDir, 'can.wav'), writeWav({ seconds: 0.5, sample: canSample() }));
+  await writeAudio(path.join(seDir, 'bell.wav'), writeWav({ seconds: 2.8, sample: bellSample() }));
+  await writeAudio(path.join(seDir, 'chair.wav'), writeWav({ seconds: 0.52, sample: chairSample() }));
+  await writeAudio(path.join(seDir, 'coin.wav'), writeWav({ seconds: 0.36, sample: coinSample() }));
+  await writeAudio(path.join(seDir, 'can.wav'), writeWav({ seconds: 0.5, sample: canSample() }));
 
   const voices = [
     ['sylvie_01.wav', 11, 218],
@@ -1383,7 +1403,11 @@ async function main() {
     ['narrator_02.wav', 77, 152],
   ];
   for (const [file, seed, baseFreq] of voices) {
-    await write(path.join(voiceDir, file), writeWav({ seconds: 2.4, sample: voiceSample(seed, baseFreq) }));
+    await writeAudio(path.join(voiceDir, file), writeWav({ seconds: 2.4, sample: voiceSample(seed, baseFreq) }));
+  }
+
+  } else {
+    console.log('跳过音频：保留仓库内 CC0 / 正式素材（需要旧占位请加 --placeholder-audio）');
   }
 
   console.log('生成图标…');

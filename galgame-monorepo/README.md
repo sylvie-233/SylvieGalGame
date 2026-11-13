@@ -48,7 +48,7 @@ galgame-monorepo/
 │        ├─ images/            # bg / sprite / cg
 │        └─ audio/             # bgm / se / voice
 ├─ scripts/
-│  ├─ generate-assets.mjs      # 生成占位 SVG / WAV / PNG / ICO
+│  ├─ generate-assets.mjs      # 生成占位 SVG / PNG / ICO（可选旧音频）
 │  ├─ validate-content.mjs     # 跑通全部分支并检查警告
 │  └─ smoke-app.mjs            # 启动打包产物、CDP 驱动界面并截图
 ├─ .dockerignore               # Docker 构建上下文排除规则
@@ -104,7 +104,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm validate` | 加载真实剧本、内容体检、跑通全部分支与结局、检查资源与版本一致性 |
 | `pnpm version:check` | 检查根 / Electron / Web / 内容包 / `game.yaml` 版本是否一致 |
 | `pnpm version:set <版本>` | 以根 `package.json` 为基准统一写入全部版本号 |
-| `pnpm assets` | 重新生成占位美术与音频 |
+| `pnpm assets` | 重新生成占位图片与图标；音频默认保留，`--placeholder-audio` 生成旧占位 |
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
 | `pnpm make` | 通过 NSIS 生成安装包 `apps/electron/out/make/` |
 | `pnpm smoke` | 启动已打包产物，自动验证标题 / 回退 / 分支 / 选项 / 菜单 / 存读档 / 设置并截图到 `scripts/.smoke/`（需先 `pnpm package`，或把 exe 路径作为参数传入） |

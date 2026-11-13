@@ -8,7 +8,7 @@ commands:
       transition: fade
       duration: 1000
   - bgm:
-      track: audio/bgm/sunset.wav
+      track: audio/bgm/afternoon.mp3
       fade: 900
       loop: true
 
@@ -110,7 +110,7 @@ commands:
       transition: fade
       duration: 1000
   - bgm:
-      track: audio/bgm/night.wav
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 
@@ -178,7 +178,7 @@ commands:
   - label: quiet_ending
 
   - bgm:
-      track: audio/bgm/river.wav
+      track: audio/bgm/night.mp3
       fade: 1200
       loop: true
 
@@ -218,7 +218,7 @@ commands:
   - label: echo_ending
 
   - bgm:
-      track: audio/bgm/music_box.wav
+      track: audio/bgm/music_box.mp3
       fade: 900
       loop: true
 
@@ -250,7 +250,7 @@ commands:
       text: "……你真的很会让人为难。"
       voice: audio/voice/sylvie_03.wav
 
-  - se: audio/se/coin.wav
+  - se: audio/se/coin.ogg
 
   - text:
       speaker: 旁白

@@ -16,7 +16,7 @@
 
 - 5 个场景、3 条分支、3 个结局、共 142 句文本；
 - 9 张背景（夜间街道、末班车站、旧音乐教室、图书馆等）、5 张 CG、4 版立绘；
-- 7 首 BGM、6 个音效、7 段语音，支持图鉴试听与 CG 鉴赏；
+- 3 首 BGM、6 个音效、7 段语音，支持图鉴试听与 CG 鉴赏；
 - 背景 / 立绘 / CG 分层舞台与淡入淡出、溶解、滑动、擦除转场；
 - BGM、音效、角色语音与对话历史回放；
 - 打字机、Auto、仅跳过已读的 Skip、Backlog；
@@ -189,7 +189,7 @@ docker compose -f scripts/docker-compose.yml -f scripts/docker-compose.game.yml 
 | `smoke` | 启动已打包应用，CDP 驱动 UI 并截图（可传 `-ExePath`） |
 | `verify` | 依次执行 lint、typecheck、test、validate |
 | `lint` / `test` / `typecheck` / `validate` | 单项校验 |
-| `assets` | 重新生成占位图片、音频与图标 |
+| `assets` | 重新生成占位图片与图标（音频默认保留；加 `--placeholder-audio` 才生成旧占位音频） |
 | `clean` | 清理构建产物（需确认，`-Force` 跳过） |
 | `reset-saves` | 删除本地存档、已读标记与设置（需确认） |
 | `output` | 打开打包产物目录 |

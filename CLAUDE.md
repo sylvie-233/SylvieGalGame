@@ -34,7 +34,7 @@ pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
 pnpm test         # Vitest：engine-core 32 个 + player 8 个用例
 pnpm validate     # 加载真实剧本、内容体检、跑通全部分支与结局、检查资源与脚本警告
-pnpm assets       # 重新生成占位图片 / 音频 / 图标
+pnpm assets       # 重新生成占位图片 / 图标；音频默认保留（--placeholder-audio 才生成旧占位）
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
 pnpm make         # NSIS 安装包 apps/electron/out/make/
 pnpm smoke        # 启动已打包 exe，CDP 驱动 UI 并截图（需 Node 22+，先 package）
