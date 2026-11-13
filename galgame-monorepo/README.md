@@ -117,6 +117,9 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 # 在仓库根目录执行，默认 http://localhost:8080
 docker compose -f scripts/docker-compose.yml up -d --build
 
+# 内容热替换：额外加载覆盖文件，把本地内容包只读挂入容器
+docker compose -f scripts/docker-compose.yml -f scripts/docker-compose.game.yml up -d --build
+
 # 查看状态 / 日志 / 停止
 docker compose -f scripts/docker-compose.yml ps
 docker compose -f scripts/docker-compose.yml logs -f web
@@ -128,6 +131,7 @@ docker compose -f scripts/docker-compose.yml down
 - `/assets/` 采用内容哈希长期缓存，`/game/` 设置 `no-store`，替换剧本后无需清缓存；
 - 容器无状态，Web 存档保存在浏览器 IndexedDB（不支持时回退 `localStorage`），`docker compose down` 不会丢档；
 - 存档按 origin 隔离，修改 `WEB_PORT` 后会进入一套新的存档空间；
+- 默认使用镜像内置内容；加 `-f scripts/docker-compose.game.yml`（或 `pwsh ./manage.ps1 docker:up -GameContent`）会把本地内容包只读挂载到 `/usr/share/nginx/html/game`，改剧本后刷新即可生效。
 - 端口与依赖源可在 `scripts/.env` 中覆盖（参考 `scripts/.env.example`）。
 
 日常操作可直接使用根目录脚本：`pwsh ./manage.ps1 docker:up`。

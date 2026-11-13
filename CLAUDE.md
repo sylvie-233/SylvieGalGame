@@ -73,7 +73,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - **player**：`GameApp` 只消费快照与事件；启动时必须先调用 `configurePlayer(PlayerPlatform)` 注入平台能力。UI 状态集中在 Zustand（`packages/player/src/store.ts`），音频由 `AudioManager` 管理。`player` 不直接访问 `window.sylvieGame`、`localStorage` 或任何文件系统 API。覆盖 / 删除 / 返回标题统一走 `useConfirm()` 应用内确认框，不要恢复原生 `window.confirm`；脚本警告汇总到 Zustand 的 `warnings` 并由 `WarningsPanel` 展示；宿主入口用 `ErrorBoundary` 包住 `GameApp`。图鉴解锁由 `GameApp` 监听快照（CG / BGM / 结局）后写入 `meta:gallery`，`GalleryPanel` 只读展示并提供 BGM 试听。
 - **Electron**：`main.ts` 注册 `app://sylvie/index.html` 与 `game://assets/...`，资源访问经过 `resolveInside` 防目录穿越；`preload.ts` 通过 `contextBridge` 暴露受控 API；存档写入 `userData/game-storage.json`。渲染进程的 CSP 禁止外部脚本，截图通过 `capturePage` 生成 640px 宽缩略图。
 - **Web**：`apps/web/src/platform.ts` 将同一套 `PlayerPlatform` 映射为 `fetch` + IndexedDB（localStorage 回退，启动时迁移旧 `sylvie:` 键并请求 `navigator.storage.persist()`）+ `html-to-image` + Fullscreen API。Vite 配置把共享包别名到源码，开发期中间件把 `game-content/game` 挂到 `/game`（支持 HEAD / Range）；构建时把内容复制到 `dist/game`。`quit` 刻意不实现，播放器会自动隐藏“退出游戏”。
-- **Docker**：`scripts/docker-compose.yml` → `apps/web/Dockerfile` 多阶段构建（Node 22 构建、Nginx 运行），只安装 Web 所需 workspace 依赖，不把 Electron 装进镜像。容器无状态，存档在访问者浏览器中。
+- **Docker**：`scripts/docker-compose.yml` → `apps/web/Dockerfile` 多阶段构建（Node 22 构建、Nginx 运行），只安装 Web 所需 workspace 依赖，不把 Electron 装进镜像。容器无状态，存档在访问者浏览器中。`scripts/docker-compose.game.yml` 是可选覆盖文件，把本地 `game-content/game` 只读挂到 `/usr/share/nginx/html/game`；`manage.ps1 docker:* -GameContent` 用同一套覆盖。
 
 ## 代码约定
 
@@ -116,5 +116,5 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 - 打包产物较大（Electron + 游戏资源）；NSIS 安装包未签名，Windows SmartScreen 可能提示。
 - Web 的 BGM 受浏览器自动播放策略限制，首次点击“开始新游戏”后才解锁；全屏若由持久化设置自动恢复可能被浏览器拒绝，已捕获且不影响游戏。
 - Web 构建会提示单 chunk 超过 500 kB，这是预览壳的已知警告，不影响运行。
-- Nginx 默认 mime.types 不含 YAML；`apps/web/nginx.conf` 用正则 location 显式返回 `text/yaml`，不要删除。
+- Nginx 默认 mime.types 不含 YAML，也不含 wav / flac；`apps/web/nginx.conf` 用正则 location 分别返回 `text/yaml`、`audio/wav`、`audio/mp4`、`audio/flac`、`audio/webm`，不要删除。
 - 修改 Dockerfile 的 `COPY` 清单时，必须包含 Web 构建所需的全部 workspace `package.json`，否则 `pnpm install --frozen-lockfile` 或 `--filter @sylvie/web... build` 会失败。

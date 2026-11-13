@@ -10,7 +10,8 @@
     正式交付仍以 Electron 打包产物为准。
 
     docker:* 操作使用根目录 scripts/docker-compose.yml，把 apps/web 构建为 Nginx 静态镜像
-    并运行；容器无状态，存档保存在访问者浏览器的 localStorage 中。
+    并运行；容器无状态，存档保存在访问者浏览器的 IndexedDB / localStorage 中。
+    加 -GameContent 会叠加 scripts/docker-compose.game.yml，把本地内容包挂载进容器。
 
     脚本会自动清除当前会话中的 ELECTRON_RUN_AS_NODE 环境变量，避免 Electron 被
     误当成 Node 运行时启动（表现为 "bad option"）。
@@ -59,6 +60,10 @@
 .PARAMETER ExePath
     smoke 操作要启动的 exe 路径；默认使用 apps/electron/out 下的打包产物。
 
+.PARAMETER GameContent
+    docker:* 操作额外加载 scripts/docker-compose.game.yml，把本地内容包只读挂载进
+    Nginx；修改剧情 / 素材后刷新页面即可生效，不需要重建镜像。
+
 .EXAMPLE
     pwsh ./manage.ps1 status
 
@@ -73,6 +78,9 @@
 
 .EXAMPLE
     pwsh ./manage.ps1 docker:up -NoWait
+
+.EXAMPLE
+    pwsh ./manage.ps1 docker:up -GameContent
 
 .EXAMPLE
     pwsh ./manage.ps1 docker:build -Force
@@ -129,6 +137,8 @@ param(
 
     [switch]$NoWait,
 
+    [switch]$GameContent,
+
     [string]$ExePath
 )
 
@@ -142,6 +152,8 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 $ScriptRoot = $PSScriptRoot
 $MonorepoRoot = Join-Path $ScriptRoot 'galgame-monorepo'
 $ComposeFile = Join-Path $ScriptRoot 'scripts/docker-compose.yml'
+$ComposeGameFile = Join-Path $ScriptRoot 'scripts/docker-compose.game.yml'
+$MountGameContent = [bool]$GameContent
 $WebContainerName = 'sylvie-web'
 $GameRoot = Join-Path $MonorepoRoot 'packages/game-content/game'
 $OutputRoot = Join-Path $MonorepoRoot 'apps/electron/out'
@@ -166,6 +178,10 @@ function Assert-DockerPrerequisites {
         throw "未找到 compose 文件：$ComposeFile"
     }
 
+    if ($MountGameContent -and -not (Test-Path -LiteralPath $ComposeGameFile)) {
+        throw "未找到内容挂载覆盖文件：$ComposeGameFile"
+    }
+
     & docker compose version *> $null
     if ($LASTEXITCODE -ne 0) {
         throw '当前 docker 不支持 compose v2，请升级 Docker Desktop。'
@@ -178,7 +194,11 @@ function Invoke-Compose {
         [string[]]$ComposeArgs
     )
 
-    & docker compose --file $ComposeFile @ComposeArgs
+    $composeFiles = @('--file', $ComposeFile)
+    if ($MountGameContent) {
+        $composeFiles += @('--file', $ComposeGameFile)
+    }
+    & docker compose @composeFiles @ComposeArgs
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose $($ComposeArgs -join ' ') 执行失败（退出码 $LASTEXITCODE）。"
     }

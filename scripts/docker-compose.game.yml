@@ -1,0 +1,13 @@
+# ============================================================================
+# 内容热替换覆盖文件（可选）
+#   把本地内容包只读挂载到 Nginx 静态目录，改剧情 / 素材后刷新页面即可，
+#   不需要重建镜像。默认 docker-compose.yml 仍使用镜像内置内容。
+#
+# 启动：docker compose -f scripts/docker-compose.yml \
+#                    -f scripts/docker-compose.game.yml up -d --build
+#   => pwsh ./manage.ps1 docker:up -GameContent
+# ============================================================================
+services:
+  web:
+    volumes:
+      - ../galgame-monorepo/packages/game-content/game:/usr/share/nginx/html/game:ro

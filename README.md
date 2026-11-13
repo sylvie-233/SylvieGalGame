@@ -112,16 +112,21 @@ pnpm smoke:web
 `scripts/docker-compose.yml` 只包含一个 `web` 服务：多阶段构建 `apps/web`，再把静态产物交给 Nginx。容器本身无状态，存档仍在访问者浏览器的 IndexedDB 中（不支持时回退 `localStorage`）。
 
 ```powershell
-# 一键构建并启动
+# 一键构建并启动（使用镜像内置内容）
 pwsh ./manage.ps1 docker:up
+
+# 内容热替换：把本地内容包只读挂载进容器，改剧本后刷新页面即可
+pwsh ./manage.ps1 docker:up -GameContent
 
 # 或直接使用 compose
 docker compose -f scripts/docker-compose.yml up -d --build
+docker compose -f scripts/docker-compose.yml -f scripts/docker-compose.game.yml up -d --build
 ```
 
 | 配置 | 说明 |
 | --- | --- |
 | `scripts/docker-compose.yml` | Web 服务、端口映射与健康检查 |
+| `scripts/docker-compose.game.yml` | 可选覆盖：本地内容包挂载到 `/usr/share/nginx/html/game` |
 | `scripts/.env.example` | 复制为 `scripts/.env` 后可改 `WEB_PORT` / `NPM_REGISTRY` |
 | `galgame-monorepo/apps/web/Dockerfile` | Node 22 构建 + Nginx 运行 |
 | `galgame-monorepo/apps/web/nginx.conf` | 静态托管、`/game/` 禁止长期缓存、CSP 与 gzip |
@@ -137,7 +142,7 @@ docker compose -f scripts/docker-compose.yml up -d --build
 | `doctor` | 前置条件检查，缺失时直接报错 |
 | `dev` | 构建依赖包并启动 Electron 开发模式 |
 | `web` | 启动 Web 预览壳（Vite HMR，端口 5175） |
-| `docker:up` | 构建 Web 镜像并启动容器（默认 8080） |
+| `docker:up` | 构建 Web 镜像并启动容器（默认 8080）；加 `-GameContent` 挂载本地内容包 |
 | `docker:down` / `docker:restart` | 停止移除 / 重启 Web 容器 |
 | `docker:build` | 仅构建镜像（`-Force` 禁用缓存） |
 | `docker:logs` | 查看容器日志（可加 `-Follow`、`-Tail`） |
