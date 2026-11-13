@@ -143,6 +143,7 @@ pnpm make
    - `SylvieGalGame-Setup-<version>.exe`（NSIS 安装包）
    - `SHA256SUMS.txt`
 5. 配置仓库 Secrets `WINDOWS_CERTIFICATE_PFX`（base64 的 pfx）与 `WINDOWS_CERTIFICATE_PASSWORD` 后，Release 产物会自动签名。
+6. 需要重跑某个版本时，可在 GitHub Actions 的 Release 工作流中点击「Run workflow」，填写已存在的 tag（如 `v0.1.0`）。
 
 ## Web 容器化
 

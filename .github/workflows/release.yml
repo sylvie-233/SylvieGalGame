@@ -4,9 +4,20 @@ on:
   push:
     tags:
       - 'v*'
+  # Actions 页面可通过「Run workflow」手动重跑指定 tag。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布或重跑的 tag，例如 v0.1.0'
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  # push tag 时使用 github.ref_name；手动触发时使用输入值。
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   verify:
@@ -16,6 +27,8 @@ jobs:
         working-directory: galgame-monorepo
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -31,7 +44,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 校验 tag 与版本号
-        run: pnpm version:expect "${{ github.ref_name }}"
+        run: pnpm version:expect "${{ env.RELEASE_TAG }}"
 
       - name: ESLint
         run: pnpm lint
@@ -59,6 +72,8 @@ jobs:
       WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -74,7 +89,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 校验 tag 与版本号
-        run: pnpm version:expect "${{ github.ref_name }}"
+        run: pnpm version:expect "${{ env.RELEASE_TAG }}"
 
       - name: 准备签名证书（可选）
         if: env.WIN_CERT_BASE64 != ''
@@ -110,9 +125,10 @@ jobs:
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           body: |
-            版本 ${{ github.ref_name }} 的桌面产物与 SHA256 校验文件见附件。
+            版本 ${{ env.RELEASE_TAG }} 的桌面产物与 SHA256 校验文件见附件。
             完整变更记录见仓库根目录 `CHANGELOG.md`。
           files: |
             galgame-monorepo/release/*.zip
