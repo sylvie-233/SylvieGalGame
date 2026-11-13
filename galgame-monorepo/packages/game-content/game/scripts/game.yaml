@@ -40,3 +40,11 @@ endings:
   - id: quiet
     title: "安静的黄昏"
     description: "你们把书一本本收好，约好明天还来。故事在一个普通的黄昏翻页。"
+
+gallery:
+  cgs:
+    - { id: book_glow, image: images/cg/book_glow.svg, title: "书页微光" }
+    - { id: tea_steam, image: images/cg/tea_steam.svg, title: "热茶的白汽" }
+  bgms:
+    - { id: afternoon, track: audio/bgm/afternoon.wav, title: "午后" }
+    - { id: sunset, track: audio/bgm/sunset.wav, title: "黄昏" }

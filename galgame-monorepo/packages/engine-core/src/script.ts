@@ -97,6 +97,57 @@ function parseSpritePosition(
   return 'center';
 }
 
+function galleryIdFromPath(value: string): string {
+  const file = value.split('/').pop() ?? value;
+  return file.replace(/\.[^.]+$/, '') || value;
+}
+
+function parseGalleryList(
+  value: unknown,
+  kind: 'cg' | 'bgm',
+  warn: Warn,
+): Array<{ id: string; path: string; title: string }> {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    warn(`[脚本] game.yaml gallery.${kind}s 必须是列表，已忽略`);
+    return [];
+  }
+
+  const entries: Array<{ id: string; path: string; title: string }> = [];
+  const seen = new Set<string>();
+  value.forEach((item, index) => {
+    if (typeof item === 'string') {
+      if (!item) return;
+      const id = galleryIdFromPath(item);
+      if (seen.has(id)) {
+        warn(`[脚本] game.yaml gallery.${kind}s 中 id "${id}" 重复，保留首次定义`);
+        return;
+      }
+      seen.add(id);
+      entries.push({ id, path: item, title: id });
+      return;
+    }
+    if (!isRecord(item)) {
+      warn(`[脚本] game.yaml gallery.${kind}s 第 ${index + 1} 项必须是字符串或映射，已忽略`);
+      return;
+    }
+    const key = kind === 'cg' ? 'image' : 'track';
+    const path = asString(item[key]) ?? asString(item.path);
+    if (!path) {
+      warn(`[脚本] game.yaml gallery.${kind}s 第 ${index + 1} 项缺少 ${key}`);
+      return;
+    }
+    const id = asString(item.id) ?? galleryIdFromPath(path);
+    if (seen.has(id)) {
+      warn(`[脚本] game.yaml gallery.${kind}s 中 id "${id}" 重复，保留首次定义`);
+      return;
+    }
+    seen.add(id);
+    entries.push({ id, path, title: asString(item.title) ?? id });
+  });
+  return entries;
+}
+
 function yamlParse(source: string, label: string, warn: Warn): unknown {
   try {
     return parseYaml(source);
@@ -132,6 +183,24 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
       titleScreen.bgm = asString(raw.titleScreen.bgm) ?? asString(raw.titleScreen.bgmTrack);
       titleScreen.subtitle = asString(raw.titleScreen.subtitle) ?? '';
       titleScreen.showVersion = asBoolean(raw.titleScreen.showVersion) ?? true;
+    }
+  }
+
+  const gallery: GameManifest['gallery'] = { cgs: [], bgms: [] };
+  if (raw.gallery !== undefined) {
+    if (!isRecord(raw.gallery)) {
+      warn('[脚本] game.yaml gallery 必须是映射，已忽略');
+    } else {
+      gallery.cgs = parseGalleryList(raw.gallery.cgs, 'cg', warn).map((entry) => ({
+        id: entry.id,
+        image: entry.path,
+        title: entry.title,
+      }));
+      gallery.bgms = parseGalleryList(raw.gallery.bgms, 'bgm', warn).map((entry) => ({
+        id: entry.id,
+        track: entry.path,
+        title: entry.title,
+      }));
     }
   }
 
@@ -234,6 +303,7 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
     chapters,
     endings,
     titleScreen,
+    gallery,
   };
 }
 
@@ -920,9 +990,14 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
     throw new ScriptError(`start 场景 "${manifest.start}" 未能加载`);
   }
 
-  // 标题页资源也纳入校验与预加载清单。
+  // 标题页与图鉴资源也纳入校验与预加载清单。
   const startScene = scenes.get(manifest.start);
-  for (const asset of [manifest.titleScreen.background, manifest.titleScreen.bgm]) {
+  for (const asset of [
+    manifest.titleScreen.background,
+    manifest.titleScreen.bgm,
+    ...manifest.gallery.cgs.map((entry) => entry.image),
+    ...manifest.gallery.bgms.map((entry) => entry.track),
+  ]) {
     if (asset && startScene && !startScene.assets.includes(asset)) {
       startScene.assets.push(asset);
     }

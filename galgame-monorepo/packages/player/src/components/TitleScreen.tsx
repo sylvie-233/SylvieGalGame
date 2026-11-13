@@ -10,6 +10,7 @@ interface TitleScreenProps {
   onNewGame: () => void;
   onContinue: () => void;
   onLoad: () => void;
+  onGallery: () => void;
   onSettings: () => void;
   onQuit?: () => void;
 }
@@ -27,6 +28,7 @@ export function TitleScreen({
   onNewGame,
   onContinue,
   onLoad,
+  onGallery,
   onSettings,
   onQuit,
 }: TitleScreenProps) {
@@ -76,6 +78,9 @@ export function TitleScreen({
           </button>
           <button type="button" className={MENU_BUTTON} onClick={onLoad} disabled={!ready}>
             读取存档
+          </button>
+          <button type="button" className={MENU_BUTTON} onClick={onGallery} disabled={!ready}>
+            回忆图鉴
           </button>
           <button type="button" className={MENU_BUTTON} onClick={onSettings}>
             设置

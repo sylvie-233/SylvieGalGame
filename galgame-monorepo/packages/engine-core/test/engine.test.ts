@@ -7,6 +7,8 @@ import { evaluateCondition, evaluateExpression, validateExpression } from '../sr
 import { interpolateText, validateInterpolation } from '../src/interpolate';
 import { loadGame, parseManifest } from '../src/script';
 import {
+  loadGalleryUnlocks,
+  persistGalleryUnlocks,
   readAutoSaves,
   readLatestSave,
   readSave,
@@ -171,6 +173,7 @@ describe('script loading', () => {
       subtitle: '',
       showVersion: true,
     });
+    expect(manifest.gallery).toEqual({ cgs: [], bgms: [] });
     expect(manifest.scenes).toEqual(['foo']);
     expect(warnings.length).toBeGreaterThan(0);
   });
@@ -184,6 +187,12 @@ titleScreen:
   bgm: audio/bgm/title.wav
   subtitle: 副标题
   showVersion: false
+gallery:
+  cgs:
+    - { id: first, image: images/cg/first.svg, title: 第一张 }
+    - images/cg/second.svg
+  bgms:
+    - { id: theme, track: audio/bgm/theme.wav, title: 主题曲 }
 `,
       () => {},
     );
@@ -193,6 +202,13 @@ titleScreen:
       bgm: 'audio/bgm/title.wav',
       subtitle: '副标题',
       showVersion: false,
+    });
+    expect(manifest.gallery).toEqual({
+      cgs: [
+        { id: 'first', image: 'images/cg/first.svg', title: '第一张' },
+        { id: 'second', image: 'images/cg/second.svg', title: 'second' },
+      ],
+      bgms: [{ id: 'theme', track: 'audio/bgm/theme.wav', title: '主题曲' }],
     });
   });
 
@@ -562,6 +578,27 @@ commands:
 
     await writeSave(storage, manualSaveKey(1), { ...base, createdAt: 5 });
     expect((await readLatestSave(storage))?.createdAt).toBe(5);
+  });
+
+  it('persists gallery unlocks independently from saves', async () => {
+    const storage = createStorage();
+    await persistGalleryUnlocks(storage, {
+      cgs: ['book_glow', 'book_glow'],
+      bgms: ['afternoon'],
+      endings: ['melody'],
+    });
+
+    const loaded = await loadGalleryUnlocks(storage);
+    expect(loaded).toEqual({
+      cgs: ['book_glow'],
+      bgms: ['afternoon'],
+      endings: ['melody'],
+    });
+    expect(await loadGalleryUnlocks(createStorage())).toEqual({
+      cgs: [],
+      bgms: [],
+      endings: [],
+    });
   });
 
   it('saves content version and bgm position, and migrates v1/v2 saves', async () => {

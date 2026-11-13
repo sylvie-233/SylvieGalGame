@@ -1,4 +1,5 @@
 import type { Command } from './commands';
+import type { GalleryConfig } from './gallery';
 import type { VariableValue } from './variables';
 
 export interface EndingDefinition {
@@ -33,6 +34,8 @@ export interface GameManifest {
   endings: EndingDefinition[];
   /** 标题页展示配置。 */
   titleScreen: TitleConfig;
+  /** 图鉴资源表；解锁状态单独存 meta:gallery。 */
+  gallery: GalleryConfig;
 }
 
 export interface LabelLocation {

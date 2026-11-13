@@ -1,13 +1,21 @@
 import {
   GameEngine,
+  loadGalleryUnlocks,
   loadSettings,
+  persistGalleryUnlocks,
   persistSettings,
   readLatestSave,
   readSave,
   writeAutoSave,
   writeSave,
 } from '@sylvie/engine-core';
-import { SAVE_KEYS, type GameSettings, type SaveData } from '@sylvie/types';
+import {
+  SAVE_KEYS,
+  emptyGalleryUnlocks,
+  type GalleryUnlocks,
+  type GameSettings,
+  type SaveData,
+} from '@sylvie/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -17,6 +25,7 @@ import { usePlayerStore } from '../store';
 import { BacklogPanel } from './BacklogPanel';
 import { useConfirm } from './ConfirmDialog';
 import type { DialogueHandle } from './DialogueBox';
+import { GalleryPanel } from './GalleryPanel';
 import { GameStage } from './GameStage';
 import { MenuOverlay } from './MenuOverlay';
 import { QuickBar } from './QuickBar';
@@ -32,6 +41,9 @@ export function GameApp() {
   const platform = getPlayerPlatform();
 
   const [uiHidden, setUiHidden] = useState(false);
+  const [gallery, setGallery] = useState<GalleryUnlocks>(() => emptyGalleryUnlocks());
+  const galleryRef = useRef<GalleryUnlocks>(emptyGalleryUnlocks());
+  const galleryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapshot = usePlayerStore((state) => state.snapshot);
   const manifest = usePlayerStore((state) => state.manifest);
   const ready = usePlayerStore((state) => state.ready);
@@ -180,6 +192,11 @@ export function GameApp() {
           se: stored.seVolume,
           voice: stored.voiceVolume,
         });
+
+        const storedGallery = await loadGalleryUnlocks(platform.storage);
+        if (!active) return;
+        galleryRef.current = storedGallery;
+        setGallery(storedGallery);
         if (stored.fullscreen) {
           void platform.setFullscreen?.(true);
         }
@@ -233,6 +250,56 @@ export function GameApp() {
       audio.playBgm(track, 800, true);
     }
   }, [audio, manifest, ready, view]);
+
+  // 图鉴解锁：CG 显示、BGM 播放、抵达结局时记录到 meta:gallery，与存档解耦。
+  useEffect(() => {
+    if (!manifest) return;
+    const current = galleryRef.current;
+    const cgs = [...current.cgs];
+    const bgms = [...current.bgms];
+    const endings = [...current.endings];
+
+    const cgImage = snapshot.stage.cg.visible ? snapshot.stage.cg.image : null;
+    const cgEntry = cgImage
+      ? manifest.gallery.cgs.find((entry) => entry.image === cgImage)
+      : undefined;
+    if (cgEntry && !cgs.includes(cgEntry.id)) cgs.push(cgEntry.id);
+
+    const bgmEntry = snapshot.audio.bgm
+      ? manifest.gallery.bgms.find((entry) => entry.track === snapshot.audio.bgm)
+      : undefined;
+    if (bgmEntry && !bgms.includes(bgmEntry.id)) bgms.push(bgmEntry.id);
+
+    if (snapshot.ending && !endings.includes(snapshot.ending.id)) {
+      endings.push(snapshot.ending.id);
+    }
+
+    if (
+      cgs.length === current.cgs.length &&
+      bgms.length === current.bgms.length &&
+      endings.length === current.endings.length
+    ) {
+      return;
+    }
+
+    const next = { cgs, bgms, endings };
+    galleryRef.current = next;
+    setGallery(next);
+    if (galleryTimer.current) clearTimeout(galleryTimer.current);
+    galleryTimer.current = setTimeout(() => {
+      galleryTimer.current = null;
+      void persistGalleryUnlocks(platform.storage, next).catch((error: unknown) => {
+        console.warn('[图鉴] 解锁记录保存失败', error);
+      });
+    }, 300);
+  }, [manifest, platform.storage, snapshot]);
+
+  useEffect(
+    () => () => {
+      if (galleryTimer.current) clearTimeout(galleryTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (snapshot.phase === 'choice' || snapshot.phase === 'ended') {
@@ -519,6 +586,23 @@ export function GameApp() {
     setSkip(false);
   }, [audio, setAuto, setOverlay, setSkip, setView]);
 
+  const previewBgm = useCallback(
+    (track: string | null) => {
+      if (track) {
+        audio.playBgm(track, 400, true);
+        return;
+      }
+      const fallback =
+        view === 'title' ? (manifest?.titleScreen.bgm ?? null) : snapshotRef.current.audio.bgm;
+      if (fallback) {
+        audio.playBgm(fallback, 500, true);
+      } else {
+        audio.stopBgm(500);
+      }
+    },
+    [audio, manifest, view],
+  );
+
   const confirmBackToTitle = useCallback(async () => {
     const confirmed = await confirm('返回标题？未保存的进度会丢失。', {
       title: '返回标题',
@@ -589,6 +673,7 @@ export function GameApp() {
           onNewGame={startNewGame}
           onContinue={() => void continueGame()}
           onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'title' })}
+          onGallery={() => setOverlay({ kind: 'gallery' })}
           onSettings={() => setOverlay({ kind: 'settings', origin: 'title' })}
           onQuit={platform.quit ? () => platform.quit?.() : undefined}
         />
@@ -658,6 +743,7 @@ export function GameApp() {
           onResume={() => setOverlay(null)}
           onSave={() => setOverlay({ kind: 'saves', mode: 'save', origin: 'game' })}
           onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'game' })}
+          onGallery={() => setOverlay({ kind: 'gallery' })}
           onSettings={() => setOverlay({ kind: 'settings', origin: 'game' })}
           onBackToTitle={() => void confirmBackToTitle()}
           onQuit={platform.quit ? () => platform.quit?.() : undefined}
@@ -690,6 +776,16 @@ export function GameApp() {
           entries={snapshot.backlog}
           onClose={() => setOverlay(null)}
           onReplay={(voice) => audio.playVoice(voice)}
+        />
+      )}
+
+      {overlay?.kind === 'gallery' && manifest && (
+        <GalleryPanel
+          manifest={manifest}
+          unlocks={gallery}
+          assetUrl={(path) => platform.assetUrl(path)}
+          onPreviewBgm={previewBgm}
+          onClose={() => setOverlay(null)}
         />
       )}
 

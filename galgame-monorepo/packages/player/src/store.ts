@@ -15,6 +15,7 @@ export type Overlay =
   | { kind: 'saves'; mode: 'save' | 'load'; origin: Origin }
   | { kind: 'settings'; origin: Origin }
   | { kind: 'backlog' }
+  | { kind: 'gallery' }
   | { kind: 'warnings' }
   | { kind: 'end' }
   | null;

@@ -6,6 +6,7 @@ interface MenuOverlayProps {
   onResume: () => void;
   onSave: () => void;
   onLoad: () => void;
+  onGallery?: () => void;
   onSettings: () => void;
   onBackToTitle: () => void;
   onQuit?: () => void;
@@ -15,6 +16,7 @@ export function MenuOverlay({
   onResume,
   onSave,
   onLoad,
+  onGallery,
   onSettings,
   onBackToTitle,
   onQuit,
@@ -23,6 +25,7 @@ export function MenuOverlay({
     { label: '继续游戏', action: onResume, danger: false },
     { label: '保存进度', action: onSave, danger: false },
     { label: '读取进度', action: onLoad, danger: false },
+    ...(onGallery ? [{ label: '回忆图鉴', action: onGallery, danger: false }] : []),
     { label: '设置', action: onSettings, danger: false },
     { label: '返回标题', action: onBackToTitle, danger: true },
     ...(onQuit ? [{ label: '退出游戏', action: onQuit, danger: true }] : []),

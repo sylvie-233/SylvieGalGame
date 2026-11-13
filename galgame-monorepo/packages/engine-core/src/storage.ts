@@ -1,13 +1,15 @@
-import type { GameSettings, KeyValueStorage, SaveData } from '@sylvie/types';
+import type { GalleryUnlocks, GameSettings, KeyValueStorage, SaveData } from '@sylvie/types';
 import {
   AUTO_SAVE_COUNT,
   DEFAULT_SETTINGS,
+  GALLERY_KEY,
   MANUAL_SAVE_COUNT,
   SETTINGS_KEY,
   SAVE_KEYS,
   SAVE_VERSION,
   autoSaveKey,
   manualSaveKey,
+  normalizeGalleryUnlocks,
   normalizeSettings,
 } from '@sylvie/types';
 
@@ -170,6 +172,23 @@ export async function readLatestSave(storage: KeyValueStorage): Promise<SaveData
     }
   }
   return latest;
+}
+
+export async function loadGalleryUnlocks(storage: KeyValueStorage): Promise<GalleryUnlocks> {
+  try {
+    const raw = await storage.get(GALLERY_KEY);
+    if (!raw) return normalizeGalleryUnlocks(null);
+    return normalizeGalleryUnlocks(JSON.parse(raw) as unknown);
+  } catch {
+    return normalizeGalleryUnlocks(null);
+  }
+}
+
+export async function persistGalleryUnlocks(
+  storage: KeyValueStorage,
+  unlocks: GalleryUnlocks,
+): Promise<void> {
+  await storage.set(GALLERY_KEY, JSON.stringify(unlocks));
 }
 
 export async function loadSettings(storage: KeyValueStorage): Promise<GameSettings> {
