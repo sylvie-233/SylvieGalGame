@@ -129,10 +129,6 @@ commands:
 
   - label: melody_ending
 
-  - bgm:
-      track: audio/bgm/music_box.mp3
-      fade: 900
-      loop: true
   - se: audio/se/bell.wav
 
   - text:
@@ -168,14 +164,15 @@ commands:
       speaker: 旁白
       text: "后来我路过那台售货机，总会下意识掏口袋。一百二十元能买一罐热咖啡，却买不回那天晚上，她把找零塞进我手心时，没有说完的那半句话。"
 
+  # 只在结局弹框出现时切回八音盒，剧情正文继续循环 night。
+  - bgm:
+      track: audio/bgm/music_box.mp3
+      fade: 900
+      loop: true
+
   - ending: melody
 
   - label: quiet_ending
-
-  - bgm:
-      track: audio/bgm/music_box.mp3
-      fade: 1200
-      loop: true
 
   - text:
       speaker: 旁白
@@ -206,14 +203,15 @@ commands:
       speaker: 旁白
       text: "那天夜里没有末班车，也没有告别。只有两个人的脚步声，在空荡荡的人行道上，一前一后，走了很久。"
 
-  - ending: quiet
-
-  - label: echo_ending
-
+  # 结尾句播完、弹出结局框时才切八音盒。
   - bgm:
       track: audio/bgm/music_box.mp3
       fade: 900
       loop: true
+
+  - ending: quiet
+
+  - label: echo_ending
 
   - sprite:
       id: sylvie
@@ -277,6 +275,12 @@ commands:
   - text:
       speaker: 旁白
       text: "有些回声不是回来，而是终于有人听见。那年春天，我把一百二十元硬币放进售货机，买了两罐咖啡，一罐放在长椅上，等到天亮。"
+
+  # 结局弹框出现的同时切回八音盒。
+  - bgm:
+      track: audio/bgm/music_box.mp3
+      fade: 900
+      loop: true
 
   - ending: echo
 
