@@ -24,7 +24,13 @@
 galgame-monorepo/
 ├─ apps/
 │  ├─ electron/                # 桌面外壳：主进程、preload、自定义协议、打包配置
-│  │  ├─ src/main.ts           # 窗口、game:// 协议、IPC、存储、截图、全屏
+│  │  ├─ src/main.ts           # 应用生命周期、单实例与主窗口持有
+│  │  ├─ src/protocols.ts      # app:// / game:// 协议、CSP 与资源路径解析
+│  │  ├─ src/ipc.ts            # IPC：配置、存储、截图、全屏、存读档导入导出
+│  │  ├─ src/game-storage.ts   # game-storage.json 内存副本与原子写盘
+│  │  ├─ src/logging.ts        # 运行日志与进程级兜底日志
+│  │  ├─ src/window.ts         # 主窗口创建与导航 / 外部链接策略
+│  │  ├─ src/window-state.ts   # 窗口尺寸 / 位置 / 最大化持久化
 │  │  ├─ src/preload.ts        # 通过 contextBridge 暴露受控 API
 │  │  ├─ src/renderer.tsx      # 注入桌面能力并挂载播放器
 │  │  ├─ forge.config.ts       # Forge + NSIS + extraResource
