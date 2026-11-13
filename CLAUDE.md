@@ -15,6 +15,7 @@
   - `eslint-config`、`tsconfig`：共享工程配置。
 - `docs/SylvieGalGame需求整理-v1.md`：一期需求权威文档；`docs/screenshots/`：根 README 使用的截图。
 - `galgame-monorepo/docs/剧本格式.md`：YAML 清单、场景、全部指令与表达式的权威参考。
+- `galgame-monorepo/docs/script.schema.json`：编辑器 YAML Schema；根目录与 monorepo 内的 `.vscode/settings.json` 已映射 `game.yaml` 与 `scenes/*.yaml`。新增指令时必须同步更新 Schema。
 - 根目录 `manage.ps1` + `scripts/docker-compose.yml`：开发、校验、打包、冒烟测试与 Web 容器运维入口。
 
 ## 常用命令
@@ -29,7 +30,7 @@ pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
 pnpm test         # engine-core 的 Vitest（目前 28 个用例）
-pnpm validate     # 加载真实剧本、跑通两条分支、检查资源与脚本警告
+pnpm validate     # 加载真实剧本、内容体检、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
 pnpm make         # NSIS 安装包 apps/electron/out/make/

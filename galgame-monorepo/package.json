@@ -26,7 +26,9 @@
     "smoke": "node scripts/smoke-app.mjs"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "prettier": "^3.4.2",
-    "turbo": "^2.5.0"
+    "turbo": "^2.5.0",
+    "yaml": "^2.9.1"
   }
 }

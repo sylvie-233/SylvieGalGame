@@ -1,0 +1,8 @@
+{
+  "yaml.schemas": {
+    "./galgame-monorepo/docs/script.schema.json": [
+      "galgame-monorepo/packages/game-content/game/scripts/game.yaml",
+      "galgame-monorepo/packages/game-content/game/scripts/scenes/*.yaml"
+    ]
+  }
+}

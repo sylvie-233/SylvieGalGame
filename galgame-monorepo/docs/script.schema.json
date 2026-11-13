@@ -1,0 +1,427 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sylvie.local/script.schema.json",
+  "title": "Sylvie 剧本",
+  "description": "game.yaml 与 scripts/scenes/*.yaml 的编辑器 Schema；与 runtime parser / pnpm validate 保持同一套字段。",
+  "oneOf": [{ "$ref": "#/definitions/manifest" }, { "$ref": "#/definitions/scene" }],
+  "definitions": {
+    "scalar": {
+      "oneOf": [{ "type": "number" }, { "type": "boolean" }, { "type": "string" }]
+    },
+    "transition": {
+      "enum": ["fade", "none"]
+    },
+    "spritePosition": {
+      "oneOf": [
+        { "enum": ["left", "center", "right"] },
+        { "type": "number", "minimum": 0, "maximum": 100 }
+      ]
+    },
+    "setAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["var"],
+      "properties": {
+        "var": { "type": "string", "minLength": 1 },
+        "op": { "enum": ["=", "+=", "-="] },
+        "value": { "$ref": "#/definitions/scalar" },
+        "expr": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [{ "required": ["value"] }, { "required": ["expr"] }]
+    },
+    "setActions": {
+      "oneOf": [
+        { "$ref": "#/definitions/setAction" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/setAction" }
+        }
+      ]
+    },
+    "choiceOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "jump": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "if": { "type": "string", "minLength": 1 },
+        "condition": { "type": "string", "minLength": 1 },
+        "set": { "$ref": "#/definitions/setActions" },
+        "actions": { "$ref": "#/definitions/setActions" }
+      },
+      "oneOf": [{ "required": ["jump"] }, { "required": ["target"] }]
+    },
+    "bgPayload": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "image": { "type": ["string", "null"] },
+            "hide": { "type": "boolean" },
+            "transition": { "$ref": "#/definitions/transition" },
+            "duration": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "textPayload": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text"],
+          "properties": {
+            "text": { "type": "string" },
+            "speaker": { "type": "string" },
+            "name": { "type": "string" },
+            "voice": { "type": "string" },
+            "id": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "command": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bg"],
+          "properties": { "bg": { "$ref": "#/definitions/bgPayload" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sprite"],
+          "properties": {
+            "sprite": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "image": { "type": ["string", "null"] },
+                "hide": { "type": "boolean" },
+                "position": { "$ref": "#/definitions/spritePosition" },
+                "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+                "scale": { "type": "number", "minimum": 0.1, "maximum": 4 },
+                "z": { "type": "integer", "minimum": 0, "maximum": 100 },
+                "transition": { "$ref": "#/definitions/transition" },
+                "duration": { "type": "number", "minimum": 0 }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cg"],
+          "properties": {
+            "cg": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "image": { "type": "string", "minLength": 1 },
+                    "visible": { "type": "boolean" },
+                    "transition": { "$ref": "#/definitions/transition" },
+                    "duration": { "type": "number", "minimum": 0 }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text"],
+          "properties": { "text": { "$ref": "#/definitions/textPayload" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bgm"],
+          "properties": {
+            "bgm": {
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "track": { "type": "string" },
+                    "name": { "type": "string" },
+                    "fade": { "type": "number", "minimum": 0 },
+                    "loop": { "type": "boolean" }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["se"],
+          "properties": {
+            "se": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "sound": { "type": "string", "minLength": 1 },
+                    "name": { "type": "string", "minLength": 1 },
+                    "volume": { "type": "number", "minimum": 0, "maximum": 1 }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["voice"],
+          "properties": {
+            "voice": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "sound": { "type": "string", "minLength": 1 },
+                    "name": { "type": "string", "minLength": 1 }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": { "label": { "type": "string", "minLength": 1 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["jump"],
+          "properties": { "jump": { "type": "string", "minLength": 1 } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["choice"],
+          "properties": {
+            "choice": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["options"],
+              "properties": {
+                "prompt": { "type": "string" },
+                "title": { "type": "string" },
+                "options": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/definitions/choiceOption" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["set"],
+          "properties": { "set": { "$ref": "#/definitions/setAction" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["if"],
+          "properties": {
+            "if": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["condition"],
+              "properties": {
+                "condition": { "type": "string", "minLength": 1 },
+                "then": { "type": "string", "minLength": 1 },
+                "jump": { "type": "string", "minLength": 1 },
+                "else": { "type": "string", "minLength": 1 }
+              },
+              "oneOf": [{ "required": ["then"] }, { "required": ["jump"] }]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wait"],
+          "properties": {
+            "wait": {
+              "oneOf": [
+                { "type": "number", "minimum": 0 },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["duration"],
+                  "properties": { "duration": { "type": "number", "minimum": 0 } }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ending"],
+          "properties": { "ending": { "type": "string", "minLength": 1 } }
+        }
+      ]
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commands"],
+      "properties": {
+        "name": { "type": "string" },
+        "imports": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "uniqueItems": true
+            }
+          ]
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/command" }
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start"],
+      "properties": {
+        "title": { "type": "string" },
+        "windowTitle": { "type": "string" },
+        "version": { "type": "string" },
+        "start": { "type": "string", "minLength": 1 },
+        "scenes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/scalar" }
+        },
+        "chapters": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "endings": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "type": "string", "minLength": 1 },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["id", "title"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "title": { "type": "string", "minLength": 1 },
+                      "name": { "type": "string" },
+                      "description": { "type": "string" }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          ]
+        },
+        "titleScreen": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "background": { "type": "string", "minLength": 1 },
+            "backgroundImage": { "type": "string", "minLength": 1 },
+            "bgm": { "type": "string", "minLength": 1 },
+            "bgmTrack": { "type": "string", "minLength": 1 },
+            "subtitle": { "type": "string" },
+            "showVersion": { "type": "boolean" }
+          }
+        },
+        "gallery": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cgs": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "type": "string", "minLength": 1 },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["image"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "image": { "type": "string", "minLength": 1 },
+                      "path": { "type": "string", "minLength": 1 },
+                      "title": { "type": "string" }
+                    }
+                  }
+                ]
+              }
+            },
+            "bgms": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "type": "string", "minLength": 1 },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["track"],
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "track": { "type": "string", "minLength": 1 },
+                      "path": { "type": "string", "minLength": 1 },
+                      "title": { "type": "string" }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

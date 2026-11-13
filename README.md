@@ -179,7 +179,9 @@ SylvieGalGame/
 │   │   ├── eslint-config/            # 共享 ESLint 平面配置（base / react）
 │   │   └── tsconfig/                 # 共享 TS 配置
 │   ├── scripts/                      # 资源生成、内容校验、冒烟测试
-│   └── docs/剧本格式.md               # YAML 指令参考
+│   └── docs/
+│       ├── 剧本格式.md                 # YAML 指令参考
+│       └── script.schema.json          # 编辑器 Schema（VSCode YAML 插件）
 ├── scripts/
 │   ├── docker-compose.yml            # Web 静态站容器编排
 │   └── .env.example                  # 端口与依赖源示例
@@ -205,7 +207,9 @@ game/
 pwsh ./manage.ps1 validate
 ```
 
-该命令会解析全部场景、检查标签跳转、表达式与资源存在性，并实际走通所有分支；有警告即以非零码退出。
+该命令会解析全部场景、检查标签跳转、表达式与资源存在性，做内容体检（未引用资源、不可达场景、超大资源、命名规范），并实际走通所有分支；有警告即以非零码退出。
+
+编辑器体验：`galgame-monorepo/docs/script.schema.json` 提供完整 YAML Schema，仓库已通过 `.vscode/settings.json` 映射到清单与场景文件，安装 YAML 插件即可补全与内联报错。
 
 ## 快捷键
 

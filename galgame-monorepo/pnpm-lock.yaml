@@ -8,12 +8,18 @@ importers:
 
   .:
     devDependencies:
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       prettier:
         specifier: ^3.4.2
         version: 3.10.1
       turbo:
         specifier: ^2.5.0
         version: 2.11.11
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
 
   apps/electron:
     devDependencies:

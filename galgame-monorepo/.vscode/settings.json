@@ -1,0 +1,8 @@
+{
+  "yaml.schemas": {
+    "./docs/script.schema.json": [
+      "packages/game-content/game/scripts/game.yaml",
+      "packages/game-content/game/scripts/scenes/*.yaml"
+    ]
+  }
+}

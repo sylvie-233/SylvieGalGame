@@ -51,7 +51,9 @@ galgame-monorepo/
 │  ├─ validate-content.mjs     # 跑通全部分支并检查警告
 │  └─ smoke-app.mjs            # 启动打包产物、CDP 驱动界面并截图
 ├─ .dockerignore               # Docker 构建上下文排除规则
-└─ docs/剧本格式.md             # YAML 指令参考
+└─ docs/
+   ├─ 剧本格式.md                # YAML 指令参考
+   └─ script.schema.json        # 编辑器 Schema（VSCode YAML 插件）
 ```
 
 业务逻辑与 UI 严格分离：
@@ -143,7 +145,9 @@ docker compose -f scripts/docker-compose.yml down
 pnpm validate
 ```
 
-它会解析所有场景、检查 `label` / 跳转 / 表达式 / 资源存在性，并实际走通两条分支；有任何警告都会以非零码退出。
+它会解析所有场景、检查 `label` / 跳转 / 表达式 / 资源存在性，做内容体检（未引用资源、不可达场景、超大资源、命名规范），并实际走通两条分支；有任何警告都会以非零码退出。
+
+编辑器补全由 `docs/script.schema.json` 提供，`.vscode/settings.json` 已映射 `game.yaml` 与 `scenes/*.yaml`；安装 YAML 插件即可使用。
 
 ## 快捷键
 
