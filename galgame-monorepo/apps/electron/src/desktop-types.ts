@@ -3,6 +3,8 @@ export interface DesktopConfig {
   platform: NodeJS.Platform;
   isPackaged: boolean;
   gameRoot: string;
+  storagePath: string;
+  logDir: string;
 }
 
 export interface SylvieDesktopApi {

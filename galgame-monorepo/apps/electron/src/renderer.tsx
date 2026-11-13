@@ -29,6 +29,7 @@ async function boot(): Promise<void> {
   }
 
   const config: DesktopConfig = await desktop.getConfig();
+  console.info(`[桌面端] 渲染进程启动 v${config.appVersion}`);
 
   configurePlayer({
     readText: async (path) => {
@@ -63,6 +64,8 @@ async function boot(): Promise<void> {
       void desktop.quit();
     },
     appVersion: config.appVersion,
+    logPath: config.logDir,
+    storagePath: config.storagePath,
   });
 
   const container = document.getElementById('root');

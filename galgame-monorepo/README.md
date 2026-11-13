@@ -184,5 +184,5 @@ pnpm validate
 - 转场覆盖淡入淡出、溶解、左右滑动与擦除，并提供震屏 / 闪屏；没有粒子或 3D 转场。
 - 资源为松散文件，未做加密或压缩。
 - `pnpm validate` 的诊断带 `scene.yaml:行号`，并区分错误（Schema / 阻断）与警告（可继续）；播放器内面板展示的是运行时警告文本。
-- 渲染异常由 ErrorBoundary 兜底，暂未把运行日志落盘到 `userData`。
+- 渲染异常由 ErrorBoundary 兜底，错误页会显示存档与日志路径；桌面端渲染进程 console、加载失败、preload 错误与主进程异常写入 `userData/logs/runtime-YYYY-MM-DD.log`，保留 7 天。
 - 占位美术 / 音频由 `scripts/generate-assets.mjs` 生成，用于验证流程；可直接替换为正式素材。

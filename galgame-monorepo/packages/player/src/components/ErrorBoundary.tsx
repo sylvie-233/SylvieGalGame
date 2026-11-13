@@ -1,5 +1,16 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
+import { getPlayerPlatform } from '../player-config';
+
+function platformPaths(): { logPath: string | null; storagePath: string | null } {
+  try {
+    const platform = getPlayerPlatform();
+    return { logPath: platform.logPath ?? null, storagePath: platform.storagePath ?? null };
+  } catch {
+    return { logPath: null, storagePath: null };
+  }
+}
+
 interface ErrorBoundaryProps {
   children: ReactNode;
 }
@@ -27,13 +38,23 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   private readonly copyError = (): void => {
     const error = this.state.error;
     if (!error) return;
+    const { logPath, storagePath } = platformPaths();
+    const text = [
+      `${error.name}: ${error.message}`,
+      error.stack ?? '',
+      logPath ? `日志：${logPath}` : '',
+      storagePath ? `存档：${storagePath}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
     void navigator.clipboard
-      ?.writeText(`${error.name}: ${error.message}\n${error.stack ?? ''}`)
+      ?.writeText(text)
       .catch(() => console.warn('[播放器] 无法复制错误信息'));
   };
 
   override render(): ReactNode {
     if (!this.state.error) return this.props.children;
+    const { logPath, storagePath } = platformPaths();
 
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_center,#16101a,#05060a_70%)] px-[8vw] text-center text-sg-ink">
@@ -60,6 +81,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </button>
         </div>
         <p className="m-0 mt-2 text-xs text-sg-dim">存档仍在本地，重新加载后可继续游戏。</p>
+        {(logPath || storagePath) && (
+          <div className="mt-2 max-w-[680px] space-y-1 text-left text-[11px] leading-[1.7] break-all text-sg-dim/80">
+            {storagePath && <p className="m-0">存档：{storagePath}</p>}
+            {logPath && <p className="m-0">日志：{logPath}</p>}
+          </div>
+        )}
       </div>
     );
   }

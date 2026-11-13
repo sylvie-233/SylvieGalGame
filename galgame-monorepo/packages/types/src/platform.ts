@@ -32,4 +32,8 @@ export interface PlayerPlatform {
   openTextFile?: () => Promise<string | null>;
   quit?: () => void;
   appVersion?: string;
+  /** 桌面端运行日志目录；Web 端为空。 */
+  logPath?: string;
+  /** 桌面端存档文件路径；Web 端为空。 */
+  storagePath?: string;
 }

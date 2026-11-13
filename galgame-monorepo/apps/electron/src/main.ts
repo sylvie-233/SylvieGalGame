@@ -1,5 +1,15 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import {
+  access,
+  appendFile,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -19,6 +29,51 @@ const APP_ENTRY_URL = `${APP_SCHEME}://${APP_HOST}/index.html`;
 const GAME_SCHEME = 'game';
 const GAME_HOST = 'assets';
 const STORAGE_FILE = 'game-storage.json';
+const LOG_RETENTION_DAYS = 7;
+const MAX_LOG_MESSAGE_LENGTH = 4000;
+
+function logDirectory(): string {
+  return path.join(app.getPath('userData'), 'logs');
+}
+
+let logWriteQueue: Promise<void> = Promise.resolve();
+
+function logLine(scope: string, level: string, message: string): void {
+  const text = message.length > MAX_LOG_MESSAGE_LENGTH ? `${message.slice(0, MAX_LOG_MESSAGE_LENGTH)}…` : message;
+  const timestamp = new Date();
+  const day = timestamp.toISOString().slice(0, 10);
+  const line = `${timestamp.toISOString()} [${level}] [${scope}] ${text.replace(/\r?\n/g, '\\n')}\n`;
+  logWriteQueue = logWriteQueue
+    .then(async () => {
+      await mkdir(logDirectory(), { recursive: true });
+      await appendFile(path.join(logDirectory(), `runtime-${day}.log`), line, 'utf8');
+    })
+    .catch((error: unknown) => {
+      console.error('[日志] 写入失败', error);
+    });
+}
+
+async function cleanupOldLogs(): Promise<void> {
+  const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  try {
+    const entries = await readdir(logDirectory(), { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !/^runtime-\d{4}-\d{2}-\d{2}\.log$/.test(entry.name)) continue;
+      const file = path.join(logDirectory(), entry.name);
+      const info = await stat(file).catch(() => null);
+      if (info && info.mtimeMs < cutoff) await unlink(file).catch(() => undefined);
+    }
+  } catch {
+    // 日志目录尚未创建或不可读，忽略。
+  }
+}
+
+process.on('uncaughtException', (error) => {
+  logLine('main', 'error', error.stack ?? `${error.name}: ${error.message}`);
+});
+process.on('unhandledRejection', (reason) => {
+  logLine('main', 'error', `未处理 Promise：${reason instanceof Error ? reason.stack ?? reason.message : String(reason)}`);
+});
 
 const MIME_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
@@ -227,6 +282,8 @@ function registerIpc(): void {
     platform: process.platform,
     isPackaged: app.isPackaged,
     gameRoot: gameRoot(),
+    storagePath: storageFilePath(),
+    logDir: logDirectory(),
   }));
 
   ipcMain.handle('game:read-text', async (_event, relativePath: unknown) => {
@@ -464,6 +521,26 @@ function buildWindow(): BrowserWindow {
     window.maximize();
   }
 
+  window.webContents.on('console-message', (details) => {
+    logLine(
+      'renderer',
+      details.level,
+      `${details.message}（${details.sourceId || '未知来源'}:${details.lineNumber}）`,
+    );
+  });
+  window.webContents.on('render-process-gone', (_event, details) => {
+    logLine('renderer', 'error', `渲染进程退出：${details.reason}（exitCode=${details.exitCode}）`);
+  });
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    logLine('renderer', 'error', `页面加载失败：${code} ${description} ${url}`);
+  });
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
+    logLine('renderer', 'error', `preload 失败：${preloadPath}\n${error.stack ?? error.message}`);
+  });
+  window.on('unresponsive', () => {
+    logLine('window', 'warning', '窗口无响应');
+  });
+
   window.once('ready-to-show', () => {
     window.show();
   });
@@ -520,6 +597,8 @@ async function bootstrap(): Promise<void> {
   registerAppProtocol();
   registerGameProtocol();
   registerIpc();
+  void cleanupOldLogs();
+  logLine('main', 'info', `应用启动 v${app.getVersion()}（packaged=${app.isPackaged}）`);
 
   mainWindow = buildWindow();
   mainWindow.on('closed', () => {

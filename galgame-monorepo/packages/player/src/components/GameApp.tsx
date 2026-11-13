@@ -671,12 +671,18 @@ export function GameApp() {
       showToast('当前环境不支持剪贴板');
       return;
     }
-    const text = [initError ?? '', ...warnings].filter(Boolean).join('\n\n');
+    const paths = [
+      platform.storagePath ? `存档：${platform.storagePath}` : '',
+      platform.logPath ? `日志：${platform.logPath}` : '',
+    ].filter(Boolean);
+    const text = [initError ?? '', paths.join('\n'), ...warnings]
+      .filter(Boolean)
+      .join('\n\n');
     void clipboard
       .writeText(text)
       .then(() => showToast('已复制诊断信息'))
       .catch(() => showToast('复制失败'));
-  }, [initError, showToast, warnings]);
+  }, [initError, platform.logPath, platform.storagePath, showToast, warnings]);
 
   if (initError) {
     return (
@@ -692,6 +698,12 @@ export function GameApp() {
           <p className="m-0 max-w-[640px] text-sm leading-[1.8] text-sg-dim">
             另有 {warnings.length} 条脚本警告，可在诊断信息中查看。
           </p>
+        )}
+        {(platform.storagePath || platform.logPath) && (
+          <div className="max-w-[640px] space-y-1 text-left text-[11px] leading-[1.7] break-all text-sg-dim/80">
+            {platform.storagePath && <p className="m-0">存档：{platform.storagePath}</p>}
+            {platform.logPath && <p className="m-0">日志：{platform.logPath}</p>}
+          </div>
         )}
         <button
           type="button"
