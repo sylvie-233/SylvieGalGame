@@ -18,7 +18,8 @@
       package       生成免安装目录（apps/electron/out/SylvieGalGame-win32-x64/）
       make          生成 NSIS 安装包（apps/electron/out/make/）
       smoke         启动已打包应用，自动验证 UI 并截图（需先 package）
-      verify        依次执行 typecheck、test、validate
+      verify        依次执行 lint、typecheck、test、validate
+      lint          全仓 ESLint 检查
       test          运行引擎单元测试
       typecheck     全仓 TypeScript 检查
       validate      加载真实剧本、跑通全部分支并检查资源与脚本警告
@@ -49,6 +50,9 @@
     pwsh ./manage.ps1 verify
 
 .EXAMPLE
+    pwsh ./manage.ps1 lint
+
+.EXAMPLE
     pwsh ./manage.ps1 smoke
 
 .EXAMPLE
@@ -63,7 +67,7 @@ param(
     [Parameter(Position = 0)]
     [ValidateSet(
         'status', 'doctor', 'dev', 'build', 'package', 'make', 'smoke',
-        'verify', 'test', 'typecheck', 'validate', 'assets',
+        'verify', 'lint', 'test', 'typecheck', 'validate', 'assets',
         'clean', 'reset-saves', 'output'
     )]
     [string]$Action = 'status',
@@ -348,10 +352,16 @@ try {
 
         'verify' {
             Assert-NodePrerequisites
+            Invoke-Pnpm -PnpmArgs @('lint')
             Invoke-Pnpm -PnpmArgs @('typecheck')
             Invoke-Pnpm -PnpmArgs @('test')
             Invoke-Pnpm -PnpmArgs @('validate')
-            Write-Host '校验全部通过：typecheck / test / validate。' -ForegroundColor Green
+            Write-Host '校验全部通过：lint / typecheck / test / validate。' -ForegroundColor Green
+        }
+
+        'lint' {
+            Assert-NodePrerequisites
+            Invoke-Pnpm -PnpmArgs @('lint')
         }
 
         'test' {

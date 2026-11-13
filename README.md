@@ -68,7 +68,7 @@ pwsh ./manage.ps1 dev
 pwsh ./manage.ps1 package
 pwsh ./manage.ps1 make
 
-# 自动验证：typecheck + 单元测试 + 剧本校验
+# 自动验证：ESLint + typecheck + 单元测试 + 剧本校验
 pwsh ./manage.ps1 verify
 
 # 启动打包产物，自动点到选项、存读档与设置并截图
@@ -93,7 +93,8 @@ pwsh ./manage.ps1 smoke
 | `build` | Turbo 构建全部包 |
 | `package` / `make` | 生成免安装目录 / NSIS 安装包 |
 | `smoke` | 启动已打包应用，CDP 驱动 UI 并截图（可传 `-ExePath`） |
-| `verify` / `test` / `typecheck` / `validate` | 全量或单项校验 |
+| `verify` | 依次执行 lint、typecheck、test、validate |
+| `lint` / `test` / `typecheck` / `validate` | 单项校验 |
 | `assets` | 重新生成占位图片、音频与图标 |
 | `clean` | 清理构建产物（需确认，`-Force` 跳过） |
 | `reset-saves` | 删除本地存档、已读标记与设置（需确认） |
@@ -106,7 +107,7 @@ pwsh ./manage.ps1 smoke
 - **引擎内核**：纯 TypeScript，YAML 解析、指针 + 阻塞调度、变量与条件表达式、已读标记、存档序列化
 - **播放器**：React 19、Tailwind CSS v4、Motion 12、Zustand 5、Howler.js
 - **桌面端**：Electron 45、Electron Forge 8、Vite 8、NSIS
-- **工程**：pnpm workspace + Turborepo、Vitest、TypeScript strict
+- **工程**：pnpm workspace + Turborepo、ESLint 9 平面配置、Vitest、TypeScript strict
 
 ## 目录结构
 
@@ -123,6 +124,7 @@ SylvieGalGame/
 │   │   ├── player/                   # React 播放器
 │   │   ├── game-content/             # 内容包：剧本 + 图片 + 音频（无构建步骤）
 │   │   ├── types/                    # 跨包共享类型
+│   │   ├── eslint-config/            # 共享 ESLint 平面配置（base / react）
 │   │   └── tsconfig/                 # 共享 TS 配置
 │   ├── scripts/                      # 资源生成、内容校验、冒烟测试
 │   └── docs/剧本格式.md               # YAML 指令参考

@@ -15,7 +15,7 @@
 | 全局状态 | Zustand 5 |
 | 音频 | Howler.js |
 | 脚本 | YAML（`yaml`） |
-| 工程 | pnpm workspace + Turborepo |
+| 工程 | pnpm workspace + Turborepo + ESLint 9 |
 
 ## 目录结构
 
@@ -33,6 +33,7 @@ galgame-monorepo/
 │  ├─ engine-core/             # 纯 TS 内核：解析、指针调度、变量、条件、已读、存档
 │  │  └─ test/                 # Vitest 单元测试
 │  ├─ player/                  # React 播放器：舞台、对话、选项、面板、音频、状态
+│  ├─ eslint-config/           # 共享 ESLint 平面配置（base / react）
 │  └─ game-content/            # 纯内容包（无构建步骤）：剧本 + 图片 + 音频
 │     └─ game/
 │        ├─ scripts/           # game.yaml 清单 + scenes/*.yaml
@@ -80,6 +81,7 @@ pnpm dev          # 构建共享包并启动 Electron（Vite 开发服务器）
 | --- | --- |
 | `pnpm dev` | 构建 `player` 依赖后启动桌面应用 |
 | `pnpm build` | Turbo 构建全部包 |
+| `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
 | `pnpm test` | 引擎单元测试（Vitest） |
 | `pnpm validate` | 加载真实剧本、跑通两条分支、检查资源与脚本警告 |

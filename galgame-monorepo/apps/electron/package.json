@@ -15,6 +15,7 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
     "clean": "rimraf .vite out .turbo"
   },
   "devDependencies": {
@@ -22,6 +23,7 @@
     "@electron-forge/plugin-vite": "^8.0.1",
     "@electron-forge/shared-types": "^8.0.1",
     "@tailwindcss/vite": "^4.3.5",
+    "@sylvie/eslint-config": "workspace:*",
     "@sylvie/player": "workspace:*",
     "@sylvie/tsconfig": "workspace:*",
     "@sylvie/types": "workspace:*",
@@ -31,6 +33,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.3.0",
     "electron-forge-maker-nsis": "^26.18.0",
+    "eslint": "^9.18.0",
     "motion-dom": "^12.43.0",
     "motion-utils": "^12.39.0",
     "react": "^19.0.0",

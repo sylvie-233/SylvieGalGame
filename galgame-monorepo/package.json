@@ -15,6 +15,7 @@
     "package": "pnpm --filter @sylvie/player... build && pnpm --filter @sylvie/electron package",
     "make": "pnpm --filter @sylvie/player... build && pnpm --filter @sylvie/electron make",
     "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
     "test": "turbo run test",
     "clean": "turbo run clean",
     "assets": "node scripts/generate-assets.mjs",
