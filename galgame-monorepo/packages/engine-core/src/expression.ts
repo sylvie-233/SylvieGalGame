@@ -217,6 +217,10 @@ class ExpressionParser {
       }
       this.position += 1;
       const right = this.parseMultiplicative();
+      if (token.value === '+' && (typeof left === 'string' || typeof right === 'string')) {
+        left = `${toStringValue(left)}${toStringValue(right)}`;
+        continue;
+      }
       const leftNumber = toNumber(left, '运算符 “+/-” ');
       const rightNumber = toNumber(right, '运算符 “+/-” ');
       left = token.value === '+' ? leftNumber + rightNumber : leftNumber - rightNumber;

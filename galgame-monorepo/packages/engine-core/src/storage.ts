@@ -1,9 +1,12 @@
 import type { GameSettings, KeyValueStorage, SaveData } from '@sylvie/types';
 import {
+  AUTO_SAVE_COUNT,
   DEFAULT_SETTINGS,
   MANUAL_SAVE_COUNT,
   SETTINGS_KEY,
+  SAVE_KEYS,
   SAVE_VERSION,
+  autoSaveKey,
   manualSaveKey,
   normalizeSettings,
 } from '@sylvie/types';
@@ -94,6 +97,66 @@ export async function readManualSaves(
     }),
   );
   return entries;
+}
+
+export interface AutoSaveEntry {
+  slot: number;
+  key: string;
+  data: SaveData | null;
+}
+
+/**
+ * 自动存档轮换：新档写入 slot 1，旧档依次后移，最多保留 3 份。
+ * 使用原始字符串搬运，避免在写入过程中重复迁移旧档。
+ */
+export async function writeAutoSave(
+  storage: KeyValueStorage,
+  data: SaveData,
+): Promise<void> {
+  // 先把旧槽位全部读出来，再统一后移，避免边读边写导致重复覆盖。
+  const previous = await Promise.all(
+    Array.from({ length: AUTO_SAVE_COUNT - 1 }, (_, index) => storage.get(autoSaveKey(index + 1))),
+  );
+  for (let slot = AUTO_SAVE_COUNT; slot >= 2; slot -= 1) {
+    const raw = previous[slot - 2];
+    if (raw !== null && raw !== undefined) {
+      await storage.set(autoSaveKey(slot), raw);
+    } else {
+      await storage.delete(autoSaveKey(slot));
+    }
+  }
+  await writeSave(storage, autoSaveKey(1), data);
+}
+
+export async function readAutoSaves(
+  storage: KeyValueStorage,
+  count = AUTO_SAVE_COUNT,
+): Promise<AutoSaveEntry[]> {
+  return Promise.all(
+    Array.from({ length: count }, async (_, index) => {
+      const slot = index + 1;
+      const key = autoSaveKey(slot);
+      return { slot, key, data: await readSave(storage, key) };
+    }),
+  );
+}
+
+/** 读取自动 / 快速 / 手动存档中时间最新的一份，供「继续游戏」使用。 */
+export async function readLatestSave(storage: KeyValueStorage): Promise<SaveData | null> {
+  const candidates = await Promise.all([
+    ...(await readAutoSaves(storage)).map((entry) => entry.data),
+    readSave(storage, SAVE_KEYS.quick),
+    ...(await readManualSaves(storage)).map((entry) => entry.data),
+  ]);
+
+  let latest: SaveData | null = null;
+  for (const data of candidates) {
+    if (!data) continue;
+    if (!latest || data.createdAt > latest.createdAt) {
+      latest = data;
+    }
+  }
+  return latest;
 }
 
 export async function loadSettings(storage: KeyValueStorage): Promise<GameSettings> {

@@ -1,5 +1,6 @@
 import type { ChoiceSnapshot } from '@sylvie/types';
 import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ChoiceOverlayProps {
   choice: ChoiceSnapshot | null;
@@ -7,6 +8,64 @@ interface ChoiceOverlayProps {
 }
 
 export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
+  const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
+  const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusOption = (index: number) => {
+    activeRef.current = index;
+    setActive(index);
+    buttonsRef.current[index]?.focus({ preventScroll: true });
+  };
+
+  useEffect(() => {
+    if (!choice) return;
+    activeRef.current = 0;
+    setActive(0);
+    const frame = requestAnimationFrame(() => {
+      buttonsRef.current[0]?.focus({ preventScroll: true });
+    });
+
+    // 选项出现时接管方向键 / 数字键 / 回车；鼠标点击仍然有效。
+    const onKeyDown = (event: KeyboardEvent) => {
+      const options = choice.options;
+      if (options.length === 0) return;
+      const key = event.key;
+      if (key === 'ArrowDown' || key === 'ArrowUp') {
+        event.preventDefault();
+        const step = key === 'ArrowDown' ? 1 : -1;
+        focusOption((activeRef.current + step + options.length) % options.length);
+        return;
+      }
+      if (key === 'Home' || key === 'End') {
+        event.preventDefault();
+        focusOption(key === 'Home' ? 0 : options.length - 1);
+        return;
+      }
+      if (/^[1-9]$/.test(key)) {
+        const index = Number(key) - 1;
+        const option = options[index];
+        if (!option) return;
+        event.preventDefault();
+        onChoose(option.optionIndex);
+        return;
+      }
+      if (key === 'Enter') {
+        const option = options[activeRef.current];
+        if (!option) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onChoose(option.optionIndex);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [choice, onChoose]);
+
   return (
     <AnimatePresence>
       {choice && (
@@ -35,16 +94,33 @@ export function ChoiceOverlay({ choice, onChoose }: ChoiceOverlayProps) {
             {choice.options.map((option, index) => (
               <motion.button
                 key={option.optionIndex}
+                ref={(node) => {
+                  buttonsRef.current[index] = node;
+                }}
                 type="button"
-                className="flex items-center gap-3.5 rounded-[3px] border border-sg-line bg-[linear-gradient(120deg,rgba(22,24,38,0.9),rgba(12,14,24,0.92))] px-6 py-4 text-left text-[clamp(14px,1.3vw,17px)] tracking-[0.1em] text-sg-ink backdrop-blur-md transition-colors hover:border-sg-line-strong hover:bg-[linear-gradient(120deg,rgba(44,29,40,0.92),rgba(20,21,34,0.94))] focus-visible:outline-none"
+                className={`flex items-center gap-3.5 rounded-[3px] border px-6 py-4 text-left text-[clamp(14px,1.3vw,17px)] tracking-[0.1em] text-sg-ink backdrop-blur-md transition-colors focus-visible:outline-none ${
+                  active === index
+                    ? 'border-sg-line-strong bg-[linear-gradient(120deg,rgba(44,29,40,0.92),rgba(20,21,34,0.94))]'
+                    : 'border-sg-line bg-[linear-gradient(120deg,rgba(22,24,38,0.9),rgba(12,14,24,0.92))] hover:border-sg-line-strong'
+                }`}
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.12 + index * 0.07, duration: 0.35, ease: 'easeOut' }}
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.99 }}
+                onFocus={() => {
+                  activeRef.current = index;
+                  setActive(index);
+                }}
+                onMouseEnter={() => {
+                  activeRef.current = index;
+                  setActive(index);
+                }}
                 onClick={() => onChoose(option.optionIndex)}
               >
-                <span className="text-[11px] text-sg-accent opacity-70">◆</span>
+                <span className="text-[11px] tabular-nums text-sg-accent opacity-70">
+                  {index + 1}
+                </span>
                 {option.text}
               </motion.button>
             ))}

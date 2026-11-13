@@ -2,7 +2,9 @@ import {
   GameEngine,
   loadSettings,
   persistSettings,
+  readLatestSave,
   readSave,
+  writeAutoSave,
   writeSave,
 } from '@sylvie/engine-core';
 import { SAVE_KEYS, type GameSettings, type SaveData } from '@sylvie/types';
@@ -113,7 +115,7 @@ export function GameApp() {
               lastScreenshotChapter = chapter;
             }
             const data = engine.createSave({ screenshot, note: '自动存档' });
-            await writeSave(platform.storage, SAVE_KEYS.auto, data);
+            await writeAutoSave(platform.storage, data);
           } catch (error) {
             console.warn('[自动存档] 写入失败', error);
           }
@@ -326,9 +328,9 @@ export function GameApp() {
 
   const continueGame = useCallback(async () => {
     if (!ready) return;
-    const data = await readSave(platform.storage, SAVE_KEYS.auto);
+    const data = await readLatestSave(platform.storage);
     if (!data) {
-      showToast('暂无自动存档');
+      showToast('暂无可继续的存档');
       return;
     }
     applyLoadedSave(data);

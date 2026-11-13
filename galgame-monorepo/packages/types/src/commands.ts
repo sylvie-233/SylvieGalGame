@@ -33,7 +33,10 @@ export interface CgCommand {
 
 export interface TextCommand {
   kind: 'text';
-  /** 全局稳定的文本 id（block#index），用于已读标记。 */
+  /**
+   * 已读标记 id。
+   * 作者显式指定时原样使用，否则由 block + 文本内容哈希生成，插入/删除无关台词不会错位。
+   */
   id: string;
   speaker: string | null;
   text: string;
@@ -75,6 +78,8 @@ export interface ChoiceOption {
   /** 支持 "label" 或 "scene#label"。 */
   target: string;
   condition: string | null;
+  /** 选中后、跳转前依次执行的赋值动作。 */
+  actions: SetCommand[];
 }
 
 export interface ChoiceCommand {
@@ -87,7 +92,10 @@ export interface SetCommand {
   kind: 'set';
   variable: string;
   op: '=' | '+=' | '-=';
-  value: VariableValue;
+  /** 字面量赋值。与 expr 二选一。 */
+  value: VariableValue | null;
+  /** 表达式赋值，复用条件表达式解析器。 */
+  expr: string | null;
 }
 
 export interface IfCommand {

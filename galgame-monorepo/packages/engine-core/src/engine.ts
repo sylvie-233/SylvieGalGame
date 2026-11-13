@@ -21,7 +21,7 @@ import type {
 } from '@sylvie/types';
 import { READ_MARKS_KEY, SAVE_VERSION } from '@sylvie/types';
 
-import { evaluateCondition } from './expression';
+import { evaluateCondition, evaluateExpression } from './expression';
 import { interpolateText } from './interpolate';
 import { loadGame, type LoadedGame } from './script';
 
@@ -264,6 +264,9 @@ export class GameEngine {
       this.warn(`[引擎] 无效的选项下标 ${optionIndex}`);
       return;
     }
+    for (const action of option.actions) {
+      this.applySet(action);
+    }
     this.choice = null;
     this.choiceOptions = [];
     this.phase = 'idle';
@@ -332,7 +335,10 @@ export class GameEngine {
   }
 
   isCurrentTextRead(): boolean {
-    return this.dialogue ? this.readMarks.has(this.dialogue.id) : false;
+    if (!this.dialogue) return false;
+    if (this.readMarks.has(this.dialogue.id)) return true;
+    // 兼容一期存档：旧已读标记是 block#文本下标，升级后首次仍可命中。
+    return this.readMarks.has(`${this.pointer.block}#${this.pointer.index}`);
   }
 
   getReadMarkCount(): number {
@@ -670,22 +676,51 @@ export class GameEngine {
   }
 
   private applySet(command: SetCommand): void {
+    let next: SetCommand['value'];
+    if (command.expr !== null) {
+      try {
+        next = evaluateExpression(command.expr, this.variables);
+      } catch (error) {
+        this.warn(
+          `[引擎] 变量 "${command.variable}" 表达式 "${command.expr}" 求值失败：${String(error)}`,
+        );
+        return;
+      }
+    } else {
+      next = command.value;
+    }
+    if (next === null) {
+      this.warn(`[引擎] 变量 "${command.variable}" 的 set 缺少 value 或 expr`);
+      return;
+    }
+
     if (command.op === '=') {
-      this.variables = { ...this.variables, [command.variable]: command.value };
+      this.variables = { ...this.variables, [command.variable]: next };
       return;
     }
 
     const current = this.variables[command.variable];
-    const currentNumber = typeof current === 'number' ? current : Number(current);
-    if (!Number.isFinite(currentNumber)) {
-      this.warn(`[引擎] 变量 "${command.variable}" 不是数字，无法执行 ${command.op}`);
+    if (command.op === '+=') {
+      if (typeof current === 'string' || typeof next === 'string') {
+        this.variables = {
+          ...this.variables,
+          [command.variable]: `${String(current ?? '')}${String(next)}`,
+        };
+        return;
+      }
+      if (typeof current !== 'number' || typeof next !== 'number') {
+        this.warn(`[引擎] 变量 "${command.variable}" 不是数字，无法执行 +=`);
+        return;
+      }
+      this.variables = { ...this.variables, [command.variable]: current + next };
       return;
     }
-    const delta = typeof command.value === 'number' ? command.value : 0;
-    this.variables = {
-      ...this.variables,
-      [command.variable]: command.op === '+=' ? currentNumber + delta : currentNumber - delta,
-    };
+
+    if (typeof current !== 'number' || typeof next !== 'number') {
+      this.warn(`[引擎] 变量 "${command.variable}" 不是数字，无法执行 -=`);
+      return;
+    }
+    this.variables = { ...this.variables, [command.variable]: current - next };
   }
 
   private resolveTarget(target: string): boolean {

@@ -24,11 +24,19 @@ export interface SaveData {
 }
 
 export const SAVE_KEYS = {
+  /** 自动存档轮换的第 1 槽，也是旧版本的唯一自动存档键。 */
   auto: 'save:auto',
   quick: 'save:quick',
 } as const;
 
+/** 自动存档轮换槽数量：save:auto、save:auto:2、save:auto:3。 */
+export const AUTO_SAVE_COUNT = 3;
+
 export const MANUAL_SAVE_COUNT = 20;
+
+export function autoSaveKey(slot: number): string {
+  return slot <= 1 ? SAVE_KEYS.auto : `save:auto:${slot}`;
+}
 
 export function manualSaveKey(slot: number): string {
   return `save:slot:${slot}`;

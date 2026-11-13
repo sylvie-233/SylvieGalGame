@@ -1,8 +1,10 @@
 import {
   deleteSave,
+  readAutoSaves,
   readManualSaves,
   readSave,
   writeSave,
+  type AutoSaveEntry,
   type GameEngine,
   type ManualSaveEntry,
 } from '@sylvie/engine-core';
@@ -117,7 +119,7 @@ export function SaveLoadPanel({
   notify,
 }: SaveLoadPanelProps) {
   const [manual, setManual] = useState<ManualSaveEntry[]>([]);
-  const [auto, setAuto] = useState<SaveData | null>(null);
+  const [auto, setAuto] = useState<AutoSaveEntry[]>([]);
   const [quick, setQuick] = useState<SaveData | null>(null);
   const [busy, setBusy] = useState(false);
   const { confirm, dialog } = useConfirm();
@@ -125,7 +127,7 @@ export function SaveLoadPanel({
   const refresh = useCallback(async () => {
     const entries = await readManualSaves(platform.storage, MANUAL_SAVE_COUNT);
     setManual(entries);
-    setAuto(await readSave(platform.storage, SAVE_KEYS.auto));
+    setAuto(await readAutoSaves(platform.storage));
     setQuick(await readSave(platform.storage, SAVE_KEYS.quick));
   }, [platform.storage]);
 
@@ -198,13 +200,16 @@ export function SaveLoadPanel({
           特殊存档
         </h3>
         <div className="mb-2 mt-3 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-          <SlotCard
-            title="自动存档"
-            data={auto}
-            mode={mode}
-            disabled={mode === 'save' || !auto}
-            onActivate={() => auto && loadData(auto)}
-          />
+          {auto.map((entry) => (
+            <SlotCard
+              key={entry.key}
+              title={entry.slot === 1 ? '自动存档' : `自动存档 ${entry.slot}`}
+              data={entry.data}
+              mode={mode}
+              disabled={mode === 'save' || !entry.data}
+              onActivate={() => entry.data && loadData(entry.data)}
+            />
+          ))}
           <SlotCard
             title="快速存档"
             data={quick}

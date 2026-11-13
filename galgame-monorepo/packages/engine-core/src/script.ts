@@ -289,6 +289,7 @@ function parseText(payload: unknown, block: string, index: number, warn: Warn): 
   let text: string | null = null;
   let speaker: string | null = null;
   let voice: string | null = null;
+  let explicitId: string | null = null;
 
   if (typeof payload === 'string') {
     text = payload;
@@ -300,6 +301,7 @@ function parseText(payload: unknown, block: string, index: number, warn: Warn): 
     }
     speaker = asString(payload.speaker) ?? asString(payload.name);
     voice = asString(payload.voice);
+    explicitId = asString(payload.id);
   } else {
     warn(`[脚本] ${block} 第 ${index + 1} 条 text：参数应为字符串或 { speaker, text } 映射`);
     return null;
@@ -310,7 +312,7 @@ function parseText(payload: unknown, block: string, index: number, warn: Warn): 
     warn(`[脚本] ${block} 第 ${index + 1} 条 text：${interpolationError}`);
   }
 
-  return { kind: 'text', id: '', speaker, text, voice };
+  return { kind: 'text', id: explicitId ?? '', speaker, text, voice };
 }
 
 function parseBgm(payload: unknown, block: string, index: number, warn: Warn): BgmCommand {
@@ -410,7 +412,19 @@ function parseChoice(
         );
       }
     }
-    options.push({ text, target, condition });
+
+    const actions: SetCommand[] = [];
+    const rawActions = option.set ?? option.actions;
+    const context = `${block} 第 ${index + 1} 条 choice 选项 ${optionIndex + 1}`;
+    if (rawActions !== undefined) {
+      const entries = Array.isArray(rawActions) ? rawActions : [rawActions];
+      for (const entry of entries) {
+        const action = parseSetPayload(entry, context, warn);
+        if (action) actions.push(action);
+      }
+    }
+
+    options.push({ text, target, condition, actions });
   });
 
   if (options.length === 0) {
@@ -424,31 +438,49 @@ function parseChoice(
   };
 }
 
-function parseSet(payload: unknown, block: string, index: number, warn: Warn): SetCommand | null {
+function parseSetPayload(payload: unknown, context: string, warn: Warn): SetCommand | null {
   if (!isRecord(payload)) {
-    warn(`[脚本] ${block} 第 ${index + 1} 条 set：参数必须是 { var, op, value } 映射`);
+    warn(`[脚本] ${context}：参数必须是 { var, op, value } 或 { var, op, expr } 映射`);
     return null;
   }
   const variable = asString(payload.var);
   if (!variable) {
-    warn(`[脚本] ${block} 第 ${index + 1} 条 set：缺少 var`);
+    warn(`[脚本] ${context}：缺少 var`);
     return null;
   }
-  const value = asVariableValue(payload.value);
-  if (value === null) {
-    warn(`[脚本] ${block} 第 ${index + 1} 条 set：value 必须是数字/布尔/字符串`);
-    return null;
-  }
+
   const opRaw = payload.op;
   const op = opRaw === '+=' || opRaw === '-=' || opRaw === '=' ? opRaw : '=';
   if (opRaw !== undefined && op !== opRaw) {
-    warn(`[脚本] ${block} 第 ${index + 1} 条 set：op 只能是 = / += / -=，已按 = 处理`);
+    warn(`[脚本] ${context}：op 只能是 = / += / -=，已按 = 处理`);
   }
-  if (op !== '=' && typeof value !== 'number') {
-    warn(`[脚本] ${block} 第 ${index + 1} 条 set："${variable}" 使用 ${op} 时 value 必须为数字`);
+
+  const expr = asString(payload.expr);
+  if (expr !== null) {
+    if (payload.value !== undefined) {
+      warn(`[脚本] ${context}：expr 与 value 同时存在，已忽略 value`);
+    }
+    const error = validateExpression(expr);
+    if (error) {
+      warn(`[脚本] ${context} 表达式无效：${error}`);
+    }
+    return { kind: 'set', variable, op, value: null, expr };
+  }
+
+  const value = asVariableValue(payload.value);
+  if (value === null) {
+    warn(`[脚本] ${context}：value 必须是数字/布尔/字符串`);
     return null;
   }
-  return { kind: 'set', variable, op, value };
+  if (op !== '=' && typeof value !== 'number') {
+    warn(`[脚本] ${context}："${variable}" 使用 ${op} 时 value 必须为数字`);
+    return null;
+  }
+  return { kind: 'set', variable, op, value, expr: null };
+}
+
+function parseSet(payload: unknown, block: string, index: number, warn: Warn): SetCommand | null {
+  return parseSetPayload(payload, `${block} 第 ${index + 1} 条 set`, warn);
 }
 
 function parseIf(payload: unknown, block: string, index: number, warn: Warn): IfCommand | null {
@@ -551,13 +583,29 @@ function parseCommand(raw: unknown, block: string, index: number, warn: Warn): C
   }
 }
 
+/** FNV-1a 32 位哈希，用于生成与行号无关的稳定文本 id。 */
+function hashTextId(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function compileBlock(blockId: string, rawCommands: unknown[], warn: Warn): CompiledBlock {
   const commands: Command[] = [];
+  const seenIds = new Map<string, number>();
   rawCommands.forEach((raw, index) => {
     const command = parseCommand(raw, blockId, index, warn);
     if (!command) return;
-    if (command.kind === 'text') {
-      command.id = `${blockId}#${commands.length}`;
+    if (command.kind === 'text' && !command.id) {
+      const base = `${blockId}@${hashTextId(
+        `${command.speaker ?? ''}\u0000${command.text}\u0000${command.voice ?? ''}`,
+      )}`;
+      const count = (seenIds.get(base) ?? 0) + 1;
+      seenIds.set(base, count);
+      command.id = count === 1 ? base : `${base}~${count}`;
     }
     commands.push(command);
   });

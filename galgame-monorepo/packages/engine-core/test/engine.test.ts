@@ -1,11 +1,18 @@
 import type { AssetHost, EngineHost, KeyValueStorage } from '@sylvie/types';
+import { manualSaveKey } from '@sylvie/types';
 import { describe, expect, it } from 'vitest';
 
 import { GameEngine } from '../src/engine';
 import { evaluateCondition, evaluateExpression, validateExpression } from '../src/expression';
 import { interpolateText, validateInterpolation } from '../src/interpolate';
 import { loadGame, parseManifest } from '../src/script';
-import { readSave } from '../src/storage';
+import {
+  readAutoSaves,
+  readLatestSave,
+  readSave,
+  writeAutoSave,
+  writeSave,
+} from '../src/storage';
 
 const GAME_YAML = `
 title: 测试游戏
@@ -118,6 +125,11 @@ describe('expression', () => {
     expect(evaluateCondition('name != "Sylvie"', { name: 'Sylvie' })).toBe(false);
   });
 
+  it('concatenates strings with +', () => {
+    expect(evaluateExpression('"你好，" + name', { name: '旅人' })).toBe('你好，旅人');
+    expect(evaluateExpression('prefix + 1', { prefix: '第' })).toBe('第1');
+  });
+
   it('reports syntax errors during validation', () => {
     expect(validateExpression('affection >=')).not.toBeNull();
     expect(validateExpression('(affection >= 1')).not.toBeNull();
@@ -162,6 +174,37 @@ describe('script loading', () => {
     expect(loaded.scenes.get('start')?.labels.good).toEqual({ block: 'start', index: 7 });
     expect(loaded.scenes.get('start')?.labels.end).toEqual({ block: 'shared', index: 3 });
     expect(loaded.scenes.get('start')?.assets).toContain('images/bg/room.png');
+  });
+
+  it('generates stable text ids and honours explicit ids', async () => {
+    const textIds = async (files: Record<string, string>) => {
+      const loaded = await loadGame(createAssets(files), () => {});
+      const scene = loaded.scenes.get('start');
+      const commands = scene?.blocks[scene.entryBlock]?.commands ?? [];
+      return commands
+        .filter((command) => command.kind === 'text')
+        .map((command) => (command as { id: string }).id);
+    };
+
+    const files = createFiles();
+    const original = await textIds(files);
+
+    // 在两条文本之间插入无关台词后，原有两条文本的 id 不应改变。
+    files['scripts/scenes/start.yaml'] = START_YAML.replace(
+      '  - text: "第二句话。"',
+      '  - text: "插入的新台词。"\n  - text: "第二句话。"',
+    );
+    const inserted = await textIds(files);
+    expect(inserted[0]).toBe(original[0]);
+    expect(inserted[2]).toBe(original[1]);
+
+    // 显式 id 优先，允许作者固定关键台词。
+    files['scripts/scenes/start.yaml'] = START_YAML.replace(
+      '  - text: "第二句话。"',
+      '  - text: { id: "key-line", text: "第二句话。" }',
+    );
+    const explicit = await textIds(files);
+    expect(explicit[1]).toBe('key-line');
   });
 
   it('validates cross-scene jump targets against the target scene labels', async () => {
@@ -228,6 +271,20 @@ describe('game engine', () => {
     expect(engine.getReadMarkCount()).toBe(2);
   });
 
+  it('keeps legacy read marks working after stable id upgrade', async () => {
+    const storage = createStorage();
+    // 一期 id：block#编译后指令下标；start 块第 6 条指令是第二句话。
+    await storage.set('meta:read-marks', JSON.stringify(['start#5']));
+    const engine = new GameEngine({
+      host: { assets: createAssets(createFiles()), storage, onWarning: () => {} },
+    });
+    await engine.initialize();
+    engine.start();
+    engine.advance();
+    expect(engine.getSnapshot().dialogue?.text).toBe('第二句话。');
+    expect(engine.isCurrentTextRead()).toBe(true);
+  });
+
   it('saves and restores pointer, variables, backlog and read marks', async () => {
     const engine = await createEngine();
     engine.start();
@@ -283,6 +340,44 @@ commands:
     expect(waiting.waitMs).toBe(500);
     engine.resumeWait();
     expect(engine.getSnapshot().dialogue?.text).toBe('等待之后');
+  });
+
+  it('evaluates set expressions and applies choice actions before jumping', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - set: { var: greeting, op: "=", expr: "'你好，' + player_name" }
+  - set: { var: affection, op: "+=", value: 1 }
+  - text: "{greeting}"
+  - choice:
+      prompt: "要怎么做？"
+      options:
+        - text: "微笑"
+          jump: after
+          set:
+            - { var: affection, op: "+=", value: 2 }
+            - { var: greeting, op: "+=", expr: "'！'" }
+        - text: "沉默"
+          jump: after
+          set: { var: affection, op: "-=", value: 1 }
+  - label: after
+  - text: "好感 {affection}"
+`;
+    const engine = new GameEngine({
+      host: { assets: createAssets(files), storage: createStorage() },
+    });
+    await engine.initialize();
+    engine.start();
+    expect(engine.getSnapshot().dialogue?.text).toBe('你好，旅人');
+    engine.advance();
+
+    engine.choose(0);
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.phase).toBe('text');
+    expect(snapshot.variables.affection).toBe(3);
+    expect(snapshot.variables.greeting).toBe('你好，旅人！');
+    expect(snapshot.dialogue?.text).toBe('好感 3');
+    expect(snapshot.chapter).toBe('after');
   });
 
   it('interpolates variables when the text blocks', async () => {
@@ -355,6 +450,25 @@ commands:
     expect(backToChoice.choice?.options).toHaveLength(2);
     expect(backToChoice.variables.affection).toBe(2);
     expect(backToChoice.backlog).toHaveLength(2);
+  });
+
+  it('rotates auto saves and picks the latest among all save kinds', async () => {
+    const storage = createStorage();
+    const engine = await createEngine();
+    engine.start();
+    const base = engine.createSave();
+
+    await writeAutoSave(storage, { ...base, createdAt: 1 });
+    await writeAutoSave(storage, { ...base, createdAt: 2 });
+    await writeAutoSave(storage, { ...base, createdAt: 3 });
+    const auto = await readAutoSaves(storage);
+    expect(auto.map((entry) => entry.data?.createdAt)).toEqual([3, 2, 1]);
+
+    await writeSave(storage, 'save:quick', { ...base, createdAt: 4 });
+    expect((await readLatestSave(storage))?.createdAt).toBe(4);
+
+    await writeSave(storage, manualSaveKey(1), { ...base, createdAt: 5 });
+    expect((await readLatestSave(storage))?.createdAt).toBe(5);
   });
 
   it('saves content version and migrates v1 saves', async () => {
