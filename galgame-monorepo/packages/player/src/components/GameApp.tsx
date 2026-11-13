@@ -654,11 +654,14 @@ export function GameApp() {
               aria-label="本章结束"
             >
               <div className="text-[22px] tracking-[0.3em] text-sg-gold">✦</div>
+              <div className="text-[11px] tracking-[0.3em] text-sg-gold/80">
+                {snapshot.ending ? 'ENDING' : 'CHAPTER END'}
+              </div>
               <h2 className="m-0 font-dialogue text-[clamp(28px,3.2vw,40px)] font-medium tracking-[0.22em] text-sg-ink">
-                本章结束
+                {snapshot.ending?.title ?? '本章结束'}
               </h2>
-              <p className="m-0 mb-4 mt-1 text-[13px] tracking-[0.08em] text-sg-muted">
-                感谢游玩。故事还会在下一个午后继续。
+              <p className="m-0 mb-4 mt-1 max-w-[420px] text-[13px] leading-[1.8] tracking-[0.08em] text-sg-muted">
+                {snapshot.ending?.description || '感谢游玩。故事还会在下一个午后继续。'}
               </p>
               <div className="flex gap-3">
                 <button

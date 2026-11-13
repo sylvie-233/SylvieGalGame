@@ -111,6 +111,12 @@ export interface WaitCommand {
   duration: number;
 }
 
+export interface EndingCommand {
+  kind: 'ending';
+  /** manifest.endings 中登记的结局 id。 */
+  id: string;
+}
+
 export type Command =
   | BgCommand
   | SpriteCommand
@@ -124,7 +130,8 @@ export type Command =
   | ChoiceCommand
   | SetCommand
   | IfCommand
-  | WaitCommand;
+  | WaitCommand
+  | EndingCommand;
 
 export const COMMAND_KINDS = [
   'bg',
@@ -140,6 +147,7 @@ export const COMMAND_KINDS = [
   'set',
   'if',
   'wait',
+  'ending',
 ] as const;
 
 export type CommandKind = (typeof COMMAND_KINDS)[number];

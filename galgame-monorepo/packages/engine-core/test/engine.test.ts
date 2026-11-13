@@ -398,6 +398,55 @@ commands:
     expect(engine.getSnapshot().dialogue?.text).toBe('旅人的好感是 2。');
   });
 
+  it('registers chapters and endings and stops at the ending command', async () => {
+    const files = createFiles();
+    files['scripts/game.yaml'] =
+      GAME_YAML +
+      `
+chapters:
+  begin: "序章 · 测试"
+endings:
+  - id: good
+    title: "好结局"
+    description: "测试用结局。"
+`;
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - label: begin
+  - text: "最后一句。"
+  - ending: good
+`;
+    const warnings: string[] = [];
+    const engine = new GameEngine({
+      host: {
+        assets: createAssets(files),
+        storage: createStorage(),
+        onWarning: (message) => warnings.push(message),
+      },
+    });
+    await engine.initialize();
+    engine.start();
+
+    const first = engine.getSnapshot();
+    expect(first.chapter).toBe('begin');
+    expect(first.chapterName).toBe('序章 · 测试');
+    expect(first.ending).toBeNull();
+
+    engine.advance();
+    const ended = engine.getSnapshot();
+    expect(ended.phase).toBe('ended');
+    expect(ended.ending).toEqual({ id: 'good', title: '好结局', description: '测试用结局。' });
+    expect(warnings).toHaveLength(0);
+  });
+
+  it('warns about unknown ending ids', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] = 'commands:\n  - ending: missing\n';
+    const warnings: string[] = [];
+    await loadGame(createAssets(files), (message) => warnings.push(message));
+    expect(warnings.some((message) => message.includes('结局 "missing" 未在'))).toBe(true);
+  });
+
   it('emits checkpoints with blocking kind and chapter', async () => {
     const engine = await createEngine();
     const checkpoints: Array<{ block: string; chapter: string }> = [];

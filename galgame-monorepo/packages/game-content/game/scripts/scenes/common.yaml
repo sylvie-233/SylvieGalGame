@@ -92,7 +92,7 @@ commands:
       speaker: 旁白
       text: "那天傍晚，图书馆的闭馆铃响了三次。我们没有起身。故事在旋律里，慢慢落下了第一个休止符。"
 
-  - jump: common_end
+  - ending: melody
 
   - label: quiet_ending
 
@@ -117,5 +117,7 @@ commands:
   - text:
       speaker: 旁白
       text: "她笑了一下，没有拆穿我。故事在一个普通的黄昏里，安静地翻过了这一页。"
+
+  - ending: quiet
 
   - label: common_end

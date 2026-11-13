@@ -7,6 +7,8 @@ import type {
   Command,
   CompiledBlock,
   CompiledScene,
+  EndingCommand,
+  EndingDefinition,
   GameManifest,
   IfCommand,
   JumpCommand,
@@ -137,6 +139,55 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
     scenes.unshift(start);
   }
 
+  const chapters: Record<string, string> = {};
+  if (raw.chapters !== undefined) {
+    if (!isRecord(raw.chapters)) {
+      warn('[脚本] game.yaml chapters 必须是「label: 展示名」映射，已忽略');
+    } else {
+      for (const [label, value] of Object.entries(raw.chapters)) {
+        const name = asString(value);
+        if (!name) {
+          warn(`[脚本] game.yaml chapters.${label} 必须是字符串，已忽略`);
+          continue;
+        }
+        chapters[label] = name;
+      }
+    }
+  }
+
+  const endings: EndingDefinition[] = [];
+  if (raw.endings !== undefined) {
+    if (!isRecord(raw.endings) && !Array.isArray(raw.endings)) {
+      warn('[脚本] game.yaml endings 必须是列表或映射，已忽略');
+    } else {
+      const entries: Array<[string | null, unknown]> = Array.isArray(raw.endings)
+        ? raw.endings.map((item) => [null, item])
+        : Object.entries(raw.endings);
+      entries.forEach(([key, item], index) => {
+        if (typeof item === 'string') {
+          const id = key ?? `ending_${index + 1}`;
+          endings.push({ id, title: item, description: '' });
+          return;
+        }
+        if (!isRecord(item)) {
+          warn(`[脚本] game.yaml endings 第 ${index + 1} 项必须是字符串或映射，已忽略`);
+          return;
+        }
+        const id = asString(item.id) ?? key;
+        const title = asString(item.title) ?? asString(item.name);
+        if (!id || !title) {
+          warn(`[脚本] game.yaml endings 第 ${index + 1} 项缺少 id 或 title，已忽略`);
+          return;
+        }
+        if (endings.some((ending) => ending.id === id)) {
+          warn(`[脚本] game.yaml endings 中 id "${id}" 重复，保留首次定义`);
+          return;
+        }
+        endings.push({ id, title, description: asString(item.description) ?? '' });
+      });
+    }
+  }
+
   const variables: Record<string, VariableValue> = {};
   if (raw.variables !== undefined) {
     if (!isRecord(raw.variables)) {
@@ -153,7 +204,7 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
     }
   }
 
-  return { title, version, start, scenes, variables };
+  return { title, version, start, scenes, variables, chapters, endings };
 }
 
 function parseSceneDocument(name: string, source: string, warn: Warn): RawSceneDocument {
@@ -506,6 +557,20 @@ function parseIf(payload: unknown, block: string, index: number, warn: Warn): If
   };
 }
 
+function parseEnding(
+  payload: unknown,
+  block: string,
+  index: number,
+  warn: Warn,
+): EndingCommand | null {
+  const id = asString(payload);
+  if (!id) {
+    warn(`[脚本] ${block} 第 ${index + 1} 条 ending：缺少结局 id`);
+    return null;
+  }
+  return { kind: 'ending', id };
+}
+
 function parseWait(payload: unknown, block: string, index: number, warn: Warn): WaitCommand {
   if (typeof payload === 'number' && Number.isFinite(payload)) {
     return { kind: 'wait', duration: Math.max(0, payload) };
@@ -574,6 +639,8 @@ function parseCommand(raw: unknown, block: string, index: number, warn: Warn): C
       return parseIf(payload, block, index, warn);
     case 'wait':
       return parseWait(payload, block, index, warn);
+    case 'ending':
+      return parseEnding(payload, block, index, warn);
     case 'import':
       warn(`[脚本] ${block} 第 ${index + 1} 条 import：请写在场景文件顶部的 imports 字段`);
       return null;
@@ -760,13 +827,20 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
   }
 
   // 第二遍：所有场景的 label 表就绪后，再校验跳转目标（支持跨场景）。
+  const endingIds = new Set(manifest.endings.map((ending) => ending.id));
+  const usedEndings = new Set<string>();
   for (const [name, scene] of scenes) {
     for (const blockName of Object.keys(scene.blocks)) {
       const block = scene.blocks[blockName];
       if (!block) continue;
       block.commands.forEach((command, index) => {
         const context = `场景 ${name} / ${blockName} 第 ${index + 1} 条 ${command.kind}`;
-        if (command.kind === 'jump') {
+        if (command.kind === 'ending') {
+          usedEndings.add(command.id);
+          if (!endingIds.has(command.id)) {
+            warn(`[脚本] ${context}：结局 "${command.id}" 未在 game.yaml endings 中登记`);
+          }
+        } else if (command.kind === 'jump') {
           validateTarget(command.target, scene, scenes, warn, context);
         } else if (command.kind === 'if') {
           validateTarget(command.then, scene, scenes, warn, context);
@@ -779,6 +853,24 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
           }
         }
       });
+    }
+  }
+
+  const allLabels = new Set<string>();
+  for (const scene of scenes.values()) {
+    for (const label of Object.keys(scene.labels)) {
+      allLabels.add(label);
+    }
+  }
+  for (const label of Object.keys(manifest.chapters)) {
+    if (!allLabels.has(label)) {
+      warn(`[脚本] game.yaml chapters 中的 "${label}" 不是任何场景的 label`);
+    }
+  }
+
+  for (const ending of manifest.endings) {
+    if (!usedEndings.has(ending.id)) {
+      warn(`[脚本] game.yaml endings 中的 "${ending.id}" 没有被任何 ending 指令引用`);
     }
   }
 

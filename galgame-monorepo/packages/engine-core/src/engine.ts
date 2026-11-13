@@ -7,6 +7,8 @@ import type {
   Command,
   CompiledScene,
   DialogueSnapshot,
+  EndingCommand,
+  EndingDefinition,
   EngineEffect,
   EngineHost,
   GameManifest,
@@ -77,6 +79,8 @@ export function createEmptySnapshot(): GameSnapshot {
     phase: 'idle',
     pointer: { scene: '', block: '', index: 0 },
     chapter: '',
+    chapterName: '',
+    ending: null,
     stage: createEmptyStage(),
     dialogue: null,
     choice: null,
@@ -103,6 +107,7 @@ export class GameEngine {
   private pointer: Pointer = { scene: '', block: '', index: 0 };
   private phase: GameSnapshot['phase'] = 'idle';
   private chapter = '';
+  private ending: EndingDefinition | null = null;
   private waitMs = 0;
   private snapshot: GameSnapshot = createEmptySnapshot();
 
@@ -187,6 +192,7 @@ export class GameEngine {
     this.phase = 'idle';
     this.waitMs = 0;
     this.chapter = 'start';
+    this.ending = null;
     this.rollbackHistory.length = 0;
     this.pointer = { scene: name, block: scene.entryBlock, index: 0 };
 
@@ -219,6 +225,7 @@ export class GameEngine {
     this.phase = 'idle';
     this.waitMs = 0;
     this.chapter = data.chapter || 'start';
+    this.ending = null;
     this.pointer = {
       scene: data.scene,
       block: data.pointer.block,
@@ -305,6 +312,7 @@ export class GameEngine {
     this.phase = state.phase;
     this.pointer = { ...state.pointer };
     this.chapter = state.chapter;
+    this.ending = null;
     this.variables = { ...state.variables };
     this.stage = cloneStage(state.stage);
     this.audio = { ...state.audio };
@@ -457,6 +465,9 @@ export class GameEngine {
           this.applySet(command);
           this.pointer.index += 1;
           break;
+        case 'ending':
+          this.applyEnding(command);
+          return;
         case 'if': {
           let passed = false;
           try {
@@ -762,6 +773,18 @@ export class GameEngine {
     return true;
   }
 
+  private applyEnding(command: EndingCommand): void {
+    const ending = this.requireLoaded().manifest.endings.find((item) => item.id === command.id);
+    if (!ending) {
+      this.warn(`[引擎] 结局 "${command.id}" 未在 game.yaml endings 中登记`);
+      this.ending = null;
+    } else {
+      this.ending = { ...ending };
+    }
+    this.pointer.index += 1;
+    this.finish();
+  }
+
   private finish(): void {
     this.phase = 'ended';
     this.choice = null;
@@ -799,11 +822,18 @@ export class GameEngine {
     this.effectListeners.forEach((listener) => listener(effect));
   }
 
+  private resolveChapterName(): string {
+    if (!this.chapter) return '';
+    return this.manifest?.chapters[this.chapter] ?? this.chapter;
+  }
+
   private emit(): void {
     this.snapshot = {
       phase: this.phase,
       pointer: { ...this.pointer },
       chapter: this.chapter,
+      chapterName: this.resolveChapterName(),
+      ending: this.ending ? { ...this.ending } : null,
       stage: cloneStage(this.stage),
       dialogue: this.dialogue ? { ...this.dialogue } : null,
       choice: this.choice

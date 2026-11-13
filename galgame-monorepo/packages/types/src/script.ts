@@ -1,6 +1,12 @@
 import type { Command } from './commands';
 import type { VariableValue } from './variables';
 
+export interface EndingDefinition {
+  id: string;
+  title: string;
+  description: string;
+}
+
 export interface GameManifest {
   title: string;
   version: string;
@@ -10,6 +16,10 @@ export interface GameManifest {
   scenes: string[];
   /** 新游戏初始变量。 */
   variables: Record<string, VariableValue>;
+  /** label → 存档面板与结局页展示的章节名。 */
+  chapters: Record<string, string>;
+  /** 结局注册表，由 `ending` 指令按 id 引用。 */
+  endings: EndingDefinition[];
 }
 
 export interface LabelLocation {

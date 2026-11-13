@@ -39,11 +39,20 @@ interface SlotCardProps {
   data: SaveData | null;
   mode: 'save' | 'load';
   disabled?: boolean;
+  formatChapter: (chapter: string) => string;
   onActivate: () => void;
   onDelete?: () => void;
 }
 
-function SlotCard({ title, data, mode, disabled, onActivate, onDelete }: SlotCardProps) {
+function SlotCard({
+  title,
+  data,
+  mode,
+  disabled,
+  formatChapter,
+  onActivate,
+  onDelete,
+}: SlotCardProps) {
   return (
     <div
       className={`group flex flex-col gap-2 rounded-[3px] border p-2 outline-none transition-colors ${
@@ -98,8 +107,9 @@ function SlotCard({ title, data, mode, disabled, onActivate, onDelete }: SlotCar
         {data ? (
           <>
             <strong className="truncate text-xs font-normal text-sg-ink/85">
-              {data.note || data.chapter || '未命名进度'}
+              {data.note || formatChapter(data.chapter) || '未命名进度'}
             </strong>
+            <span className="truncate">{formatChapter(data.chapter) || '未知章节'}</span>
             <span>{formatTime(data.createdAt)}</span>
           </>
         ) : (
@@ -123,6 +133,12 @@ export function SaveLoadPanel({
   const [quick, setQuick] = useState<SaveData | null>(null);
   const [busy, setBusy] = useState(false);
   const { confirm, dialog } = useConfirm();
+
+  const formatChapter = (chapter: string): string => {
+    if (!chapter) return '';
+    const chapters = engine.isReady() ? engine.getManifest().chapters : {};
+    return chapters[chapter] ?? chapter;
+  };
 
   const refresh = useCallback(async () => {
     const entries = await readManualSaves(platform.storage, MANUAL_SAVE_COUNT);
@@ -207,6 +223,7 @@ export function SaveLoadPanel({
               data={entry.data}
               mode={mode}
               disabled={mode === 'save' || !entry.data}
+              formatChapter={formatChapter}
               onActivate={() => entry.data && loadData(entry.data)}
             />
           ))}
@@ -215,6 +232,7 @@ export function SaveLoadPanel({
             data={quick}
             mode={mode}
             disabled={mode === 'save' || !quick}
+            formatChapter={formatChapter}
             onActivate={() => quick && loadData(quick)}
             onDelete={() => void remove(SAVE_KEYS.quick)}
           />
@@ -231,6 +249,7 @@ export function SaveLoadPanel({
               data={entry.data}
               mode={mode}
               disabled={busy}
+              formatChapter={formatChapter}
               onActivate={() => {
                 if (mode === 'save') {
                   void saveTo(manualSaveKey(entry.slot), entry.data);

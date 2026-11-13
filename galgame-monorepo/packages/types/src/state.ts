@@ -1,4 +1,5 @@
 import type { SpritePosition, Transition } from './commands';
+import type { EndingDefinition } from './script';
 import type { VariableTable } from './variables';
 
 export type Phase = 'idle' | 'text' | 'choice' | 'wait' | 'ended';
@@ -77,6 +78,10 @@ export interface GameSnapshot {
   pointer: Pointer;
   /** 最近一次 label 名，用于存档备注。 */
   chapter: string;
+  /** chapter 在 manifest.chapters 中登记的展示名；未登记时回退到 label 名。 */
+  chapterName: string;
+  /** 已登记结局时，phase === 'ended' 后为对应结局；否则为 null。 */
+  ending: EndingDefinition | null;
   stage: StageSnapshot;
   dialogue: DialogueSnapshot | null;
   choice: ChoiceSnapshot | null;

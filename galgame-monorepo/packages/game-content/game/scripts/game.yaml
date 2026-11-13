@@ -13,3 +13,23 @@ variables:
   curiosity: 0
   knows_melody: false
   route: ""
+
+chapters:
+  prologue_start: "序章 · 午后的图书馆"
+  smile_start: "第一章 · 热茶与窗边"
+  book_start: "第一章 · 书页之间"
+  common_start: "第二章 · 黄昏之前"
+  smile_epilogue: "第二章 · 未说完的话"
+  book_epilogue: "第二章 · 蓝封面的书"
+  common_tail: "第二章 · 黄昏"
+  melody_ending: "尾声 · 旋律的休止符"
+  quiet_ending: "尾声 · 安静的黄昏"
+  common_end: "尾声"
+
+endings:
+  - id: melody
+    title: "旋律的休止符"
+    description: "你们在闭馆铃里哼完那段旋律，故事落下了第一个休止符。"
+  - id: quiet
+    title: "安静的黄昏"
+    description: "你们把书一本本收好，约好明天还来。故事在一个普通的黄昏翻页。"
