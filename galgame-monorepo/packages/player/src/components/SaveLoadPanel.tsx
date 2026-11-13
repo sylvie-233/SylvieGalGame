@@ -20,6 +20,7 @@ import {
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { formatChapterName, saveExportFilename } from '../save-utils';
 import { useConfirm } from './ConfirmDialog';
 import { Modal } from './Modal';
 
@@ -158,11 +159,8 @@ export function SaveLoadPanel({
   const [busy, setBusy] = useState(false);
   const { confirm, dialog } = useConfirm();
 
-  const formatChapter = (chapter: string): string => {
-    if (!chapter) return '';
-    const chapters = engine.isReady() ? engine.getManifest().chapters : {};
-    return chapters[chapter] ?? chapter;
-  };
+  const formatChapter = (chapter: string): string =>
+    formatChapterName(engine.isReady() ? engine.getManifest() : null, chapter);
 
   const refresh = useCallback(async () => {
     const entries = await readManualSaves(platform.storage, MANUAL_SAVE_COUNT);
@@ -236,12 +234,7 @@ export function SaveLoadPanel({
     setBusy(true);
     try {
       const content = await createSaveExport(platform.storage, keys);
-      const stamp = new Date().toISOString().slice(0, 10);
-      const single = keys?.[0]?.replace(/[^a-z0-9]+/gi, '-');
-      const filename = single
-        ? `sylvie-${single}-${stamp}.json`
-        : `sylvie-saves-${stamp}.json`;
-      const saved = await platform.saveTextFile(filename, content);
+      const saved = await platform.saveTextFile(saveExportFilename(keys), content);
       notify(saved ? '存档已导出' : '已取消导出');
     } catch (error) {
       console.error(error);

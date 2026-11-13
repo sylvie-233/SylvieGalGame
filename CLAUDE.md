@@ -30,7 +30,7 @@ pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，
 pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
-pnpm test         # engine-core 的 Vitest（目前 31 个用例）
+pnpm test         # Vitest：engine-core 31 个 + player 7 个用例
 pnpm validate     # 加载真实剧本、内容体检、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/

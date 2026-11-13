@@ -40,6 +40,7 @@ galgame-monorepo/
 │  ├─ engine-core/             # 纯 TS 内核：解析、指针调度、变量、条件、插值、回滚、存档迁移
 │  │  └─ test/                 # Vitest 单元测试
 │  ├─ player/                  # React 播放器：舞台、对话、选项、面板、音频、状态
+│  │  └─ test/                 # Vitest：Zustand 状态 / 存档工具
 │  ├─ eslint-config/           # 共享 ESLint 平面配置（base / react）
 │  └─ game-content/            # 纯内容包（无构建步骤）：剧本 + 图片 + 音频
 │     └─ game/
@@ -99,7 +100,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm build` | Turbo 构建全部包（含 Web 预览） |
 | `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
-| `pnpm test` | 引擎单元测试（Vitest） |
+| `pnpm test` | 单元测试（Vitest）：引擎 31 个 + 播放器状态 / 存档工具 7 个 |
 | `pnpm validate` | 加载真实剧本、跑通两条分支、检查资源与脚本警告 |
 | `pnpm assets` | 重新生成占位美术与音频 |
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |

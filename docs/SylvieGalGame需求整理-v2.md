@@ -199,7 +199,8 @@
 - **Q1 CI**：已完成。新增 `.github/workflows/ci.yml`，push / PR 时执行 lint、typecheck、test、validate、Web 构建与 Web 冒烟，并上传截图产物。
 - **Q3 Web 冒烟自动化**：已完成。新增 `scripts/smoke-web.mjs` / `pnpm smoke:web`：自动构建、启动 `vite preview`、探测 Chrome / Edge / Chromium，跑通标题 → 推进 → 选项 → 存读档，截图写入 `scripts/.smoke/web-*.png`。
 - **Q6 Docker 内容热替换**：已完成。新增 `scripts/docker-compose.game.yml`，把本地内容包只读挂载到 `/usr/share/nginx/html/game`；`manage.ps1 docker:* -GameContent` 自动叠加该覆盖文件，默认仍使用镜像内置内容。
-- 其余 M3 项（Q2 测试补齐、Q4 构建拆分、Q5 桌面交付、Q7 发布流程）仍待实现。
+- **Q2 测试补齐**：已完成主体。engine-core 31 个用例；player 新增 Vitest（7 个），覆盖 Zustand 视图 / 弹窗 / 设置 / 警告 / Toast，以及章节名解析与导出文件名。组件级交互测试可继续补充。
+- 其余 M3 项（Q4 构建拆分、Q5 桌面交付、Q7 发布流程）仍待实现。
 
 ## 十四、验收总则
 
