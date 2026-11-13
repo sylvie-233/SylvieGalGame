@@ -23,7 +23,8 @@
     "clean": "turbo run clean",
     "assets": "node scripts/generate-assets.mjs",
     "validate": "node scripts/validate-content.mjs",
-    "smoke": "node scripts/smoke-app.mjs"
+    "smoke": "node scripts/smoke-app.mjs",
+    "smoke:web": "node scripts/smoke-web.mjs"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

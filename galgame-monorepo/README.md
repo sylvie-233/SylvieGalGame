@@ -105,6 +105,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
 | `pnpm make` | 通过 NSIS 生成安装包 `apps/electron/out/make/` |
 | `pnpm smoke` | 启动已打包产物，自动验证标题 / 回退 / 分支 / 选项 / 菜单 / 存读档 / 设置并截图到 `scripts/.smoke/`（需先 `pnpm package`，或把 exe 路径作为参数传入） |
+| `pnpm smoke:web` | 构建 Web 产物、启动 `vite preview`，用无头 Chrome 跑标题 → 推进 → 选项 → 存读档并截图；可用 `CHROME_PATH` 指定浏览器 |
 
 > 若终端导出了 `ELECTRON_RUN_AS_NODE=1`，Electron 会以纯 Node 模式启动并报 `bad option`。运行前先 `unset ELECTRON_RUN_AS_NODE`；`pnpm smoke` 已自动处理。
 

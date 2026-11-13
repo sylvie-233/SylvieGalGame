@@ -91,6 +91,10 @@ pwsh ./manage.ps1 verify
 
 # 启动打包产物，自动验证回退、选项、存读档与设置并截图
 pwsh ./manage.ps1 smoke
+
+# Web 端冒烟：构建 + preview + 无头 Chrome，自动验证标题、推进、选项与存读档
+cd galgame-monorepo
+pnpm smoke:web
 ```
 
 产物位置：

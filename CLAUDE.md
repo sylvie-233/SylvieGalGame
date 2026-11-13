@@ -17,6 +17,7 @@
 - `galgame-monorepo/docs/剧本格式.md`：YAML 清单、场景、全部指令与表达式的权威参考。
 - `galgame-monorepo/docs/script.schema.json`：编辑器 YAML Schema；根目录与 monorepo 内的 `.vscode/settings.json` 已映射 `game.yaml` 与 `scenes/*.yaml`。新增指令时必须同步更新 Schema。
 - 根目录 `manage.ps1` + `scripts/docker-compose.yml`：开发、校验、打包、冒烟测试与 Web 容器运维入口。
+- `.github/workflows/ci.yml`：push / PR 执行 lint、typecheck、test、validate、Web 构建与 `pnpm smoke:web`，并上传冒烟截图。
 
 ## 常用命令
 
@@ -35,6 +36,7 @@ pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
 pnpm make         # NSIS 安装包 apps/electron/out/make/
 pnpm smoke        # 启动已打包 exe，CDP 驱动 UI 并截图（需 Node 22+，先 package）
+pnpm smoke:web    # 构建 Web + vite preview + 无头 Chrome，验证标题/推进/选项/存读档并截图
 ```
 
 单包操作：
@@ -98,7 +100,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 ## 校验与提交
 
 - 提交前至少运行 `pnpm lint`、`pnpm typecheck`；改动引擎或存档逻辑再加 `pnpm test`；改动剧本或资源必须 `pnpm validate`。根目录 `pwsh ./manage.ps1 verify` 会依次跑完这四项。
-- 改动 UI 后优先用 `pnpm dev:web` 在浏览器验收；需要验证桌面交付时运行 `pwsh ./manage.ps1 smoke`（依赖已 packge 的 exe 与 Node 22+）。
+- 改动 UI 后优先用 `pnpm dev:web` 在浏览器验收；需要自动化 Web 回归时运行 `pnpm smoke:web`（会自行构建 + preview，需 Chrome / Edge；`CHROME_PATH` 可覆盖）。需要验证桌面交付时运行 `pwsh ./manage.ps1 smoke`（依赖已 packge 的 exe 与 Node 22+）。
 - 桌面冒烟脚本在覆盖存档槽位 01 前会先执行 `window.sylvieGame.storageDelete('save:slot:1')`，避免覆盖确认框打断后续 CDP 步骤。新增自动化步骤时保留该处理；若需要测试确认框，应显式点击「取消 / 覆盖」按钮而不是依赖原生对话框。
 - Docker 构建改动后至少执行一次 `pwsh ./manage.ps1 docker:build`；运行验收用 `docker:up`，再检查 `/health`、`/game/scripts/game.yaml` 与音频 Range 请求。
 

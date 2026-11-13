@@ -194,6 +194,12 @@
 - **A3 预加载预算**：已完成。单次场景预加载上限 32 个资源，超出按需加载；到达文本 / 选项时通过 `getUpcomingSceneAssets()` 预取最多 2 个跳转 / 分支目标场景；音频预加载表 LRU 保留 24 条。
 - **M2 全部完成**（E3–E5、E7、S1–S4、A1 / A3、V3 / V4 / V6、C1–C3）。V3 的保存时备注编辑仍作为小的后续项。
 
+### M3 进展（2026-11-13）
+
+- **Q1 CI**：已完成。新增 `.github/workflows/ci.yml`，push / PR 时执行 lint、typecheck、test、validate、Web 构建与 Web 冒烟，并上传截图产物。
+- **Q3 Web 冒烟自动化**：已完成。新增 `scripts/smoke-web.mjs` / `pnpm smoke:web`：自动构建、启动 `vite preview`、探测 Chrome / Edge / Chromium，跑通标题 → 推进 → 选项 → 存读档，截图写入 `scripts/.smoke/web-*.png`。
+- 其余 M3 项（Q2 测试补齐、Q4 构建拆分、Q5 桌面交付、Q6 Docker 内容挂载、Q7 发布流程）仍待实现。
+
 ## 十四、验收总则
 
 二期完成时至少满足：
