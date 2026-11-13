@@ -230,6 +230,14 @@ async function main() {
   });
 
   const manifest = await engine.initialize();
+  const appVersion = JSON.parse(
+    await readFile(path.join(ROOT, 'package.json'), 'utf8'),
+  ).version;
+  if (manifest.version !== appVersion) {
+    errors.push(
+      `game.yaml version "${manifest.version}" 与 package.json "${appVersion}" 不一致；执行 pnpm version:set <版本> 统一版本号`,
+    );
+  }
   console.log(`标题：${manifest.title}  v${manifest.version}`);
   console.log(`起始场景：${manifest.start}`);
   console.log(`场景：${manifest.scenes.join('、')}`);

@@ -107,6 +107,26 @@ pnpm smoke:web
 | Web 镜像 | `sylvie-web:local`（容器 `sylvie-web`） |
 | 冒烟截图 | `galgame-monorepo/scripts/.smoke/` |
 
+### 版本与签名
+
+版本号以 monorepo 根 `package.json` 为准，同步到 Electron / Web / 内容包与 `game.yaml`：
+
+```powershell
+cd galgame-monorepo
+pnpm version:check     # CI / 提交前校验版本是否一致
+pnpm version:set 0.2.0 # 一次性更新全部位置
+```
+
+可选 Windows 代码签名（未设置时保持未签名产物）：
+
+```powershell
+$env:WINDOWS_CERTIFICATE_FILE = 'C:\path\to\sylvie.pfx'
+$env:WINDOWS_CERTIFICATE_PASSWORD = '...'
+pnpm make
+```
+
+设置后 Electron exe 与 NSIS 安装包会使用该证书签名；时间戳默认使用 DigiCert。
+
 ## Web 容器化
 
 `scripts/docker-compose.yml` 只包含一个 `web` 服务：多阶段构建 `apps/web`，再把静态产物交给 Nginx。容器本身无状态，存档仍在访问者浏览器的 IndexedDB 中（不支持时回退 `localStorage`）。

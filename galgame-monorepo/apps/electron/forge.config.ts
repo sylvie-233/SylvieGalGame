@@ -6,6 +6,14 @@ import MakerNsis from 'electron-forge-maker-nsis';
 
 const GAME_CONTENT_ROOT = path.resolve(__dirname, '../../packages/game-content/game');
 
+// 可选签名：设置 WINDOWS_CERTIFICATE_FILE / WINDOWS_CERTIFICATE_PASSWORD 后，
+// electron-packager 与 NSIS maker 都会对 exe / 安装包签名；未设置时保持未签名产物。
+const certificateFile = process.env.WINDOWS_CERTIFICATE_FILE;
+const certificatePassword = process.env.WINDOWS_CERTIFICATE_PASSWORD;
+const windowsSign = certificateFile
+  ? { certificateFile, certificatePassword, description: 'Sylvie Galgame' }
+  : undefined;
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
@@ -18,6 +26,7 @@ const config: ForgeConfig = {
       FileDescription: 'Sylvie Galgame 视觉小说播放器',
       ProductName: 'SylvieGalGame',
     },
+    ...(windowsSign ? { windowsSign } : {}),
   },
   rebuildConfig: {},
   makers: [
@@ -33,6 +42,7 @@ const config: ForgeConfig = {
       installerIcon: path.resolve(__dirname, 'assets/icon.ico'),
       uninstallerIcon: path.resolve(__dirname, 'assets/icon.ico'),
       language: '2052',
+      ...(certificateFile ? { certificateFile, certificatePassword } : {}),
     }),
   ],
   plugins: [

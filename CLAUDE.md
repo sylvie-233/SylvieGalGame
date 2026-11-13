@@ -37,6 +37,8 @@ pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
 pnpm make         # NSIS 安装包 apps/electron/out/make/
 pnpm smoke        # 启动已打包 exe，CDP 驱动 UI 并截图（需 Node 22+，先 package）
 pnpm smoke:web    # 构建 Web + vite preview + 无头 Chrome，验证标题/推进/选项/存读档并截图
+pnpm version:check         # 校验根 / Electron / Web / 内容包 / game.yaml 版本一致
+pnpm version:set <版本>    # 以根 package.json 为基准统一写入全部版本号
 ```
 
 单包操作：
@@ -100,7 +102,8 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 
 ## 校验与提交
 
-- 提交前至少运行 `pnpm lint`、`pnpm typecheck`；改动引擎或存档逻辑再加 `pnpm test`；改动剧本或资源必须 `pnpm validate`。根目录 `pwsh ./manage.ps1 verify` 会依次跑完这四项。
+- 提交前至少运行 `pnpm lint`、`pnpm typecheck`；改动引擎或存档逻辑再加 `pnpm test`；改动剧本或资源必须 `pnpm validate`（同时校验版本一致性）。根目录 `pwsh ./manage.ps1 verify` 会依次跑完这四项。
+- 发版前用 `pnpm version:set <版本>` 统一版本号，再 `pnpm version:check` 确认。签名不是默认行为：设置 `WINDOWS_CERTIFICATE_FILE` / `WINDOWS_CERTIFICATE_PASSWORD` 后 `pnpm make` 才会对 exe 与 NSIS 安装包签名。
 - 改动 UI 后优先用 `pnpm dev:web` 在浏览器验收；需要自动化 Web 回归时运行 `pnpm smoke:web`（会自行构建 + preview，需 Chrome / Edge；`CHROME_PATH` 可覆盖）。需要验证桌面交付时运行 `pwsh ./manage.ps1 smoke`（依赖已 packge 的 exe 与 Node 22+）。
 - 桌面 / Web 冒烟脚本在覆盖存档槽位 01 前会先执行 `storageDelete('save:slot:1')`，并在点击槽位后确认备注弹窗的「保存」按钮。槽位卡片带 `data-slot` 属性（01、快速存档等），自动化请用精确选择器，不要用包含匹配——自动存档时间戳也可能包含 "01"。
 - Docker 构建改动后至少执行一次 `pwsh ./manage.ps1 docker:build`；运行验收用 `docker:up`，再检查 `/health`、`/game/scripts/game.yaml` 与音频 Range 请求。

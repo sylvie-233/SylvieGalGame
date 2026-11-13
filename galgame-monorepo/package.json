@@ -23,6 +23,8 @@
     "clean": "turbo run clean",
     "assets": "node scripts/generate-assets.mjs",
     "validate": "node scripts/validate-content.mjs",
+    "version:check": "node scripts/sync-version.mjs",
+    "version:set": "node scripts/sync-version.mjs --set",
     "smoke": "node scripts/smoke-app.mjs",
     "smoke:web": "node scripts/smoke-web.mjs"
   },

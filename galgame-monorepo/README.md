@@ -101,7 +101,9 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
 | `pnpm test` | 单元测试（Vitest）：引擎 31 个 + 播放器状态 / 存档工具 8 个 |
-| `pnpm validate` | 加载真实剧本、跑通两条分支、检查资源与脚本警告 |
+| `pnpm validate` | 加载真实剧本、内容体检、跑通两条分支、检查资源与版本一致性 |
+| `pnpm version:check` | 检查根 / Electron / Web / 内容包 / `game.yaml` 版本是否一致 |
+| `pnpm version:set <版本>` | 以根 `package.json` 为基准统一写入全部版本号 |
 | `pnpm assets` | 重新生成占位美术与音频 |
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
 | `pnpm make` | 通过 NSIS 生成安装包 `apps/electron/out/make/` |
@@ -109,6 +111,12 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm smoke:web` | 构建 Web 产物、启动 `vite preview`，用无头 Chrome 跑标题 → 推进 → 选项 → 存读档并截图；可用 `CHROME_PATH` 指定浏览器 |
 
 > 若终端导出了 `ELECTRON_RUN_AS_NODE=1`，Electron 会以纯 Node 模式启动并报 `bad option`。运行前先 `unset ELECTRON_RUN_AS_NODE`；`pnpm smoke` 已自动处理。
+
+### 版本与签名
+
+根 `package.json` 是版本源，`pnpm version:set <版本>` 会同步 Electron / Web / 内容包与 `scripts/game.yaml`；`pnpm validate` 与 `pnpm version:check` 会拦截不一致。
+
+需要签名时设置 `WINDOWS_CERTIFICATE_FILE` 与 `WINDOWS_CERTIFICATE_PASSWORD` 再执行 `pnpm make`，Electron exe 与 NSIS 安装包会一并签名；未设置时保持未签名产物。
 
 ## Web 容器化
 
