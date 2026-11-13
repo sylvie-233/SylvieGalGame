@@ -1089,32 +1089,6 @@ function chairSample() {
   };
 }
 
-/** 生成占位“语音”：把若干带颤音的音节事件拼成一段无意义的旋律。 */
-function voiceSample(seed, baseFreq) {
-  const rng = mulberry32(seed);
-  const syllables = 5 + Math.floor(rng() * 3);
-  const events = [];
-  let cursor = 0.12;
-  for (let i = 0; i < syllables; i += 1) {
-    const length = 0.12 + rng() * 0.16;
-    events.push({ start: cursor, length, pitch: baseFreq + (rng() - 0.5) * 40 });
-    cursor += length + 0.06 + rng() * 0.08;
-  }
-  return (t) => {
-    let value = 0;
-    for (const event of events) {
-      if (t < event.start || t > event.start + event.length) continue;
-      const local = t - event.start;
-      const envelope = Math.sin((Math.PI * local) / event.length) ** 1.4;
-      const vibrato = Math.sin(TAU * 5.4 * local) * 0.06;
-      value += Math.sin(TAU * event.pitch * local * (1 + vibrato)) * envelope * 0.16;
-      value += Math.sin(TAU * event.pitch * 2.7 * local) * envelope * 0.05;
-      value += Math.sin(TAU * 620 * local) * envelope * 0.03;
-    }
-    return value + Math.sin(TAU * 0.7 * t) * 0.002;
-  };
-}
-
 /* ------------------------------------------------------------------ */
 /* PNG / ICO                                                           */
 /* ------------------------------------------------------------------ */
@@ -1265,7 +1239,6 @@ async function main() {
   const cgDir = await ensure(GAME, 'images/cg');
   const bgmDir = await ensure(GAME, 'audio/bgm');
   const seDir = await ensure(GAME, 'audio/se');
-  const voiceDir = await ensure(GAME, 'audio/voice');
 
   await write(path.join(bgDir, 'title.svg'), titleArt);
   await write(
@@ -1392,19 +1365,6 @@ async function main() {
   await writeAudio(path.join(seDir, 'chair.wav'), writeWav({ seconds: 0.52, sample: chairSample() }));
   await writeAudio(path.join(seDir, 'coin.wav'), writeWav({ seconds: 0.36, sample: coinSample() }));
   await writeAudio(path.join(seDir, 'can.wav'), writeWav({ seconds: 0.5, sample: canSample() }));
-
-  const voices = [
-    ['sylvie_01.wav', 11, 218],
-    ['sylvie_02.wav', 22, 232],
-    ['sylvie_03.wav', 33, 208],
-    ['sylvie_04.wav', 44, 226],
-    ['sylvie_05.wav', 66, 214],
-    ['narrator_01.wav', 55, 164],
-    ['narrator_02.wav', 77, 152],
-  ];
-  for (const [file, seed, baseFreq] of voices) {
-    await writeAudio(path.join(voiceDir, file), writeWav({ seconds: 2.4, sample: voiceSample(seed, baseFreq) }));
-  }
 
   } else {
     console.log('跳过音频：保留仓库内 CC0 / 正式素材（需要旧占位请加 --placeholder-audio）');

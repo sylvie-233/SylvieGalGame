@@ -87,10 +87,12 @@ export const DialogueBox = forwardRef<DialogueHandle, DialogueBoxProps>(function
       }`}
       aria-live="polite"
     >
-      <AnimatePresence initial={false}>
+      {/* popLayout：换说话人时旧名牌立刻脱离文档流，避免新旧两个名牌并排导致名字先闪到右侧。 */}
+      <AnimatePresence initial={false} mode="popLayout">
         {dialogue?.speaker && (
           <motion.div
-            key={dialogue.id}
+            key={dialogue.speaker}
+            data-speaker={dialogue.speaker}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}

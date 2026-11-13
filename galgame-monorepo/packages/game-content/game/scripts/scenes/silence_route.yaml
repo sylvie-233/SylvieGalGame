@@ -87,14 +87,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "……你来了。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "你的本子。"
   - text:
       speaker: 希尔维
       text: "我知道。我故意放在那里的。"
-      voice: audio/voice/sylvie_05.wav
 
   - text:
       speaker: 旁白
@@ -103,14 +101,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "一百二十元。听一首，够了。"
-      voice: audio/voice/sylvie_03.wav
   - text:
       speaker: 我
       text: "我还没听。"
   - text:
       speaker: 希尔维
       text: "那你现在听。"
-      voice: audio/voice/sylvie_01.wav
 
   - text:
       speaker: 旁白
@@ -125,6 +121,5 @@ commands:
   - text:
       speaker: 希尔维
       text: "最后两小节还是空的。等你想起来，再还给我。"
-      voice: audio/voice/sylvie_02.wav
 
   - jump: "common#common_start"

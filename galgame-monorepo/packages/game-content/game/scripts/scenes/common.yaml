@@ -42,14 +42,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "最后两小节，我想好了。不过先不告诉你。"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 旁白
       text: "她把一枚一百二十元硬币夹进最后一页，合上书，推到我这边。像把一件很轻的东西交给我。"
   - text:
       speaker: 希尔维
       text: "等我走了再看。"
-      voice: audio/voice/sylvie_02.wav
 
   - jump: common_tail
 
@@ -64,7 +62,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "明天……不用带咖啡了。"
-      voice: audio/voice/sylvie_03.wav
   - text:
       speaker: 旁白
       text: "她说这话时没看我，只把空罐转了一圈。拉环已经被她抠得发亮，像一枚很小的戒指。"
@@ -74,7 +71,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "因为明天开始，换我请。"
-      voice: audio/voice/sylvie_04.wav
 
   - jump: common_tail
 
@@ -89,7 +85,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "雨停了。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 旁白
       text: "她把伞留在桌边，说反正明天还会来。伞柄上缠着一圈旧胶带，颜色已经褪成很浅的黄。"
@@ -99,7 +94,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "不知道。带着吧。"
-      voice: audio/voice/sylvie_05.wav
 
   - jump: common_tail
 
@@ -148,14 +142,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "……比唱片里慢。"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 我
       text: "因为不想那么快结束。"
   - text:
       speaker: 希尔维
       text: "那你可以再慢一点。"
-      voice: audio/voice/sylvie_05.wav
 
   - text:
       speaker: 旁白
@@ -188,14 +180,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "末班车已经走了。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "我知道。"
   - text:
       speaker: 希尔维
       text: "那你还买两罐？"
-      voice: audio/voice/sylvie_03.wav
   - text:
       speaker: 我
       text: "因为路很远。"
@@ -234,21 +224,18 @@ commands:
   - text:
       speaker: 希尔维
       text: "明年？"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "明年。同一台售货机，一百二十元。"
   - text:
       speaker: 希尔维
       text: "要是我不来呢？"
-      voice: audio/voice/sylvie_05.wav
   - text:
       speaker: 我
       text: "那我就等到末班车开走。"
   - text:
       speaker: 希尔维
       text: "……你真的很会让人为难。"
-      voice: audio/voice/sylvie_03.wav
 
   - se: audio/se/coin.ogg
 
@@ -258,7 +245,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "找零。明年记得带够一百一十元。"
-      voice: audio/voice/sylvie_01.wav
 
   - sprite:
       id: sylvie
@@ -277,7 +263,6 @@ commands:
   - text:
       speaker: 旁白
       text: "第二年春天，我收到一张没有署名的明信片。正面是另一座城市的天空，背面用铅笔抄着那首曲子的最后两小节。"
-      voice: audio/voice/narrator_02.wav
   - text:
       speaker: 旁白
       text: "谱子下面只有一句话：这次没有停。还有一枚用胶带粘住的十元硬币。"

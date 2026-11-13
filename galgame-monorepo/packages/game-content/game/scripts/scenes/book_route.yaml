@@ -29,7 +29,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "……谢谢。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 旁白
       text: "她投币，按下最上面那罐黑咖啡。机器轰隆一声，罐子滚出来，她却没有马上拿。"
@@ -37,14 +36,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "这罐算我们一人一半。"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 我
       text: "一百二十元怎么一人一半？"
   - text:
       speaker: 希尔维
       text: "你喝第一口，我喝剩下的。"
-      voice: audio/voice/sylvie_03.wav
 
   - text:
       speaker: 旁白
@@ -53,14 +50,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "你也是三年级？"
-      voice: audio/voice/sylvie_05.wav
   - text:
       speaker: 我
       text: "嗯。三班。"
   - text:
       speaker: 希尔维
       text: "我在二班。隔着一堵墙，难怪没见过。"
-      voice: audio/voice/sylvie_02.wav
 
   - text:
       speaker: 旁白
@@ -72,7 +67,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "……没什么。几首没写完的歌。"
-      voice: audio/voice/sylvie_05.wav
 
   - text:
       speaker: 旁白
@@ -98,14 +92,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "学校后门没锁。图书馆这个点也没人。你要不要……听一首？"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 我
       text: "听一首要多少钱？"
   - text:
       speaker: 希尔维
       text: "一百二十元。已经付过了。"
-      voice: audio/voice/sylvie_03.wav
 
   - text:
       speaker: 旁白
@@ -142,7 +134,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "这首叫《回声》。写完的时候，音乐社已经解散了。"
-      voice: audio/voice/sylvie_02.wav
 
   - text:
       speaker: 我
@@ -150,7 +141,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "人走了。毕业的毕业，转学的转学。最后只剩我一个，钥匙也没人收回去。"
-      voice: audio/voice/sylvie_05.wav
 
   - text:
       speaker: 旁白
@@ -159,14 +149,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "每次到这里，我就想不起来下一句。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "那就先停在这里。"
   - text:
       speaker: 希尔维
       text: "停下来的人，是不是很没用？"
-      voice: audio/voice/sylvie_05.wav
 
   - text:
       speaker: 旁白
@@ -178,7 +166,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "……你说话真奇怪。"
-      voice: audio/voice/sylvie_03.wav
 
   - set:
       var: knows_melody
@@ -194,14 +181,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "那最后一小节，你帮我记着。等我想起来，再向你要。"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 我
       text: "要是我忘了呢？"
   - text:
       speaker: 希尔维
       text: "那我就再请你喝一罐。还是一百二十元。"
-      voice: audio/voice/sylvie_04.wav
 
   - cg: hide
   - wait: 400

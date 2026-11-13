@@ -35,14 +35,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "……你买了？"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "嗯。热的。"
   - text:
       speaker: 希尔维
       text: "我不是说想要吗？"
-      voice: audio/voice/sylvie_03.wav
   - text:
       speaker: 我
       text: "你刚才说，热的，什么都行。"
@@ -58,7 +56,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "谢谢。"
-      voice: audio/voice/sylvie_05.wav
   - text:
       speaker: 旁白
       text: "这是今晚她第一次说这两个字。也是第一次，没有马上把脸转开。"
@@ -89,14 +86,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "一百二十元。你昨天已经付过了。"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 我
       text: "那今天这杯呢？"
   - text:
       speaker: 希尔维
       text: "算利息。"
-      voice: audio/voice/sylvie_04.wav
 
   - se:
       sound: audio/se/tea_cup.ogg
@@ -113,14 +108,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "我不太会和人待在一起。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "看出来了。"
   - text:
       speaker: 希尔维
       text: "你也一样。"
-      voice: audio/voice/sylvie_05.wav
 
   - cg: hide
 
@@ -148,14 +141,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "这里是我发现的第二个秘密。"
-      voice: audio/voice/sylvie_03.wav
   - text:
       speaker: 我
       text: "第一个是什么？"
   - text:
       speaker: 希尔维
       text: "不告诉你。"
-      voice: audio/voice/sylvie_04.wav
 
   - cg:
       image: images/cg/rooftop_sky.svg
@@ -168,21 +159,18 @@ commands:
   - text:
       speaker: 希尔维
       text: "下个月，我要转学了。"
-      voice: audio/voice/sylvie_05.wav
   - text:
       speaker: 旁白
       text: "她说得很平静，像在念一条已经背熟的天气预报。"
   - text:
       speaker: 希尔维
       text: "我妈说，换个城市也许会好一点。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 我
       text: "会吗？"
   - text:
       speaker: 希尔维
       text: "不知道。但这里的每一条走廊，我都已经走腻了。"
-      voice: audio/voice/sylvie_05.wav
 
   - text:
       speaker: 旁白
@@ -193,7 +181,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "我也是。所以我们别告别。"
-      voice: audio/voice/sylvie_01.wav
 
   - cg: hide
   - wait: 500

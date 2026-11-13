@@ -19,7 +19,6 @@ commands:
   - text:
       speaker: 旁白
       text: "二十三时四十七分。末班车在十七分钟前开走，站牌下只剩我、一盏路灯，和自动售货机的白光。"
-      voice: audio/voice/narrator_01.wav
   - text:
       speaker: 我
       text: "……又错过了。"
@@ -40,14 +39,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "一百一。"
-      voice: audio/voice/sylvie_02.wav
   - text:
       speaker: 旁白
       text: "她没有回头，声音却明显是对我说的。"
   - text:
       speaker: 希尔维
       text: "你有一百二十元吗？……不，十元就好。"
-      voice: audio/voice/sylvie_01.wav
 
   - text:
       speaker: 我
@@ -55,7 +52,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "热的。什么都行。"
-      voice: audio/voice/sylvie_03.wav
 
   - text:
       speaker: 旁白
@@ -64,14 +60,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "我每天都来。有时候买得起，有时候差一点。"
-      voice: audio/voice/sylvie_05.wav
   - text:
       speaker: 我
       text: "为什么是这里？"
   - text:
       speaker: 希尔维
       text: "因为这里亮。"
-      voice: audio/voice/sylvie_02.wav
 
   - text:
       speaker: 旁白
@@ -80,14 +74,12 @@ commands:
   - text:
       speaker: 希尔维
       text: "你在等谁吗？"
-      voice: audio/voice/sylvie_01.wav
   - text:
       speaker: 我
       text: "等一辆已经开走的车。"
   - text:
       speaker: 希尔维
       text: "真巧。我在等一个不会来的人。"
-      voice: audio/voice/sylvie_03.wav
 
   - text:
       speaker: 旁白
@@ -99,7 +91,6 @@ commands:
   - text:
       speaker: 希尔维
       text: "算了。你走吧。反正车也不会来了。"
-      voice: audio/voice/sylvie_05.wav
 
   - set:
       var: route
