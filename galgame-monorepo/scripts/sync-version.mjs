@@ -33,13 +33,13 @@ async function readManifestVersion() {
   return match ? match[1].trim().replace(/^["']|["']$/g, '') : '';
 }
 
-async function check() {
+async function check(expected) {
   const versions = await Promise.all(PACKAGE_FILES.map(readVersionFromPackage));
   versions.push({ path: 'game.yaml', version: await readManifestVersion() });
-  const reference = versions[0]?.version ?? '';
+  const reference = expected ?? versions[0]?.version ?? '';
   const mismatched = versions.filter((entry) => entry.version !== reference);
   if (mismatched.length > 0) {
-    console.error(`版本号不一致（基准：${reference}）：`);
+    console.error(`版本号不一致（${expected ? 'tag 期望' : '基准'}：${reference}）：`);
     for (const entry of versions) console.error(`  - ${entry.path}: ${entry.version}`);
     console.error('\n执行 pnpm version:set <版本> 统一版本号。');
     process.exitCode = 1;
@@ -69,6 +69,10 @@ async function setVersion(version) {
 const args = process.argv.slice(2);
 if (args[0] === '--set') {
   await setVersion(args[1] ?? '');
+} else if (args[0] === '--expect') {
+  const expected = (args[1] ?? '').replace(/^v/, '');
+  if (!expected) throw new Error('用法：node scripts/sync-version.mjs --expect v0.1.0');
+  await check(expected);
 } else {
   await check();
 }

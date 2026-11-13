@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: galgame-monorepo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: galgame-monorepo/pnpm-lock.yaml
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 校验 tag 与版本号
+        run: pnpm version:expect "${{ github.ref_name }}"
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 单元测试
+        run: pnpm test
+
+      - name: 剧本与资源校验
+        run: pnpm validate
+
+      - name: 构建 Web 预览
+        run: pnpm build:web
+
+  desktop:
+    needs: verify
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: galgame-monorepo
+    env:
+      WIN_CERT_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX }}
+      WIN_CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: galgame-monorepo/pnpm-lock.yaml
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 校验 tag 与版本号
+        run: pnpm version:expect "${{ github.ref_name }}"
+
+      - name: 准备签名证书（可选）
+        if: env.WIN_CERT_BASE64 != ''
+        shell: pwsh
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP 'sylvie.pfx'
+          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:WIN_CERT_BASE64))
+          "WINDOWS_CERTIFICATE_FILE=$path" >> $env:GITHUB_ENV
+          "WINDOWS_CERTIFICATE_PASSWORD=$env:WIN_CERT_PASSWORD" >> $env:GITHUB_ENV
+
+      - name: 打包免安装目录
+        run: pnpm package
+
+      - name: 桌面冒烟
+        run: pnpm smoke
+
+      - name: 生成 NSIS 安装包
+        run: pnpm make
+
+      - name: 整理发布附件与校验和
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path apps/electron/out/SylvieGalGame-win32-x64/* `
+            -DestinationPath "release/SylvieGalGame-$version-win32-x64.zip" -Force
+          Copy-Item apps/electron/out/make/*.exe release/ -Force
+          Get-ChildItem release -File |
+            Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } |
+            Set-Content release/SHA256SUMS.txt
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            版本 ${{ github.ref_name }} 的桌面产物与 SHA256 校验文件见附件。
+            Web 镜像：`ghcr.io/${{ github.repository }}/sylvie-web:${{ github.ref_name }}`。
+            完整变更记录见仓库根目录 `CHANGELOG.md`。
+          files: |
+            galgame-monorepo/release/*.zip
+            galgame-monorepo/release/*.exe
+            galgame-monorepo/release/SHA256SUMS.txt
+
+  web-image:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 计算镜像名
+        run: |
+          REPO=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE=ghcr.io/${REPO}/sylvie-web" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: galgame-monorepo
+          file: galgame-monorepo/apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ env.IMAGE }}:latest
+          build-args: |
+            NPM_REGISTRY=https://registry.npmjs.org

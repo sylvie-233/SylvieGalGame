@@ -25,6 +25,7 @@
     "validate": "node scripts/validate-content.mjs",
     "version:check": "node scripts/sync-version.mjs",
     "version:set": "node scripts/sync-version.mjs --set",
+    "version:expect": "node scripts/sync-version.mjs --expect",
     "smoke": "node scripts/smoke-app.mjs",
     "smoke:web": "node scripts/smoke-web.mjs"
   },

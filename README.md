@@ -127,6 +127,22 @@ pnpm make
 
 设置后 Electron exe 与 NSIS 安装包会使用该证书签名；时间戳默认使用 DigiCert。
 
+### 发布流程
+
+1. 在 [CHANGELOG.md](CHANGELOG.md) 的 `Unreleased` 下整理本次变更并改成目标版本。
+2. `pnpm version:set 0.2.0`，确认 `pnpm version:check` 通过。
+3. 提交后打 tag 并推送（推送需显式执行）：
+   ```powershell
+   git tag v0.2.0
+   git push origin main --tags
+   ```
+4. `.github/workflows/release.yml` 会校验 tag 与版本号，运行 lint / typecheck / test / validate / Web 构建，然后在 Windows 上打包、冒烟、生成 NSIS 安装包，并上传：
+   - `SylvieGalGame-<version>-win32-x64.zip`（免安装版）
+   - `SylvieGalGame-Setup-<version>.exe`（NSIS 安装包）
+   - `SHA256SUMS.txt`
+5. 同一 tag 会构建并推送 Web 镜像到 `ghcr.io/<owner>/<repo>/sylvie-web`。
+6. 配置仓库 Secrets `WINDOWS_CERTIFICATE_PFX`（base64 的 pfx）与 `WINDOWS_CERTIFICATE_PASSWORD` 后，Release 产物会自动签名。
+
 ## Web 容器化
 
 `scripts/docker-compose.yml` 只包含一个 `web` 服务：多阶段构建 `apps/web`，再把静态产物交给 Nginx。容器本身无状态，存档仍在访问者浏览器的 IndexedDB 中（不支持时回退 `localStorage`）。
@@ -192,6 +208,8 @@ docker compose -f scripts/docker-compose.yml -f scripts/docker-compose.game.yml 
 
 ```text
 SylvieGalGame/
+├── CHANGELOG.md                      # 版本变更记录（Keep a Changelog）
+├── .github/workflows/                # CI 与 tag 发布流水线
 ├── docs/
 │   ├── SylvieGalGame需求整理-v1.md   # 一期需求
 │   ├── SylvieGalGame需求整理-v2.md   # 二期需求与里程碑
