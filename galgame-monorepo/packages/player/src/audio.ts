@@ -126,12 +126,22 @@ export class AudioManager {
     this.voice = howl;
   }
 
-  /** 进入场景时预加载图片与音频，减少切换卡顿。 */
-  preloadAudio(paths: string[]): void {
+  /**
+   * 进入场景时预加载音频，减少切换卡顿。
+   * 预加载表最多保留 maxEntries 条，按插入顺序淘汰最旧的条目，避免长会话持续占用内存。
+   */
+  preloadAudio(paths: string[], maxEntries = 24): void {
     if (this.disposed) return;
     for (const path of paths) {
       if (!/\.(wav|mp3|ogg|m4a|flac)$/i.test(path)) continue;
       if (this.preloaded.has(path)) continue;
+      while (this.preloaded.size >= maxEntries) {
+        const oldest = this.preloaded.keys().next().value;
+        if (oldest === undefined) break;
+        const audio = this.preloaded.get(oldest);
+        if (audio) audio.src = '';
+        this.preloaded.delete(oldest);
+      }
       const audio = new Audio();
       audio.preload = 'auto';
       audio.src = this.resolveUrl(path);

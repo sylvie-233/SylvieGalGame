@@ -76,7 +76,7 @@ engine-core ──快照/效果──▶ player（Zustand + React + Motion）
                                           Web: IndexedDB / localStorage 回退）
 ```
 
-引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。
+引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` / `shake` / `flash` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档，并通过 `getUpcomingSceneAssets()` 预取后续分支场景；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。预加载有数量预算（单场景 32 个、音频 LRU 24 条），超出按需加载。
 
 ## 开始开发
 

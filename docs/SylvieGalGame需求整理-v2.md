@@ -191,7 +191,8 @@
 - **C3 内容体检**：已完成。`pnpm validate` 增加未引用资源、不可达场景、资源体积 / 命名 / 扩展名检查，并输出资源、场景与语音覆盖统计。
 - **E5 演出指令**：已完成。新增 `shake` / `flash` 指令；`bg` / `sprite` / `cg` 支持 `dissolve` / `slide-left` / `slide-right` / `wipe` 转场与逐条 `ease`；立绘新增 `flip`，移动 / 缩放 / 层级由 `position` / `scale` / `z` 控制，未知参数加载期告警。
 - **V6 Web 存储升级**：已完成。Web 端优先使用 IndexedDB 并请求 `navigator.storage.persist()`，localStorage 作为回退；启动时自动迁移旧 `sylvie:` 键，调试 API 改为异步。
-- 其余 M2 项（A3 预加载预算）仍待实现。
+- **A3 预加载预算**：已完成。单次场景预加载上限 32 个资源，超出按需加载；到达文本 / 选项时通过 `getUpcomingSceneAssets()` 预取最多 2 个跳转 / 分支目标场景；音频预加载表 LRU 保留 24 条。
+- **M2 全部完成**（E3–E5、E7、S1–S4、A1 / A3、V3 / V4 / V6、C1–C3）。V3 的保存时备注编辑仍作为小的后续项。
 
 ## 十四、验收总则
 

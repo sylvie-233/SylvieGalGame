@@ -479,6 +479,23 @@ commands:
     expect(engine.getSnapshot().dialogue?.text).toBe('第二句');
   });
 
+  it('suggests assets of upcoming branch target scenes', async () => {
+    const files = createFiles();
+    files['scripts/scenes/shared.yaml'] = `
+commands:
+  - label: bad
+  - bg: images/bg/shared.png
+  - text: "另一条路。"
+`;
+    const engine = new GameEngine({
+      host: { assets: createAssets(files), storage: createStorage(), onWarning: () => {} },
+    });
+    await engine.initialize();
+    engine.start();
+    expect(engine.getUpcomingSceneAssets()).toContain('images/bg/shared.png');
+    expect(engine.getUpcomingSceneAssets()).not.toContain('images/bg/room.png');
+  });
+
   it('warns about unknown command parameters', async () => {
     const files = createFiles();
     files['scripts/scenes/start.yaml'] =

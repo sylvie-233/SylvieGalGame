@@ -361,6 +361,65 @@ export class GameEngine {
     return this.readMarks.size;
   }
 
+  /**
+   * 预加载提示：从当前指针向后扫描跳转 / 分支目标，返回接下来可能进入的
+   * 其他场景的资源。只读，不改变引擎状态；玩家侧仍会再做数量预算。
+   */
+  getUpcomingSceneAssets(limit = 2): string[] {
+    const loaded = this.loaded;
+    if (!loaded) return [];
+    const currentScene = loaded.scenes.get(this.pointer.scene);
+    const block = currentScene?.blocks[this.pointer.block];
+    if (!block) return [];
+
+    const targetScenes = new Set<CompiledScene>();
+    const collect = (target: string | null): void => {
+      if (!target) return;
+      const found = this.findTargetScene(target);
+      if (!found || !found.valid || found.scene.name === this.pointer.scene) return;
+      targetScenes.add(found.scene);
+    };
+
+    // 从当前指令开始扫描：choice 阻塞时目标就在当前指令里。
+    for (let index = this.pointer.index; index < block.commands.length; index += 1) {
+      if (targetScenes.size >= limit) break;
+      const command = block.commands[index];
+      if (!command) continue;
+      if (command.kind === 'jump') {
+        collect(command.target);
+      } else if (command.kind === 'if') {
+        collect(command.then);
+        collect(command.else);
+      } else if (command.kind === 'choice') {
+        for (const option of command.options) collect(option.target);
+      }
+    }
+
+    const assets = new Set<string>();
+    for (const scene of targetScenes) {
+      for (const asset of scene.assets) assets.add(asset);
+    }
+    return [...assets];
+  }
+
+  private findTargetScene(
+    target: string,
+  ): { scene: CompiledScene; valid: boolean } | null {
+    const loaded = this.loaded;
+    if (!loaded) return null;
+    const hash = target.indexOf('#');
+    if (hash >= 0) {
+      const sceneName = target.slice(0, hash).trim();
+      const labelName = target.slice(hash + 1).trim();
+      const scene = loaded.scenes.get(sceneName);
+      if (!scene) return null;
+      return { scene, valid: Boolean(labelName && scene.labels[labelName]) };
+    }
+    const scene = loaded.scenes.get(this.pointer.scene);
+    if (!scene) return null;
+    return { scene, valid: Boolean(scene.labels[target]) };
+  }
+
   createSave(options: CreateSaveOptions = {}): SaveData {
     this.requireLoaded();
     return {

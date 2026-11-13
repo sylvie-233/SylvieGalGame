@@ -36,6 +36,10 @@ import { Toast } from './Toast';
 import { WarningsPanel } from './WarningsPanel';
 
 const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp|gif|svg|avif)$/i;
+/** 单次场景预加载的图片 / 音频上限，超出部分在真正显示或播放时按需加载。 */
+const PRELOAD_ASSET_BUDGET = 32;
+/** 图片预热记录上限，避免长会话反复为同一资源创建 Image 对象。 */
+const PRELOAD_IMAGE_CACHE_LIMIT = 64;
 
 export function GameApp() {
   const platform = getPlayerPlatform();
@@ -106,15 +110,19 @@ export function GameApp() {
     let autoSaveTimer: number | null = null;
     let lastScreenshotChapter: string | null = null;
     let lastScreenshot: string | null = null;
+    const preloadedImages = new Set<string>();
 
     const preload = (assets: string[]) => {
-      for (const asset of assets) {
-        if (IMAGE_PATTERN.test(asset)) {
-          const image = new Image();
-          image.src = platform.assetUrl(asset);
-        }
+      // 数量预算：当前场景资源按脚本顺序优先，超出的留到实际使用时再加载。
+      const selected = assets.slice(0, PRELOAD_ASSET_BUDGET);
+      for (const asset of selected) {
+        if (!IMAGE_PATTERN.test(asset) || preloadedImages.has(asset)) continue;
+        if (preloadedImages.size >= PRELOAD_IMAGE_CACHE_LIMIT) continue;
+        preloadedImages.add(asset);
+        const image = new Image();
+        image.src = platform.assetUrl(asset);
       }
-      audio.preloadAudio(assets);
+      audio.preloadAudio(selected);
     };
 
     const scheduleAutoSave = (block: 'text' | 'choice', chapter: string) => {
@@ -171,6 +179,8 @@ export function GameApp() {
           break;
         case 'checkpoint':
           scheduleAutoSave(effect.block, effect.chapter);
+          // 预取接下来可能进入的场景资源，玩家做选择前就开始加载。
+          preload(engine.getUpcomingSceneAssets(2));
           break;
         case 'shake': {
           const strength = Math.max(1, effect.intensity);
