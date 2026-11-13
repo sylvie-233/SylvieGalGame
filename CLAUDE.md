@@ -30,7 +30,7 @@ pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，
 pnpm build        # Turbo 构建全部包（含 apps/web）
 pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
 pnpm typecheck    # 全仓 tsc --noEmit
-pnpm test         # Vitest：engine-core 31 个 + player 8 个用例
+pnpm test         # Vitest：engine-core 32 个 + player 8 个用例
 pnpm validate     # 加载真实剧本、内容体检、跑通两条分支、检查资源与脚本警告
 pnpm assets       # 重新生成占位图片 / 音频 / 图标
 pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
@@ -109,7 +109,7 @@ engine-core ──快照 + 效果事件──▶ player（Zustand + React + Moti
 
 - 转场支持 `fade` / `dissolve` / `slide-left` / `slide-right` / `wipe` / `none` 与逐条 `ease`；`shake` / `flash` 为一次性效果，不进入存档或回滚快照。无剧本编辑器；资源为松散文件，未加密或压缩。
 - 回滚历史只存在当前会话内存中（最多 50 个阻塞点），`start()` / `restoreSave()` 会清空；它不写入存档，读档后不能继续回退到读档前的进度。
-- 脚本警告已汇总到播放器内面板，但暂未带 `scene.yaml` 行号，也没有错误 / 警告分级；渲染异常只做 ErrorBoundary 兜底，尚未把日志写入 `userData`。
+- `pnpm validate` 的诊断已带 `scripts/scenes/x.yaml:行号` 并区分错误（Schema / 阻断）与警告（可继续）；播放器内面板仍只展示运行时警告文本。渲染异常只做 ErrorBoundary 兜底，尚未把日志写入 `userData`。
 - 新增存档字段时必须同时提升 `SAVE_VERSION`、更新 `isSaveData()` 并在 `migrateSaveData()` 中补迁移逻辑，否则旧档会被当成坏档丢弃。
 - 嵌套弹窗必须使用 `Modal`：它维护全局弹窗栈，Esc 只关闭最上层；直接写 `<div role="dialog">` 会破坏该行为。
 - 美术与音频是 `scripts/generate-assets.mjs` 生成的占位素材，可直接替换。

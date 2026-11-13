@@ -467,13 +467,15 @@ export class GameEngine {
 
     for (const scene of loaded.scenes.values()) {
       for (const asset of scene.assets) {
+        const location = loaded.assetLocations.get(asset);
+        const described = location ? `${asset}（${location}）` : asset;
         if (checked.has(asset)) {
-          if (!checked.get(asset)) missing.push(asset);
+          if (!checked.get(asset)) missing.push(described);
           continue;
         }
         const exists = await this.host.assets.exists(asset);
         checked.set(asset, exists);
-        if (!exists) missing.push(asset);
+        if (!exists) missing.push(described);
       }
     }
 

@@ -151,7 +151,7 @@ docker compose -f scripts/docker-compose.yml down
 pnpm validate
 ```
 
-它会解析所有场景、检查 `label` / 跳转 / 表达式 / 资源存在性，做内容体检（未引用资源、不可达场景、超大资源、命名规范），并实际走通两条分支；有任何警告都会以非零码退出。
+它会解析所有场景、检查 `label` / 跳转 / 表达式 / 资源存在性，做内容体检（未引用资源、不可达场景、超大资源、命名规范），并实际走通两条分支；诊断带 `scene.yaml:行号` 并区分错误与警告，有任何一条都会以非零码退出。
 
 编辑器补全由 `docs/script.schema.json` 提供，`.vscode/settings.json` 已映射 `game.yaml` 与 `scenes/*.yaml`；安装 YAML 插件即可使用。
 
@@ -183,6 +183,6 @@ pnpm validate
 
 - 转场覆盖淡入淡出、溶解、左右滑动与擦除，并提供震屏 / 闪屏；没有粒子或 3D 转场。
 - 资源为松散文件，未做加密或压缩。
-- 脚本警告已汇总到播放器内面板，但暂未带 `scene.yaml` 行号；错误与警告仍未分级。
+- `pnpm validate` 的诊断带 `scene.yaml:行号`，并区分错误（Schema / 阻断）与警告（可继续）；播放器内面板展示的是运行时警告文本。
 - 渲染异常由 ErrorBoundary 兜底，暂未把运行日志落盘到 `userData`。
 - 占位美术 / 音频由 `scripts/generate-assets.mjs` 生成，用于验证流程；可直接替换为正式素材。

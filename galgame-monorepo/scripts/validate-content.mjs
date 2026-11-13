@@ -13,6 +13,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const GAME_ROOT = path.join(ROOT, 'packages/game-content/game');
 
+const errors = [];
 const warnings = [];
 
 const assets = {
@@ -71,7 +72,7 @@ async function validateSchemaFiles() {
     const details = (deepest.length > 0 ? deepest : errors)
       .slice(0, 4)
       .map((error) => `${error.instancePath || '/'} ${error.message}`);
-    warnings.push(`[Schema] ${file}：${details.join('；') || '不符合 script.schema.json'}`);
+    errors.push(`[Schema] ${file}：${details.join('；') || '不符合 script.schema.json'}`);
   }
 }
 
@@ -252,17 +253,29 @@ async function main() {
   console.log(`书页分支：${bookLines.length} 句，到达旋律结局`);
   console.log(`热茶分支：${smileLines.length} 句，到达安静结局`);
 
-  if (warnings.length > 0) {
-    console.error(`\n发现 ${warnings.length} 条警告：`);
-    for (const warning of warnings) console.error(`  - ${warning}`);
+  if (printDiagnostics() > 0) {
     process.exitCode = 1;
     return;
   }
 
-  console.log('\n内容校验通过，无警告。');
+  console.log('\n内容校验通过，无错误或警告。');
+}
+
+/** 按错误 / 警告分组输出诊断，返回条数。 */
+function printDiagnostics() {
+  if (errors.length > 0) {
+    console.error(`\n发现 ${errors.length} 条错误（阻断）：`);
+    for (const error of errors) console.error(`  - [错误] ${error}`);
+  }
+  if (warnings.length > 0) {
+    console.error(`\n发现 ${warnings.length} 条警告（可继续）：`);
+    for (const warning of warnings) console.error(`  - [警告] ${warning}`);
+  }
+  return errors.length + warnings.length;
 }
 
 main().catch((error) => {
-  console.error(error);
+  printDiagnostics();
+  console.error(`\n[错误] ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

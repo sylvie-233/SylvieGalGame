@@ -202,6 +202,7 @@
 - **Q2 测试补齐**：已完成主体。engine-core 31 个用例；player 新增 Vitest（7 个），覆盖 Zustand 视图 / 弹窗 / 设置 / 警告 / Toast，以及章节名解析与导出文件名。组件级交互测试可继续补充。
 - **U6 启动与窗口状态**：已完成。单实例锁此前已存在；新增 `userData/window-state.json` 记录窗口尺寸 / 位置 / 最大化状态，启动时恢复并与显示器工作区做可见性校验，避免外接屏拔出后窗口跑到屏幕外。
 - **Q4 Web 构建优化**：已完成。Vite/Rolldown 拆分 `react` / `motion` / `audio` / `zustand` vendor chunk；存读档、设置、图鉴、历史面板改为 `React.lazy` 按需加载；`html-to-image` 改为截图时动态导入。Web 构建不再出现 500 kB 警告。
+- **E8 错误与校验体系**：已完成。引擎在编译与跳转校验时输出 `scripts/scenes/x.yaml:行号`，缺失资源带首次引用位置；`pnpm validate` 按错误（Schema / 阻断）与警告（可继续）分组输出，即使分支回放失败也会先打印已收集的诊断。
 - 其余 M3 项（Q5 桌面交付、Q7 发布流程）仍待实现。
 
 ## 十四、验收总则

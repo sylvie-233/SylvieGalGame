@@ -266,6 +266,7 @@ gallery:
     expect(missingWarnings.some((message) => message.includes('找不到 label "missing"'))).toBe(
       true,
     );
+    expect(missingWarnings.some((message) => /start\.yaml:\d+/.test(message))).toBe(true);
   });
 });
 
@@ -496,6 +497,28 @@ commands:
     expect(engine.getUpcomingSceneAssets()).not.toContain('images/bg/room.png');
   });
 
+  it('includes file and line in missing asset warnings', async () => {
+    const files = createFiles();
+    const warnings: string[] = [];
+    const engine = new GameEngine({
+      host: {
+        assets: {
+          readText: (path) => createAssets(files).readText(path),
+          exists: async () => false,
+        },
+        storage: createStorage(),
+        onWarning: (message) => warnings.push(message),
+      },
+    });
+    await engine.initialize();
+    expect(
+      warnings.some(
+        (message) =>
+          message.includes('images/bg/room.png') && /start\.yaml:\d+/.test(message),
+      ),
+    ).toBe(true);
+  });
+
   it('warns about unknown command parameters', async () => {
     const files = createFiles();
     files['scripts/scenes/start.yaml'] =
@@ -503,6 +526,11 @@ commands:
     const warnings: string[] = [];
     await loadGame(createAssets(files), (message) => warnings.push(message));
     expect(warnings.some((message) => message.includes('未知参数 strength'))).toBe(true);
+    expect(
+      warnings.some(
+        (message) => message.includes('未知参数 strength') && /start\.yaml:2/.test(message),
+      ),
+    ).toBe(true);
   });
 
   it('interpolates variables when the text blocks', async () => {

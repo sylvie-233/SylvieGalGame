@@ -26,7 +26,7 @@ import type {
   VoiceCommand,
   WaitCommand,
 } from '@sylvie/types';
-import { parse as parseYaml } from 'yaml';
+import { isSeq, parse as parseYaml, parseDocument } from 'yaml';
 
 import { validateExpression } from './expression';
 import { validateInterpolation } from './interpolate';
@@ -44,12 +44,16 @@ export interface LoadedGame {
   manifest: GameManifest;
   /** 所有场景（包含仅被 import 的场景），键为场景名。 */
   scenes: Map<string, CompiledScene>;
+  /** 资源路径 → 首次引用位置（`scripts/scenes/x.yaml:12`），用于诊断。 */
+  assetLocations: Map<string, string>;
 }
 
 interface RawSceneDocument {
   name: string;
   imports: string[];
   commands: unknown[];
+  /** 与 commands 一一对应的 YAML 起始行号；解析失败时为空。 */
+  commandLines: number[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -372,7 +376,38 @@ function parseSceneDocument(name: string, source: string, warn: Warn): RawSceneD
     throw new ScriptError(`场景 ${name} 缺少 commands 数组`);
   }
 
-  return { name, imports, commands: raw.commands };
+  return {
+    name,
+    imports,
+    commands: raw.commands,
+    commandLines: commandLineNumbers(source, raw.commands.length),
+  };
+}
+
+/** 读取 commands 每一项在 YAML 中的起始行号，供警告定位。 */
+function commandLineNumbers(source: string, count: number): number[] {
+  try {
+    const document = parseDocument(source);
+    const commands = document.get('commands');
+    if (!isSeq(commands)) return [];
+    const offsets = commands.items.map((item) => {
+      const range = (item as { range?: [number, number, number] | null }).range;
+      return range?.[0] ?? null;
+    });
+    const lines: number[] = [];
+    let line = 1;
+    let cursor = 0;
+    for (const offset of offsets) {
+      while (offset !== null && cursor < offset) {
+        if (source.charCodeAt(cursor) === 10) line += 1;
+        cursor += 1;
+      }
+      lines.push(offset === null ? 0 : line);
+    }
+    return lines.slice(0, count);
+  } catch {
+    return [];
+  }
 }
 
 function parseBg(payload: unknown, block: string, index: number, warn: Warn): BgCommand {
@@ -903,11 +938,20 @@ function hashTextId(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
-function compileBlock(blockId: string, rawCommands: unknown[], warn: Warn): CompiledBlock {
+function compileBlock(
+  blockId: string,
+  rawCommands: unknown[],
+  commandLines: number[],
+  warn: Warn,
+): CompiledBlock {
   const commands: Command[] = [];
   const seenIds = new Map<string, number>();
+  const file = `scripts/scenes/${blockId}.yaml`;
   rawCommands.forEach((raw, index) => {
-    const command = parseCommand(raw, blockId, index, warn);
+    const line = commandLines[index] ?? 0;
+    const scopedWarn: Warn =
+      line > 0 ? (message) => warn(`(${file}:${line}) ${message}`) : warn;
+    const command = parseCommand(raw, blockId, index, scopedWarn);
     if (!command) return;
     if (command.kind === 'text' && !command.id) {
       const base = `${blockId}@${hashTextId(
@@ -922,31 +966,22 @@ function compileBlock(blockId: string, rawCommands: unknown[], warn: Warn): Comp
   return { id: blockId, commands };
 }
 
-function collectAssets(block: CompiledBlock, target: Set<string>): void {
-  for (const command of block.commands) {
-    switch (command.kind) {
-      case 'bg':
-      case 'cg':
-        if (command.image) target.add(command.image);
-        break;
-      case 'sprite':
-        if (command.image) target.add(command.image);
-        break;
-      case 'bgm':
-        if (command.track) target.add(command.track);
-        break;
-      case 'se':
-        target.add(command.sound);
-        break;
-      case 'voice':
-        target.add(command.sound);
-        break;
-      case 'text':
-        if (command.voice) target.add(command.voice);
-        break;
-      default:
-        break;
-    }
+function commandAssets(command: Command): string[] {
+  switch (command.kind) {
+    case 'bg':
+    case 'cg':
+      return command.image ? [command.image] : [];
+    case 'sprite':
+      return command.image ? [command.image] : [];
+    case 'bgm':
+      return command.track ? [command.track] : [];
+    case 'se':
+    case 'voice':
+      return [command.sound];
+    case 'text':
+      return command.voice ? [command.voice] : [];
+    default:
+      return [];
   }
 }
 
@@ -1013,8 +1048,10 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
   await ensureScene(manifest.start);
 
   const compiledBlocks = new Map<string, CompiledBlock>();
+  const commandLinesByBlock = new Map<string, number[]>();
   for (const [name, document] of documents) {
-    compiledBlocks.set(name, compileBlock(name, document.commands, warn));
+    commandLinesByBlock.set(name, document.commandLines);
+    compiledBlocks.set(name, compileBlock(name, document.commands, document.commandLines, warn));
   }
 
   const closureOf = (name: string): string[] => {
@@ -1034,6 +1071,7 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
   };
 
   const scenes = new Map<string, CompiledScene>();
+  const assetLocations = new Map<string, string>();
 
   // 第一遍：为每个场景建立块闭包、label 表与资源清单。
   for (const [name] of documents) {
@@ -1045,14 +1083,28 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
       const block = compiledBlocks.get(blockName);
       if (!block) continue;
       blocks[blockName] = block;
-      collectAssets(block, assets);
+      const lines = commandLinesByBlock.get(blockName) ?? [];
+      const file = `scripts/scenes/${blockName}.yaml`;
 
       block.commands.forEach((command, index) => {
+        const line = lines[index] ?? 0;
+        for (const asset of commandAssets(command)) {
+          assets.add(asset);
+          if (!assetLocations.has(asset)) {
+            assetLocations.set(asset, line > 0 ? `${file}:${line}` : file);
+          }
+        }
         if (command.kind !== 'label') return;
         const existing = labels[command.name];
         if (existing) {
+          const existingLine = commandLinesByBlock.get(existing.block)?.[existing.index] ?? 0;
+          const existingLocation =
+            existingLine > 0
+              ? `scripts/scenes/${existing.block}.yaml:${existingLine}`
+              : `${existing.block}#${existing.index}`;
+          const currentLine = line > 0 ? `${file}:${line}` : `${blockName}#${index}`;
           warn(
-            `[脚本] 场景 ${name}：label "${command.name}" 重复（${existing.block}#${existing.index} 与 ${blockName}#${index}），保留首次定义`,
+            `[脚本] (${currentLine}) 场景 ${name}：label "${command.name}" 重复（首次定义：${existingLocation}），保留首次定义`,
           );
           return;
         }
@@ -1076,8 +1128,14 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
     for (const blockName of Object.keys(scene.blocks)) {
       const block = scene.blocks[blockName];
       if (!block) continue;
+      const lines = commandLinesByBlock.get(blockName) ?? [];
       block.commands.forEach((command, index) => {
-        const context = `场景 ${name} / ${blockName} 第 ${index + 1} 条 ${command.kind}`;
+        const line = lines[index] ?? 0;
+        const location =
+          line > 0
+            ? `scripts/scenes/${blockName}.yaml:${line}`
+            : `${blockName}#${index}`;
+        const context = `(${location}) 场景 ${name} / ${command.kind}`;
         if (command.kind === 'ending') {
           usedEndings.add(command.id);
           if (!endingIds.has(command.id)) {
@@ -1132,7 +1190,10 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
     if (asset && startScene && !startScene.assets.includes(asset)) {
       startScene.assets.push(asset);
     }
+    if (asset && !assetLocations.has(asset)) {
+      assetLocations.set(asset, 'scripts/game.yaml');
+    }
   }
 
-  return { manifest, scenes };
+  return { manifest, scenes, assetLocations };
 }
