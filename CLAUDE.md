@@ -1,0 +1,111 @@
+# CLAUDE.md
+
+本文件为 Claude Code 在本仓库工作时提供指引。面向本项目的修改、排查与提交，请先按本文约定执行。
+
+## 仓库结构
+
+- Git 根目录是 `SylvieGalGame/`，实际代码位于 `galgame-monorepo/`（pnpm workspace + Turborepo）。
+- `galgame-monorepo/apps/electron/`：Electron 45 + Forge 8 桌面外壳，负责窗口、`app://` / `game://` 协议、IPC 存储、截图、全屏与 NSIS 打包。
+- `galgame-monorepo/apps/web/`：Vite 8 + React 19 Web 预览壳，浏览器内调试同一套播放器；也用于构建 Nginx 静态镜像。
+- `galgame-monorepo/packages/`：
+  - `types`：跨包共享类型与常量（指令、快照、存档、设置、`PlayerPlatform`）；
+  - `engine-core`：纯 TypeScript 引擎，不依赖 React / DOM；
+  - `player`：React 播放器 UI（舞台、对话、选项、存读档、设置、音频）；
+  - `game-content`：唯一内容包，`game/` 下是 manifest、场景 YAML、图片与音频，无构建步骤；
+  - `eslint-config`、`tsconfig`：共享工程配置。
+- `docs/SylvieGalGame需求整理-v1.md`：一期需求权威文档；`docs/screenshots/`：根 README 使用的截图。
+- `galgame-monorepo/docs/剧本格式.md`：YAML 清单、场景、全部指令与表达式的权威参考。
+- 根目录 `manage.ps1` + `scripts/docker-compose.yml`：开发、校验、打包、冒烟测试与 Web 容器运维入口。
+
+## 常用命令
+
+在 `galgame-monorepo/` 下执行：
+
+```bash
+pnpm install
+pnpm dev          # 构建 player 依赖后启动 Electron（Vite dev server :5174）
+pnpm dev:web      # Web 预览，:5175；player / engine-core 走源码别名，改 UI 即时热更新
+pnpm build        # Turbo 构建全部包（含 apps/web）
+pnpm lint         # 全仓 ESLint，每包 --max-warnings 0
+pnpm typecheck    # 全仓 tsc --noEmit
+pnpm test         # engine-core 的 Vitest（目前 11 个用例）
+pnpm validate     # 加载真实剧本、跑通两条分支、检查资源与脚本警告
+pnpm assets       # 重新生成占位图片 / 音频 / 图标
+pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
+pnpm make         # NSIS 安装包 apps/electron/out/make/
+pnpm smoke        # 启动已打包 exe，CDP 驱动 UI 并截图（需 Node 22+，先 package）
+```
+
+单包操作：
+
+```bash
+pnpm --filter @sylvie/engine-core test
+pnpm --filter @sylvie/player build      # Electron 读取 dist；改 player 后需重新构建
+pnpm --filter @sylvie/web build         # 构建前自动复制 game-content 到 dist/game
+pnpm --filter @sylvie/web preview       # 预览构建产物，:5175
+```
+
+仓库根目录（PowerShell 7）：
+
+```powershell
+pwsh ./manage.ps1 status|doctor|verify
+pwsh ./manage.ps1 dev|web|build|package|make|smoke
+pwsh ./manage.ps1 docker:up|docker:down|docker:restart|docker:build|docker:logs|docker:status
+```
+
+`manage.ps1` 会在启动 Electron 前清除 `ELECTRON_RUN_AS_NODE`；`docker:*` 使用 `scripts/docker-compose.yml`，默认访问 `http://localhost:8080`。
+
+## 架构与数据流
+
+```text
+game-content/game (YAML + 图片 + 音频)
+        │  AssetHost（Electron: game:// / Web: /game HTTP）
+        ▼
+engine-core ──快照 + 效果事件──▶ player（Zustand + React + Motion）
+        │                              │
+        └──存档 / 设置──▶ KeyValueStorage（Electron: JSON 文件 / Web: localStorage）
+```
+
+- **engine-core**：解析 manifest 与递归 imports，按 `label` / `jump` / `choice` / `if` 等指令推进；采用指针 + 阻塞模型，`text` / `choice` / `wait` 阻塞，其余即时执行。`phase` 为 `idle | text | choice | wait | ended`，每次推进产生不可变 `GameSnapshot`，并通过 effect 事件通知 UI 播放 BGM / SE / 语音、预加载资源。
+- **player**：`GameApp` 只消费快照与事件；启动时必须先调用 `configurePlayer(PlayerPlatform)` 注入平台能力。UI 状态集中在 Zustand（`packages/player/src/store.ts`），音频由 `AudioManager` 管理。`player` 不直接访问 `window.sylvieGame`、`localStorage` 或任何文件系统 API。
+- **Electron**：`main.ts` 注册 `app://sylvie/index.html` 与 `game://assets/...`，资源访问经过 `resolveInside` 防目录穿越；`preload.ts` 通过 `contextBridge` 暴露受控 API；存档写入 `userData/game-storage.json`。渲染进程的 CSP 禁止外部脚本，截图通过 `capturePage` 生成 640px 宽缩略图。
+- **Web**：`apps/web/src/platform.ts` 将同一套 `PlayerPlatform` 映射为 `fetch` + `localStorage` + `html-to-image` + Fullscreen API。Vite 配置把共享包别名到源码，开发期中间件把 `game-content/game` 挂到 `/game`（支持 HEAD / Range）；构建时把内容复制到 `dist/game`。`quit` 刻意不实现，播放器会自动隐藏“退出游戏”。
+- **Docker**：`scripts/docker-compose.yml` → `apps/web/Dockerfile` 多阶段构建（Node 22 构建、Nginx 运行），只安装 Web 所需 workspace 依赖，不把 Electron 装进镜像。容器无状态，存档在访问者浏览器中。
+
+## 代码约定
+
+- 全仓 ESM；`packages/tsconfig/base.json` 开启 `strict`、`noUncheckedIndexedAccess`、`noUnusedLocals/Parameters`、`verbatimModuleSyntax`。共享包用 tsup 输出到 `dist/`，不要手改 `dist`。
+- Electron 消费共享包的 `dist`：改 `packages/player` 或 `engine-core` 后，`pnpm dev` 会先构建依赖；开发中继续改源码需要重新构建（或重启 dev）。Web 壳例外：它直接跑源码。
+- Tailwind CSS v4 使用 `@theme` 设计令牌；组件类名依赖 `@source` 扫描。新增扫描目录时同步更新 `apps/electron/src/index.css`（扫描 `packages/player/dist`）与 `apps/web/src/index.css`（扫描 `packages/player/src`）。
+- 动画统一用 `motion/react`；全局状态用 Zustand；不要引入第二套同类库。
+- ESLint 9 flat config：逻辑包用 `@sylvie/eslint-config/base`，React 端用 `@sylvie/eslint-config/react`；每包 `eslint . --max-warnings 0`，另有 Prettier。
+- 注释、UI 文案、README 与提交信息使用中文；类型名、变量名、文件名使用英文。
+- **分支策略**：用户要求直接在 `main` 上提交，不新建特性分支，也不主动开 PR；推送仍需用户明确要求。
+- **平台能力**：新增宿主能力时先扩展 `packages/types/src/platform.ts`，再分别实现 Electron / Web 两侧；禁止在共享 UI 里判断运行环境或直接调用宿主 API。
+- **内容单一来源**：剧情与素材只改 `packages/game-content/game/`，不要复制到 `apps/web/public` 或 Electron 资源目录。改完运行 `pnpm validate`。
+
+## 存档与状态
+
+- 键名：`save:auto`、`save:quick`、`save:slot:1..20`（`MANUAL_SAVE_COUNT = 20`）、`meta:read-marks`、`meta:settings`。
+- 存档包含场景 / 指针、变量、图层、BGM、已读标记、Backlog、章节备注与截图缩略图。
+- Electron 落盘在 `%APPDATA%\SylvieGalGame\game-storage.json`。
+- Web 的 `localStorage` 统一加 `sylvie:` 前缀；缩略图使用 JPEG（640px）以控制配额。容量不足时提示执行 `window.sylvieWeb.resetStorage()`；`window.sylvieWeb.storageDelete(key)` 按原始键删除单条。
+- Web 存档按 origin 隔离；修改 `WEB_PORT` 会进入新的存档空间，`docker compose down` 不会丢档。
+
+## 校验与提交
+
+- 提交前至少运行 `pnpm lint`、`pnpm typecheck`；改动引擎或存档逻辑再加 `pnpm test`；改动剧本或资源必须 `pnpm validate`。根目录 `pwsh ./manage.ps1 verify` 会依次跑完这四项。
+- 改动 UI 后优先用 `pnpm dev:web` 在浏览器验收；需要验证桌面交付时运行 `pwsh ./manage.ps1 smoke`（依赖已 packge 的 exe 与 Node 22+）。
+- 桌面冒烟脚本在覆盖存档槽位 01 前会先执行 `window.sylvieGame.storageDelete('save:slot:1')`，避免原生 `window.confirm` 阻塞 CDP。新增自动化步骤时保留该处理。
+- Docker 构建改动后至少执行一次 `pwsh ./manage.ps1 docker:build`；运行验收用 `docker:up`，再检查 `/health`、`/game/scripts/game.yaml` 与音频 Range 请求。
+
+## 已知边界与常见坑
+
+- 一期只支持 `fade` / `none` 转场；无剧本编辑器；资源为松散文件，未加密或压缩。
+- 美术与音频是 `scripts/generate-assets.mjs` 生成的占位素材，可直接替换。
+- `ELECTRON_RUN_AS_NODE=1` 会让 Electron 退化为 Node 并报 `bad option`；`manage.ps1` 与 `scripts/smoke-app.mjs` 已处理。
+- 打包产物较大（Electron + 游戏资源）；NSIS 安装包未签名，Windows SmartScreen 可能提示。
+- Web 的 BGM 受浏览器自动播放策略限制，首次点击“开始新游戏”后才解锁；全屏若由持久化设置自动恢复可能被浏览器拒绝，已捕获且不影响游戏。
+- Web 构建会提示单 chunk 超过 500 kB，这是预览壳的已知警告，不影响运行。
+- Nginx 默认 mime.types 不含 YAML；`apps/web/nginx.conf` 用正则 location 显式返回 `text/yaml`，不要删除。
+- 修改 Dockerfile 的 `COPY` 清单时，必须包含 Web 构建所需的全部 workspace `package.json`，否则 `pnpm install --frozen-lockfile` 或 `--filter @sylvie/web... build` 会失败。

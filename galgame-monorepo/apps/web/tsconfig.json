@@ -1,0 +1,15 @@
+{
+  "extends": "@sylvie/tsconfig/base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@sylvie/player": ["../../packages/player/src/index.ts"],
+      "@sylvie/engine-core": ["../../packages/engine-core/src/index.ts"],
+      "@sylvie/types": ["../../packages/types/src/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

@@ -9,6 +9,7 @@
 | 层 | 选型 |
 | --- | --- |
 | 桌面外壳 | Electron 45 + Electron Forge 8 + Vite 8 |
+| Web 预览壳 | Vite 8 + React 19（浏览器内调试，复用同一播放器） |
 | 界面 | React 19 + TypeScript（strict） |
 | 样式 | Tailwind CSS v4（`@theme` 设计令牌） |
 | 动画 | Motion 12（`motion/react`） |
@@ -22,12 +23,18 @@
 ```text
 galgame-monorepo/
 ├─ apps/
-│  └─ electron/                # 桌面外壳：主进程、preload、自定义协议、打包配置
-│     ├─ src/main.ts           # 窗口、game:// 协议、IPC、存储、截图、全屏
-│     ├─ src/preload.ts        # 通过 contextBridge 暴露受控 API
-│     ├─ src/renderer.tsx      # 注入桌面能力并挂载播放器
-│     ├─ forge.config.ts       # Forge + NSIS + extraResource
-│     └─ assets/               # 应用图标（png / ico）
+│  ├─ electron/                # 桌面外壳：主进程、preload、自定义协议、打包配置
+│  │  ├─ src/main.ts           # 窗口、game:// 协议、IPC、存储、截图、全屏
+│  │  ├─ src/preload.ts        # 通过 contextBridge 暴露受控 API
+│  │  ├─ src/renderer.tsx      # 注入桌面能力并挂载播放器
+│  │  ├─ forge.config.ts       # Forge + NSIS + extraResource
+│  │  └─ assets/               # 应用图标（png / ico）
+│  └─ web/                     # Web 预览壳：Vite + /game 资源中间件，用于浏览器调试
+│     ├─ src/platform.ts       # fetch / localStorage / 浏览器截图 / Fullscreen 适配
+│     ├─ src/renderer.tsx      # 注入 Web 能力并挂载播放器
+│     ├─ vite.config.ts        # 源码别名 + 内容目录服务与构建复制
+│     ├─ Dockerfile            # Node 22 构建 + Nginx 运行的多阶段镜像
+│     └─ nginx.conf            # 静态托管、CSP、/game/ 缓存策略与健康检查
 ├─ packages/
 │  ├─ types/                   # 跨包共享类型：指令、状态、存档、设置、平台能力
 │  ├─ engine-core/             # 纯 TS 内核：解析、指针调度、变量、条件、已读、存档
@@ -43,6 +50,7 @@ galgame-monorepo/
 │  ├─ generate-assets.mjs      # 生成占位 SVG / WAV / PNG / ICO
 │  ├─ validate-content.mjs     # 跑通全部分支并检查警告
 │  └─ smoke-app.mjs            # 启动打包产物、CDP 驱动界面并截图
+├─ .dockerignore               # Docker 构建上下文排除规则
 └─ docs/剧本格式.md             # YAML 指令参考
 ```
 
@@ -51,17 +59,19 @@ galgame-monorepo/
 - `engine-core` 不依赖 React / DOM，只接收 `AssetHost` 与 `KeyValueStorage`，可在 Node 中直接跑（`validate-content.mjs` 就是这么做的）。
 - `player` 只消费引擎快照与效果事件，UI 状态集中在 Zustand。
 - `electron` 只负责桌面能力和资源加载，不包含剧情逻辑。
+- `web` 只是预览壳：把同一套 `PlayerPlatform` 用 HTTP + localStorage 实现，便于浏览器 HMR 与 DevTools 调试，不作为交付形态。
 - `game-content` 不含代码；替换整个目录即可换一款游戏。
 
 ## 数据流
 
 ```text
 game-content/game (YAML + 资源)
-        │  AssetHost（Electron 自定义协议 game://）
+        │  AssetHost（Electron: game:// 协议 / Web: /game HTTP）
         ▼
 engine-core ──快照/效果──▶ player（Zustand + React + Motion）
         │                        │
-        └──存档/设置──▶ KeyValueStorage（Electron IPC → userData/game-storage.json）
+        └──存档/设置──▶ KeyValueStorage（Electron: IPC → userData/game-storage.json
+                                          Web: localStorage，键前缀 sylvie:）
 ```
 
 引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。
@@ -73,6 +83,7 @@ engine-core ──快照/效果──▶ player（Zustand + React + Motion）
 ```bash
 pnpm install
 pnpm dev          # 构建共享包并启动 Electron（Vite 开发服务器）
+pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享包源码）
 ```
 
 常用命令：
@@ -80,7 +91,10 @@ pnpm dev          # 构建共享包并启动 Electron（Vite 开发服务器）
 | 命令 | 作用 |
 | --- | --- |
 | `pnpm dev` | 构建 `player` 依赖后启动桌面应用 |
-| `pnpm build` | Turbo 构建全部包 |
+| `pnpm dev:web` | 启动 Web 预览壳（端口 5175，`player` / `engine-core` 源码热更新） |
+| `pnpm build:web` | 构建 Web 预览静态产物到 `apps/web/dist`（同时复制内容包） |
+| `pnpm preview:web` | 构建并预览 Web 产物 |
+| `pnpm build` | Turbo 构建全部包（含 Web 预览） |
 | `pnpm lint` | 全仓 ESLint 检查（`--max-warnings 0`） |
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
 | `pnpm test` | 引擎单元测试（Vitest） |
@@ -92,12 +106,36 @@ pnpm dev          # 构建共享包并启动 Electron（Vite 开发服务器）
 
 > 若终端导出了 `ELECTRON_RUN_AS_NODE=1`，Electron 会以纯 Node 模式启动并报 `bad option`。运行前先 `unset ELECTRON_RUN_AS_NODE`；`pnpm smoke` 已自动处理。
 
+## Web 容器化
+
+仓库根目录的 `scripts/docker-compose.yml` 调用 `apps/web/Dockerfile` 构建静态镜像：
+
+```bash
+# 在仓库根目录执行，默认 http://localhost:8080
+docker compose -f scripts/docker-compose.yml up -d --build
+
+# 查看状态 / 日志 / 停止
+docker compose -f scripts/docker-compose.yml ps
+docker compose -f scripts/docker-compose.yml logs -f web
+docker compose -f scripts/docker-compose.yml down
+```
+
+- 构建阶段使用 Node 22 + pnpm，只复制 Web 所需的 workspace 清单，避免安装 Electron 依赖；
+- 运行阶段使用 Nginx，托管 `dist/`（其中包含 Vite 构建时复制的 `game/`）；
+- `/assets/` 采用内容哈希长期缓存，`/game/` 设置 `no-store`，替换剧本后无需清缓存；
+- 容器无状态，Web 存档保存在浏览器 `localStorage`，`docker compose down` 不会丢档；
+- 存档按 origin 隔离，修改 `WEB_PORT` 后会进入一套新的存档空间；
+- 端口与依赖源可在 `scripts/.env` 中覆盖（参考 `scripts/.env.example`）。
+
+日常操作可直接使用根目录脚本：`pwsh ./manage.ps1 docker:up`。
+
 ## 内容与代码分离
 
 剧本和资源全部位于 [packages/game-content/game](packages/game-content/game)：
 
-- 开发时：Electron 直接读取该目录（`SYLVIE_GAME_ROOT` 可覆盖）。
+- 开发时：Electron 直接读取该目录（`SYLVIE_GAME_ROOT` 可覆盖）；Web 预览通过 Vite 中间件挂载在 `/game`。
 - 打包时：Forge 通过 `extraResource` 把整个 `game` 目录复制到 `resources/game`，与 `app.asar` 分离。替换 `resources/game` 即可在不重新编译代码的情况下更新剧情和素材。
+- Web 构建时：`apps/web/vite.config.ts` 会把内容包复制到 `dist/game`，`vite preview` 与实际部署都从同一路径读取。
 
 替换内容后至少运行一次：
 
@@ -122,6 +160,7 @@ pnpm validate
 - 手动槽位 20 个，另有自动存档与快速存档。
 - 存档内容：场景与指针、全部变量、图层状态、BGM、已读标记、Backlog、章节备注、截图缩略图。
 - 桌面端统一写入 `userData/game-storage.json`（Windows 下通常位于 `%APPDATA%\SylvieGalGame\`）。
+- Web 预览写入 `localStorage`，统一加 `sylvie:` 前缀；存档缩略图使用 JPEG 压缩，避免 20+ 槽位顶满浏览器配额。控制台可用 `window.sylvieWeb.resetStorage()` 清空预览存档，`storageDelete(key)` 可按原始键删除单条（自动加前缀）。
 
 ## 一期边界
 

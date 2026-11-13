@@ -1,0 +1,4 @@
+@import '@sylvie/player/styles.css';
+
+@source './';
+@source '../../../packages/player/src';

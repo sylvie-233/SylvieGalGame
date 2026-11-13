@@ -1,7 +1,8 @@
 # SylvieGalGame · 午后的回声
 
 > 一个由 YAML 剧本驱动的 Galgame 播放器：纯前端引擎内核 + React 分层舞台 + Electron 桌面外壳。
-> 无编辑器、零服务器依赖，剧本与美术资源独立成包，可打包为 Windows 免安装版或 NSIS 安装包。
+> 无编辑器、零服务器依赖，剧本与美术资源独立成包，可打包为 Windows 免安装版或 NSIS 安装包；
+> 另带一个 Web 预览壳，方便在浏览器里用 HMR 和 DevTools 调试同一套界面与剧本。
 
 ![标题页](docs/screenshots/title.png)
 
@@ -28,6 +29,7 @@
 - **存档系统**：指针、变量、图层、BGM、已读标记、Backlog 与截图完整落盘；手动 / 自动 / 快速三类存档。
 - **内容与代码分离**：打包时内容包被复制到 `resources/game`，替换资源即可更新剧情，无需重新编译。
 - **桌面交付**：Electron 自定义协议限制资源访问，关闭 Node 集成；Forge + NSIS 生成 Windows 安装包。
+- **Web 预览**：同一套 `@sylvie/player` 通过 HTTP + localStorage 平台适配器在浏览器中运行，改 UI / 剧本即时热更新。
 
 ## 页面预览
 
@@ -45,7 +47,7 @@
 
 ## 快速开始
 
-要求 Windows 10/11、PowerShell 7（`pwsh`）、Node.js ≥ 20.11（`smoke` 需 22+）、pnpm ≥ 9。首次使用先安装依赖：
+要求 Windows 10/11、PowerShell 7（`pwsh`）、Node.js ≥ 20.11（`smoke` 需 22+）、pnpm ≥ 9；`docker:*` 操作另需 Docker Desktop（Compose v2）。首次使用先安装依赖：
 
 ```powershell
 cd galgame-monorepo
@@ -64,6 +66,12 @@ pwsh ./manage.ps1 doctor
 # 构建共享包并启动 Electron 开发模式
 pwsh ./manage.ps1 dev
 
+# 浏览器预览（http://127.0.0.1:5175），改 player 源码即时热更新
+pwsh ./manage.ps1 web
+
+# 构建 Web 镜像并启动容器（http://localhost:8080）
+pwsh ./manage.ps1 docker:up
+
 # 打包：免安装目录 + NSIS 安装包
 pwsh ./manage.ps1 package
 pwsh ./manage.ps1 make
@@ -81,7 +89,31 @@ pwsh ./manage.ps1 smoke
 | --- | --- |
 | 免安装版 | `galgame-monorepo/apps/electron/out/SylvieGalGame-win32-x64/SylvieGalGame.exe` |
 | NSIS 安装包 | `galgame-monorepo/apps/electron/out/make/SylvieGalGame-Setup-0.1.0.exe` |
+| Web 预览产物 | `galgame-monorepo/apps/web/dist/` |
+| Web 镜像 | `sylvie-web:local`（容器 `sylvie-web`） |
 | 冒烟截图 | `galgame-monorepo/scripts/.smoke/` |
+
+## Web 容器化
+
+`scripts/docker-compose.yml` 只包含一个 `web` 服务：多阶段构建 `apps/web`，再把静态产物交给 Nginx。容器本身无状态，存档仍在访问者浏览器的 `localStorage` 中。
+
+```powershell
+# 一键构建并启动
+pwsh ./manage.ps1 docker:up
+
+# 或直接使用 compose
+docker compose -f scripts/docker-compose.yml up -d --build
+```
+
+| 配置 | 说明 |
+| --- | --- |
+| `scripts/docker-compose.yml` | Web 服务、端口映射与健康检查 |
+| `scripts/.env.example` | 复制为 `scripts/.env` 后可改 `WEB_PORT` / `NPM_REGISTRY` |
+| `galgame-monorepo/apps/web/Dockerfile` | Node 22 构建 + Nginx 运行 |
+| `galgame-monorepo/apps/web/nginx.conf` | 静态托管、`/game/` 禁止长期缓存、CSP 与 gzip |
+| `galgame-monorepo/.dockerignore` | 排除 node_modules、dist、Electron 产物等 |
+
+默认访问地址为 <http://localhost:8080>，健康检查端点 `/health`。Web 存档按浏览器 origin 隔离，修改 `WEB_PORT` 后相当于进入一套新的存档空间。
 
 ## manage.ps1
 
@@ -90,7 +122,13 @@ pwsh ./manage.ps1 smoke
 | `status` | 环境版本、内容包数量、构建产物、本地存档大小 |
 | `doctor` | 前置条件检查，缺失时直接报错 |
 | `dev` | 构建依赖包并启动 Electron 开发模式 |
-| `build` | Turbo 构建全部包 |
+| `web` | 启动 Web 预览壳（Vite HMR，端口 5175） |
+| `docker:up` | 构建 Web 镜像并启动容器（默认 8080） |
+| `docker:down` / `docker:restart` | 停止移除 / 重启 Web 容器 |
+| `docker:build` | 仅构建镜像（`-Force` 禁用缓存） |
+| `docker:logs` | 查看容器日志（可加 `-Follow`、`-Tail`） |
+| `docker:status` | 查看容器健康状态与实际访问地址 |
+| `build` | Turbo 构建全部包（含 Web 预览） |
 | `package` / `make` | 生成免安装目录 / NSIS 安装包 |
 | `smoke` | 启动已打包应用，CDP 驱动 UI 并截图（可传 `-ExePath`） |
 | `verify` | 依次执行 lint、typecheck、test、validate |
@@ -107,6 +145,8 @@ pwsh ./manage.ps1 smoke
 - **引擎内核**：纯 TypeScript，YAML 解析、指针 + 阻塞调度、变量与条件表达式、已读标记、存档序列化
 - **播放器**：React 19、Tailwind CSS v4、Motion 12、Zustand 5、Howler.js
 - **桌面端**：Electron 45、Electron Forge 8、Vite 8、NSIS
+- **Web 预览**：Vite 8 + React 19（源码别名热更新、`/game` 资源中间件、localStorage 存档）
+- **Web 容器化**：Docker Compose + Node 22 多阶段构建 + Nginx 静态托管
 - **工程**：pnpm workspace + Turborepo、ESLint 9 平面配置、Vitest、TypeScript strict
 
 ## 目录结构
@@ -118,7 +158,8 @@ SylvieGalGame/
 │   └── screenshots/                  # README 截图
 ├── galgame-monorepo/
 │   ├── apps/
-│   │   └── electron/                 # 主进程、preload、桌面能力与打包配置
+│   │   ├── electron/                 # 主进程、preload、桌面能力与打包配置
+│   │   └── web/                      # Web 预览壳：浏览器平台适配器与 Vite 配置
 │   ├── packages/
 │   │   ├── engine-core/              # 纯 TS 剧本引擎（含 Vitest）
 │   │   ├── player/                   # React 播放器
@@ -128,7 +169,10 @@ SylvieGalGame/
 │   │   └── tsconfig/                 # 共享 TS 配置
 │   ├── scripts/                      # 资源生成、内容校验、冒烟测试
 │   └── docs/剧本格式.md               # YAML 指令参考
-├── manage.ps1                        # 开发 / 校验 / 打包 / 运维入口
+├── scripts/
+│   ├── docker-compose.yml            # Web 静态站容器编排
+│   └── .env.example                  # 端口与依赖源示例
+├── manage.ps1                        # 开发 / 校验 / 打包 / 容器运维入口
 └── README.md
 ```
 
@@ -175,7 +219,10 @@ pwsh ./manage.ps1 validate
 - 资源为松散文件，未加密或压缩。
 - 美术与音频为程序生成的占位素材，可直接替换为正式资源。
 - 安装包未签名，Windows SmartScreen 可能提示。
-- 本地存档统一写入 `%APPDATA%\SylvieGalGame\game-storage.json`。
+- 本地存档：桌面端写入 `%APPDATA%\SylvieGalGame\game-storage.json`；Web 预览写入 `localStorage`（`sylvie:` 前缀），缩略图存为 JPEG 以控制容量。
+- Web 预览若提示存储空间不足，可在控制台执行 `window.sylvieWeb.resetStorage()` 清空预览存档。
+- Docker 容器本身无状态；更换 `WEB_PORT` 会改变浏览器 origin，旧存档不会随之迁移。
+- Web 预览壳只用于调试与静态预览，正式交付仍以 Electron 打包产物为准。
 - `smoke` 依赖 Node.js 22+ 的内置 WebSocket；其余开发与打包操作 Node 20.11+ 即可。
 
 ## License

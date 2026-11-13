@@ -1,0 +1,39 @@
+# ============================================================================
+# SylvieGalGame Web 容器编排
+#   构建 galgame-monorepo/apps/web 静态产物，由 Nginx 托管。
+#
+# 启动（自动构建镜像）：docker compose -f scripts/docker-compose.yml up -d --build
+# 仅构建镜像：        docker compose -f scripts/docker-compose.yml build
+# 查看日志：          docker compose -f scripts/docker-compose.yml logs -f web
+# 停止：              docker compose -f scripts/docker-compose.yml down
+#
+# Web 存档使用浏览器 localStorage，容器本身无状态，不需要数据卷。
+# 环境变量可写入同目录 .env（参考 .env.example）。
+# ============================================================================
+name: sylvie
+
+services:
+  web:
+    build:
+      context: ../galgame-monorepo
+      dockerfile: apps/web/Dockerfile
+      args:
+        # 国内依赖镜像；需要私有源时可通过 .env 覆盖
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    image: sylvie-web:local
+    container_name: sylvie-web
+    restart: unless-stopped
+    init: true
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    stop_grace_period: 10s
