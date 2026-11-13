@@ -16,6 +16,8 @@ interface GameStageProps {
   onAutoAdvance: () => void;
   onInteract: () => void;
   onChoose: (optionIndex: number) => void;
+  /** 隐藏对话与舞台 UI，只保留画面；由外层提供恢复入口。 */
+  uiHidden?: boolean;
 }
 
 function spriteLeft(position: SpritePosition): string {
@@ -39,6 +41,7 @@ export function GameStage({
   onAutoAdvance,
   onInteract,
   onChoose,
+  uiHidden = false,
 }: GameStageProps) {
   const background = snapshot.stage.background;
   const cg = snapshot.stage.cg;
@@ -61,10 +64,13 @@ export function GameStage({
         {sprites.map((sprite) => (
           <div
             key={sprite.id}
-            className="absolute bottom-[-1%] h-[90%] w-[min(44vw,62vh)] -translate-x-1/2 drop-shadow-[0_18px_32px_rgba(0,0,0,0.4)] transition-[opacity,left] ease-[cubic-bezier(0.22,0.61,0.36,1)] will-change-[opacity,left]"
+            className="absolute bottom-[-1%] h-[90%] w-[min(44vw,62vh)] drop-shadow-[0_18px_32px_rgba(0,0,0,0.4)] transition-[opacity,left,transform] ease-[cubic-bezier(0.22,0.61,0.36,1)] will-change-[opacity,left,transform]"
             style={{
               left: spriteLeft(sprite.position),
               opacity: sprite.opacity,
+              zIndex: sprite.z ?? 0,
+              transform: `translateX(-50%) scale(${sprite.scale ?? 1})`,
+              transformOrigin: 'bottom center',
               transitionDuration: `${sprite.transition === 'fade' ? sprite.duration : 0}ms`,
             }}
           >
@@ -106,15 +112,17 @@ export function GameStage({
 
       <div className="absolute inset-0 z-10 cursor-pointer" onClick={onInteract} aria-hidden="true" />
 
-      <DialogueBox
-        ref={dialogueRef}
-        dialogue={snapshot.dialogue}
-        typingSpeed={typingSpeed}
-        skip={skip}
-        auto={auto}
-        autoDelay={autoDelay}
-        onAutoAdvance={onAutoAdvance}
-      />
+      {!uiHidden && (
+        <DialogueBox
+          ref={dialogueRef}
+          dialogue={snapshot.dialogue}
+          typingSpeed={typingSpeed}
+          skip={skip}
+          auto={auto}
+          autoDelay={autoDelay}
+          onAutoAdvance={onAutoAdvance}
+        />
+      )}
 
       <ChoiceOverlay choice={snapshot.choice} onChoose={onChoose} />
     </div>

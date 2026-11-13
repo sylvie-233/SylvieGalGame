@@ -134,8 +134,8 @@ export function SettingsPanel({ settings, onChange, onClose, platform }: Setting
         </button>
 
         <p className="mt-3 border-t border-sg-ink/10 pt-3.5 text-xs leading-[1.8] tracking-[0.03em] text-sg-dim">
-          快捷键：空格 / 回车推进 · 按住 Ctrl 跳过已读 · A 自动播放 · Esc 菜单 · Ctrl+S 快速存档 ·
-          Ctrl+L 快速读档
+          快捷键：空格 / 回车推进 · 按住 Ctrl 跳过已读 · A 自动播放 · H / 右键隐藏界面 · Esc 菜单 ·
+          Ctrl+S 快速存档 · Ctrl+L 快速读档
         </p>
       </div>
     </Modal>

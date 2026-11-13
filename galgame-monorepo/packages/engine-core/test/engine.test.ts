@@ -31,7 +31,7 @@ imports:
 commands:
   - label: begin
   - bg: images/bg/room.png
-  - sprite: { id: girl, image: images/sprite/girl.png, position: center }
+  - sprite: { id: girl, image: images/sprite/girl.png, position: center, scale: 1.2, z: 3 }
   - text: { speaker: 少女, text: "第一句话。" }
   - set: { var: affection, op: "+=", value: 2 }
   - text: "第二句话。"
@@ -164,8 +164,36 @@ describe('script loading', () => {
     );
     expect(manifest.start).toBe('foo');
     expect(manifest.title).toBe('Sylvie Galgame');
+    expect(manifest.windowTitle).toBe('Sylvie Galgame');
+    expect(manifest.titleScreen).toEqual({
+      background: null,
+      bgm: null,
+      subtitle: '',
+      showVersion: true,
+    });
     expect(manifest.scenes).toEqual(['foo']);
     expect(warnings.length).toBeGreaterThan(0);
+  });
+
+  it('parses title config and window title', () => {
+    const manifest = parseManifest(
+      `start: foo
+windowTitle: 自定义窗口
+titleScreen:
+  background: images/bg/title.svg
+  bgm: audio/bgm/title.wav
+  subtitle: 副标题
+  showVersion: false
+`,
+      () => {},
+    );
+    expect(manifest.windowTitle).toBe('自定义窗口');
+    expect(manifest.titleScreen).toEqual({
+      background: 'images/bg/title.svg',
+      bgm: 'audio/bgm/title.wav',
+      subtitle: '副标题',
+      showVersion: false,
+    });
   });
 
   it('merges imports and registers labels', async () => {
@@ -231,6 +259,8 @@ describe('game engine', () => {
     expect(snapshot.phase).toBe('text');
     expect(snapshot.dialogue?.text).toBe('第一句话。');
     expect(snapshot.variables.affection).toBe(0);
+    expect(snapshot.stage.sprites.girl?.scale).toBe(1.2);
+    expect(snapshot.stage.sprites.girl?.z).toBe(3);
 
     engine.advance();
     snapshot = engine.getSnapshot();
@@ -303,6 +333,20 @@ describe('game engine', () => {
     expect(snapshot.variables.affection).toBe(2);
     expect(snapshot.backlog).toHaveLength(2);
     expect(snapshot.choice?.options).toHaveLength(2);
+  });
+
+  it('emits bgm position when restoring a save', async () => {
+    const engine = await createEngine();
+    engine.start();
+    const save = engine.createSave({ bgmPosition: 7.5 });
+
+    const next = await createEngine();
+    const positions: number[] = [];
+    next.onEffect((effect) => {
+      if (effect.type === 'bgm') positions.push(effect.position ?? 0);
+    });
+    expect(next.restoreSave(save)).toBe(true);
+    expect(positions).toContain(7.5);
   });
 
   it('restores a text line without duplicating backlog', async () => {
@@ -520,20 +564,32 @@ commands:
     expect((await readLatestSave(storage))?.createdAt).toBe(5);
   });
 
-  it('saves content version and migrates v1 saves', async () => {
+  it('saves content version and bgm position, and migrates v1/v2 saves', async () => {
     const engine = await createEngine();
     engine.start();
-    const save = engine.createSave();
+    const save = engine.createSave({ bgmPosition: 12.5 });
     expect(save.contentVersion).toBe('1.0.0');
-
-    const legacy = { ...save, version: 1 } as Record<string, unknown>;
-    delete legacy.contentVersion;
+    expect(save.bgmPosition).toBe(12.5);
 
     const storage = createStorage();
-    await storage.set('save:legacy', JSON.stringify(legacy));
-    const migrated = await readSave(storage, 'save:legacy');
-    expect(migrated?.version).toBe(2);
-    expect(migrated?.contentVersion).toBe('');
-    expect(migrated?.variables.affection).toBe(0);
+    const legacyV1 = { ...save, version: 1 } as Record<string, unknown>;
+    delete legacyV1.contentVersion;
+    delete legacyV1.bgmPosition;
+    await storage.set('save:legacy-1', JSON.stringify(legacyV1));
+
+    const legacyV2 = { ...save, version: 2 } as Record<string, unknown>;
+    delete legacyV2.bgmPosition;
+    await storage.set('save:legacy-2', JSON.stringify(legacyV2));
+
+    const migratedV1 = await readSave(storage, 'save:legacy-1');
+    expect(migratedV1?.version).toBe(3);
+    expect(migratedV1?.contentVersion).toBe('');
+    expect(migratedV1?.bgmPosition).toBe(0);
+    expect(migratedV1?.variables.affection).toBe(0);
+
+    const migratedV2 = await readSave(storage, 'save:legacy-2');
+    expect(migratedV2?.version).toBe(3);
+    expect(migratedV2?.contentVersion).toBe('1.0.0');
+    expect(migratedV2?.bgmPosition).toBe(0);
   });
 });

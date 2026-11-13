@@ -54,6 +54,8 @@ export interface GameEngineOptions {
 export interface CreateSaveOptions {
   screenshot?: string | null;
   note?: string;
+  /** 当前 BGM 播放位置（秒），由播放器提供；引擎不认识音频实例。 */
+  bgmPosition?: number;
 }
 
 function createEmptyStage(): StageSnapshot {
@@ -249,7 +251,13 @@ export class GameEngine {
     if (markAdded) this.schedulePersistReadMarks();
 
     this.emitEffect({ type: 'scene', scene: data.scene, assets: [...scene.assets] });
-    this.emitEffect({ type: 'bgm', track: this.audio.bgm, fade: 0, loop: true });
+    this.emitEffect({
+      type: 'bgm',
+      track: this.audio.bgm,
+      fade: 0,
+      loop: true,
+      position: Math.max(0, data.bgmPosition ?? 0),
+    });
     this.emit();
     this.run(true);
     return true;
@@ -364,6 +372,10 @@ export class GameEngine {
       variables: { ...this.variables },
       stage: cloneStage(this.stage),
       audio: { ...this.audio },
+      bgmPosition:
+        typeof options.bgmPosition === 'number' && Number.isFinite(options.bgmPosition)
+          ? Math.max(0, options.bgmPosition)
+          : 0,
       readMarks: [...this.readMarks],
       backlog: this.backlog.slice(),
       note: options.note ?? '',
@@ -658,6 +670,8 @@ export class GameEngine {
         image: command.image ?? previous?.image ?? null,
         position: command.position,
         opacity: command.image ? command.opacity : 0,
+        scale: command.scale,
+        z: command.z,
         transition: command.transition,
         duration: command.duration,
         revision: (previous?.revision ?? 0) + 1,

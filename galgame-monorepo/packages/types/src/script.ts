@@ -7,8 +7,19 @@ export interface EndingDefinition {
   description: string;
 }
 
+export interface TitleConfig {
+  /** 标题背景图路径；为空时使用播放器默认背景。 */
+  background: string | null;
+  /** 标题页 BGM；为空则不播放。 */
+  bgm: string | null;
+  subtitle: string;
+  showVersion: boolean;
+}
+
 export interface GameManifest {
   title: string;
+  /** 窗口 / 浏览器标签标题；为空时使用 title。 */
+  windowTitle: string;
   version: string;
   /** 新游戏入口场景名。 */
   start: string;
@@ -20,6 +31,8 @@ export interface GameManifest {
   chapters: Record<string, string>;
   /** 结局注册表，由 `ending` 指令按 id 引用。 */
   endings: EndingDefinition[];
+  /** 标题页展示配置。 */
+  titleScreen: TitleConfig;
 }
 
 export interface LabelLocation {

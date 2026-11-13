@@ -19,6 +19,10 @@ export interface SpriteCommand {
   image: string | null;
   position: SpritePosition;
   opacity: number;
+  /** 缩放倍率，1 为原始大小。 */
+  scale: number;
+  /** 层级，数值越大越靠前。 */
+  z: number;
   transition: Transition;
   duration: number;
 }

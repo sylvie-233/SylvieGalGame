@@ -28,6 +28,8 @@ interface SaveLoadPanelProps {
   onLoad: (data: SaveData) => void;
   onClose: () => void;
   notify: (message: string) => void;
+  /** 当前 BGM 播放位置（秒），写入存档以便读档后继续播放。 */
+  getAudioPosition: () => number;
 }
 
 function formatTime(timestamp: number): string {
@@ -127,6 +129,7 @@ export function SaveLoadPanel({
   onLoad,
   onClose,
   notify,
+  getAudioPosition,
 }: SaveLoadPanelProps) {
   const [manual, setManual] = useState<ManualSaveEntry[]>([]);
   const [auto, setAuto] = useState<AutoSaveEntry[]>([]);
@@ -166,7 +169,11 @@ export function SaveLoadPanel({
       const screenshot = platform.captureScreenshot
         ? await platform.captureScreenshot().catch(() => null)
         : null;
-      const data = engine.createSave({ screenshot, note: existing?.note ?? '' });
+      const data = engine.createSave({
+        screenshot,
+        note: existing?.note ?? '',
+        bgmPosition: getAudioPosition(),
+      });
       await writeSave(platform.storage, key, data);
       await refresh();
       notify('存档已保存');

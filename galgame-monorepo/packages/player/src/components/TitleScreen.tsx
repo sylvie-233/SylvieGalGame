@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 interface TitleScreenProps {
   title: string;
   version: string;
+  subtitle: string;
+  showVersion: boolean;
   ready: boolean;
   backgroundUrl: string;
   onNewGame: () => void;
@@ -18,6 +20,8 @@ const MENU_BUTTON =
 export function TitleScreen({
   title,
   version,
+  subtitle,
+  showVersion,
   ready,
   backgroundUrl,
   onNewGame,
@@ -57,9 +61,11 @@ export function TitleScreen({
         <h1 className="m-0 font-dialogue text-[clamp(40px,6.6vw,86px)] leading-[1.08] font-medium tracking-[0.06em] [text-shadow:0_10px_40px_rgba(0,0,0,0.6)]">
           {title}
         </h1>
-        <p className="mt-[18px] mb-0 text-[clamp(13px,1.4vw,16px)] tracking-[0.16em] text-sg-muted">
-          一段由 YAML 写成的午后相遇
-        </p>
+        {subtitle && (
+          <p className="mt-[18px] mb-0 text-[clamp(13px,1.4vw,16px)] tracking-[0.16em] text-sg-muted">
+            {subtitle}
+          </p>
+        )}
 
         <div className="mt-[clamp(32px,5vh,56px)] flex flex-col items-start gap-0.5 max-[900px]:mt-6">
           <button type="button" className={MENU_BUTTON} onClick={onNewGame} disabled={!ready}>
@@ -82,7 +88,7 @@ export function TitleScreen({
         </div>
 
         <div className="absolute bottom-[clamp(22px,3.4vw,44px)] flex gap-[26px] text-[11px] tracking-[0.16em] text-sg-ink/35 max-[900px]:static max-[900px]:mt-10">
-          <span>v{version}</span>
+          {showVersion && <span>v{version}</span>}
           <span className="text-sg-ink/20">YAML · Electron · React</span>
         </div>
       </motion.div>

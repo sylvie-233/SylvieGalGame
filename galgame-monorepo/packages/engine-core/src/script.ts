@@ -114,7 +114,27 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
   }
 
   const title = asString(raw.title) ?? 'Sylvie Galgame';
+  const windowTitle = asString(raw.windowTitle) ?? title;
   const version = asString(raw.version) ?? '0.1.0';
+
+  const titleScreen: GameManifest['titleScreen'] = {
+    background: null,
+    bgm: null,
+    subtitle: '',
+    showVersion: true,
+  };
+  if (raw.titleScreen !== undefined) {
+    if (!isRecord(raw.titleScreen)) {
+      warn('[脚本] game.yaml titleScreen 必须是映射，已忽略');
+    } else {
+      titleScreen.background =
+        asString(raw.titleScreen.background) ?? asString(raw.titleScreen.backgroundImage);
+      titleScreen.bgm = asString(raw.titleScreen.bgm) ?? asString(raw.titleScreen.bgmTrack);
+      titleScreen.subtitle = asString(raw.titleScreen.subtitle) ?? '';
+      titleScreen.showVersion = asBoolean(raw.titleScreen.showVersion) ?? true;
+    }
+  }
+
   const start = asString(raw.start);
   if (!start) {
     throw new ScriptError('scripts/game.yaml 缺少必填字段 start');
@@ -204,7 +224,17 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
     }
   }
 
-  return { title, version, start, scenes, variables, chapters, endings };
+  return {
+    title,
+    windowTitle,
+    version,
+    start,
+    scenes,
+    variables,
+    chapters,
+    endings,
+    titleScreen,
+  };
 }
 
 function parseSceneDocument(name: string, source: string, warn: Warn): RawSceneDocument {
@@ -299,6 +329,16 @@ function parseSprite(
 
   const opacityRaw = asFiniteNumber(payload.opacity);
   const opacity = opacityRaw === null ? (image ? 1 : 0) : Math.min(1, Math.max(0, opacityRaw));
+  const scaleRaw = asFiniteNumber(payload.scale);
+  if (scaleRaw !== null && (scaleRaw < 0.1 || scaleRaw > 4)) {
+    warn(`[脚本] ${block} 第 ${index + 1} 条 sprite "${id}"：scale 建议在 0.1-4 之间`);
+  }
+  const scale = scaleRaw === null ? 1 : Math.min(4, Math.max(0.1, scaleRaw));
+  const zRaw = asFiniteNumber(payload.z);
+  if (zRaw !== null && (!Number.isInteger(zRaw) || zRaw < 0 || zRaw > 100)) {
+    warn(`[脚本] ${block} 第 ${index + 1} 条 sprite "${id}"：z 应为 0-100 的整数`);
+  }
+  const z = zRaw === null ? 0 : Math.min(100, Math.max(0, Math.round(zRaw)));
 
   return {
     kind: 'sprite',
@@ -306,6 +346,8 @@ function parseSprite(
     image,
     position: parseSpritePosition(payload.position, block, index, warn),
     opacity,
+    scale,
+    z,
     transition: parseTransition(payload.transition, 'fade'),
     duration: Math.max(0, asFiniteNumber(payload.duration) ?? 600),
   };
@@ -876,6 +918,14 @@ export async function loadGame(assets: AssetHost, warn: Warn): Promise<LoadedGam
 
   if (!scenes.has(manifest.start)) {
     throw new ScriptError(`start 场景 "${manifest.start}" 未能加载`);
+  }
+
+  // 标题页资源也纳入校验与预加载清单。
+  const startScene = scenes.get(manifest.start);
+  for (const asset of [manifest.titleScreen.background, manifest.titleScreen.bgm]) {
+    if (asset && startScene && !startScene.assets.includes(asset)) {
+      startScene.assets.push(asset);
+    }
   }
 
   return { manifest, scenes };

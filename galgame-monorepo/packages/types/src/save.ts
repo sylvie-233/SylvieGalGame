@@ -1,8 +1,12 @@
 import type { BacklogEntry, Pointer, StageSnapshot } from './state';
 import type { VariableTable } from './variables';
 
-/** 2：新增 contentVersion，用于提示存档与当前内容是否匹配。 */
-export const SAVE_VERSION = 2;
+/**
+ * 存档版本历史：
+ * - 2：新增 contentVersion，用于提示存档与当前内容是否匹配。
+ * - 3：新增 bgmPosition，读档后恢复 BGM 播放位置。
+ */
+export const SAVE_VERSION = 3;
 
 export interface SaveData {
   version: typeof SAVE_VERSION;
@@ -14,6 +18,8 @@ export interface SaveData {
   variables: VariableTable;
   stage: StageSnapshot;
   audio: { bgm: string | null };
+  /** 存档时 BGM 的播放位置（秒）；没有 BGM 时为 0。 */
+  bgmPosition: number;
   readMarks: string[];
   backlog: BacklogEntry[];
   note: string;

@@ -15,7 +15,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const LEGACY_SAVE_VERSION = 1;
+const LEGACY_SAVE_VERSIONS = new Set([1, 2]);
 
 function hasSaveShape(value: Record<string, unknown>): boolean {
   if (typeof value.scene !== 'string' || typeof value.chapter !== 'string') return false;
@@ -36,6 +36,7 @@ export function isSaveData(value: unknown): value is SaveData {
     isRecord(value) &&
     value.version === SAVE_VERSION &&
     typeof value.contentVersion === 'string' &&
+    typeof value.bgmPosition === 'number' &&
     hasSaveShape(value)
   );
 }
@@ -49,9 +50,21 @@ export function migrateSaveData(value: unknown): SaveData | null {
   if (value.version === SAVE_VERSION) {
     return isSaveData(value) ? value : null;
   }
-  if (value.version === LEGACY_SAVE_VERSION && hasSaveShape(value)) {
-    const legacy = value as unknown as Omit<SaveData, 'version' | 'contentVersion'>;
-    return { ...legacy, version: SAVE_VERSION, contentVersion: '' };
+  if (
+    typeof value.version === 'number' &&
+    LEGACY_SAVE_VERSIONS.has(value.version) &&
+    hasSaveShape(value)
+  ) {
+    const legacy = value as unknown as Partial<SaveData>;
+    return {
+      ...legacy,
+      version: SAVE_VERSION,
+      contentVersion: typeof legacy.contentVersion === 'string' ? legacy.contentVersion : '',
+      bgmPosition:
+        typeof legacy.bgmPosition === 'number' && Number.isFinite(legacy.bgmPosition)
+          ? legacy.bgmPosition
+          : 0,
+    } as SaveData;
   }
   return null;
 }

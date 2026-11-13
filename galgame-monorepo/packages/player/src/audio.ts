@@ -34,13 +34,19 @@ export class AudioManager {
     this.voice?.volume(this.volumes.voice);
   }
 
-  playBgm(track: string | null, fade = 500, loop = true): void {
+  playBgm(track: string | null, fade = 500, loop = true, position = 0): void {
     if (this.disposed) return;
     if (!track) {
       this.stopBgm(fade);
       return;
     }
     if (this.bgmTrack === track && this.bgm) {
+      if (position > 0) {
+        const current = this.bgm.seek();
+        if (typeof current === 'number' && Math.abs(current - position) > 1) {
+          this.bgm.seek(position);
+        }
+      }
       return;
     }
 
@@ -62,8 +68,17 @@ export class AudioManager {
     });
     howl.play();
     howl.fade(0, this.volumes.bgm, Math.max(50, fade));
+    if (position > 0) {
+      howl.seek(position);
+    }
     this.bgm = howl;
     this.bgmTrack = track;
+  }
+
+  /** 当前 BGM 播放位置（秒）；没有 BGM 时返回 0。 */
+  getBgmPosition(): number {
+    const position = this.bgm?.seek();
+    return typeof position === 'number' && Number.isFinite(position) ? Math.max(0, position) : 0;
   }
 
   stopBgm(fade = 500): void {

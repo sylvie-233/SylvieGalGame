@@ -31,6 +31,7 @@ const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp|gif|svg|avif)$/i;
 export function GameApp() {
   const platform = getPlayerPlatform();
 
+  const [uiHidden, setUiHidden] = useState(false);
   const snapshot = usePlayerStore((state) => state.snapshot);
   const manifest = usePlayerStore((state) => state.manifest);
   const ready = usePlayerStore((state) => state.ready);
@@ -114,7 +115,11 @@ export function GameApp() {
               }
               lastScreenshotChapter = chapter;
             }
-            const data = engine.createSave({ screenshot, note: '自动存档' });
+            const data = engine.createSave({
+              screenshot,
+              note: '自动存档',
+              bgmPosition: audio.getBgmPosition(),
+            });
             await writeAutoSave(platform.storage, data);
           } catch (error) {
             console.warn('[自动存档] 写入失败', error);
@@ -137,7 +142,7 @@ export function GameApp() {
           lastScreenshot = null;
           break;
         case 'bgm':
-          audio.playBgm(effect.track, effect.fade, effect.loop);
+          audio.playBgm(effect.track, effect.fade, effect.loop, effect.position ?? 0);
           break;
         case 'se':
           audio.playSe(effect.sound, effect.volume);
@@ -216,6 +221,20 @@ export function GameApp() {
   }, [audio, settings.bgmVolume, settings.seVolume, settings.voiceVolume]);
 
   useEffect(() => {
+    if (!manifest) return;
+    document.title = manifest.windowTitle || manifest.title;
+  }, [manifest]);
+
+  useEffect(() => {
+    if (!ready || view !== 'title') return;
+    const track = manifest?.titleScreen.bgm ?? null;
+    if (track) {
+      // 浏览器可能在首次交互前拦截自动播放，失败不影响后续游戏内 BGM。
+      audio.playBgm(track, 800, true);
+    }
+  }, [audio, manifest, ready, view]);
+
+  useEffect(() => {
     if (snapshot.phase === 'choice' || snapshot.phase === 'ended') {
       setAuto(false);
     }
@@ -290,6 +309,23 @@ export function GameApp() {
     engine.advance();
   }, [engine]);
 
+  const toggleUiHidden = useCallback(() => {
+    if (!ready || view !== 'game' || overlay) return;
+    const phase = snapshotRef.current.phase;
+    if (phase !== 'text' && phase !== 'wait') return;
+    setUiHidden((current) => !current);
+  }, [overlay, ready, view]);
+
+  useEffect(() => {
+    if (view !== 'game') setUiHidden(false);
+  }, [view]);
+
+  useEffect(() => {
+    if (snapshot.phase === 'choice' || snapshot.phase === 'ended') {
+      setUiHidden(false);
+    }
+  }, [snapshot.phase]);
+
   const rollback = useCallback(() => {
     if (!ready || view !== 'game' || overlay) return;
     if (!engine.canRollback()) return;
@@ -345,14 +381,18 @@ export function GameApp() {
       const screenshot = platform.captureScreenshot
         ? await platform.captureScreenshot().catch(() => null)
         : null;
-      const data = engine.createSave({ screenshot, note: '快速存档' });
+      const data = engine.createSave({
+        screenshot,
+        note: '快速存档',
+        bgmPosition: audio.getBgmPosition(),
+      });
       await writeSave(platform.storage, SAVE_KEYS.quick, data);
       showToast('已快速存档');
     } catch (error) {
       console.error(error);
       showToast('快速存档失败');
     }
-  }, [engine, platform, ready, showToast, view]);
+  }, [audio, engine, platform, ready, showToast, view]);
 
   const quickLoad = useCallback(async () => {
     if (!ready || view !== 'game') {
@@ -414,6 +454,10 @@ export function GameApp() {
         rollback();
         return;
       }
+      if (event.key === 'h' || event.key === 'H') {
+        if (!hasModifier) toggleUiHidden();
+        return;
+      }
       if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault();
         handleInteract();
@@ -450,6 +494,7 @@ export function GameApp() {
     setOverlay,
     toggleAuto,
     toggleSkip,
+    toggleUiHidden,
   ]);
 
   useEffect(() => {
@@ -485,7 +530,8 @@ export function GameApp() {
 
   const title = manifest?.title ?? 'Sylvie Galgame';
   const version = manifest?.version ?? '0.1.0';
-  const titleArt = platform.assetUrl('images/bg/title.svg');
+  const titleScreen = manifest?.titleScreen;
+  const titleArt = platform.assetUrl(titleScreen?.background ?? 'images/bg/title.svg');
 
   const copyDiagnostics = useCallback(() => {
     const clipboard = navigator.clipboard;
@@ -536,6 +582,8 @@ export function GameApp() {
         <TitleScreen
           title={title}
           version={version}
+          subtitle={titleScreen?.subtitle || '一段由 YAML 写成的午后相遇'}
+          showVersion={titleScreen?.showVersion ?? true}
           ready={ready}
           backgroundUrl={titleArt}
           onNewGame={startNewGame}
@@ -545,7 +593,13 @@ export function GameApp() {
           onQuit={platform.quit ? () => platform.quit?.() : undefined}
         />
       ) : (
-        <div className="absolute inset-0">
+        <div
+          className="absolute inset-0"
+          onContextMenu={(event) => {
+            event.preventDefault();
+            toggleUiHidden();
+          }}
+        >
           <GameStage
             snapshot={snapshot}
             assetUrl={(path) => platform.assetUrl(path)}
@@ -557,19 +611,28 @@ export function GameApp() {
             onAutoAdvance={handleAutoAdvance}
             onInteract={handleInteract}
             onChoose={handleChoose}
+            uiHidden={uiHidden}
           />
-          <QuickBar
-            auto={auto}
-            skip={skip}
-            canRollback={engine.canRollback()}
-            onToggleAuto={toggleAuto}
-            onToggleSkip={toggleSkip}
-            onRollback={rollback}
-            onBacklog={() => setOverlay({ kind: 'backlog' })}
-            onSave={() => setOverlay({ kind: 'saves', mode: 'save', origin: 'game' })}
-            onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'game' })}
-            onMenu={() => setOverlay({ kind: 'menu' })}
-          />
+          {uiHidden ? (
+            <div
+              className="absolute inset-0 z-40 cursor-pointer"
+              onClick={() => setUiHidden(false)}
+              aria-label="显示界面"
+            />
+          ) : (
+            <QuickBar
+              auto={auto}
+              skip={skip}
+              canRollback={engine.canRollback()}
+              onToggleAuto={toggleAuto}
+              onToggleSkip={toggleSkip}
+              onRollback={rollback}
+              onBacklog={() => setOverlay({ kind: 'backlog' })}
+              onSave={() => setOverlay({ kind: 'saves', mode: 'save', origin: 'game' })}
+              onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'game' })}
+              onMenu={() => setOverlay({ kind: 'menu' })}
+            />
+          )}
         </div>
       )}
 
@@ -609,6 +672,7 @@ export function GameApp() {
           onLoad={applyLoadedSave}
           onClose={() => setOverlay(null)}
           notify={showToast}
+          getAudioPosition={() => audio.getBgmPosition()}
         />
       )}
 

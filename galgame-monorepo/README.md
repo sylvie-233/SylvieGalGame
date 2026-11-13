@@ -151,6 +151,7 @@ pnpm validate
 | --- | --- |
 | 空格 / 回车 / 点击 | 打字中：立即显示全文；等待中：推进 |
 | 选项界面 `↑` / `↓` / `1`–`9` / `Enter` | 切换、直选或确认选项 |
+| `H` / 右键 | 隐藏 / 恢复对话与快捷栏 |
 | `A` | 切换 Auto |
 | `Ctrl` | 切换 Skip（遇到未读文本自动停止） |
 | `PageUp` / 滚轮上滑 | 回退到上一个文本、选项或等待 |
@@ -161,7 +162,7 @@ pnpm validate
 
 - 手动槽位 20 个，另有快速存档与 3 份轮换的自动存档（`save:auto`、`save:auto:2`、`save:auto:3`）。「继续游戏」读取自动 / 快速 / 手动存档中时间最新的一份。
 - 存档内容：场景与指针、全部变量、图层状态、BGM、已读标记、Backlog、章节备注、截图缩略图、内容版本号。
-- 存档版本为 `2`；旧版（`version: 1`）自动迁移并补空 `contentVersion`，迁移失败不会覆盖原数据。读取到不同内容版本的存档时会提示剧情可能已变化。
+- 存档版本为 `3`；`version: 1` / `2` 自动迁移并补齐 `contentVersion`、`bgmPosition`，迁移失败不会覆盖原数据。读取到不同内容版本的存档时会提示剧情可能已变化。读档后 BGM 会从存档记录的位置继续播放。
 - 自动存档在到达文本 / 选项时触发，900ms 防抖；截图只在选项或章节变化时重新抓取，普通文本复用上一张缩略图。
 - 桌面端统一写入 `userData/game-storage.json`（Windows 下通常位于 `%APPDATA%\SylvieGalGame\`）。
 - Web 预览写入 `localStorage`，统一加 `sylvie:` 前缀；存档缩略图使用 JPEG 压缩，避免 20+ 槽位顶满浏览器配额。控制台可用 `window.sylvieWeb.resetStorage()` 清空预览存档，`storageDelete(key)` 可按原始键删除单条（自动加前缀）。

@@ -1,6 +1,13 @@
 title: 午后的回声
+windowTitle: 午后的回声 · SylvieGalGame
 version: 0.1.0
 start: prologue
+
+titleScreen:
+  background: images/bg/title.svg
+  bgm: audio/bgm/afternoon.wav
+  subtitle: 一段由 YAML 写成的午后相遇
+  showVersion: true
 
 scenes:
   - prologue

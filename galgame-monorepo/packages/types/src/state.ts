@@ -17,6 +17,10 @@ export interface SpriteState {
   image: string | null;
   position: SpritePosition;
   opacity: number;
+  /** 旧存档可能没有该字段，渲染时按 1 处理。 */
+  scale?: number;
+  /** 旧存档可能没有该字段，渲染时按 0 处理。 */
+  z?: number;
   transition: Transition;
   duration: number;
   revision: number;
@@ -94,7 +98,7 @@ export interface GameSnapshot {
 
 export type EngineEffect =
   | { type: 'scene'; scene: string; assets: string[] }
-  | { type: 'bgm'; track: string | null; fade: number; loop: boolean }
+  | { type: 'bgm'; track: string | null; fade: number; loop: boolean; position?: number }
   | { type: 'se'; sound: string; volume: number }
   | { type: 'voice'; sound: string }
   /** 到达新的对话 / 选项，播放器可据此自动存档。 */
