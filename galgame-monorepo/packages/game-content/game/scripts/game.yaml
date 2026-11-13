@@ -61,5 +61,4 @@ gallery:
     - { id: letter_spring, image: images/cg/letter_spring.svg, title: "春天的回信" }
   bgms:
     - { id: night, track: audio/bgm/night.mp3, title: "夜行" }
-    - { id: afternoon, track: audio/bgm/afternoon.mp3, title: "午后" }
     - { id: music_box, track: audio/bgm/music_box.mp3, title: "八音盒" }

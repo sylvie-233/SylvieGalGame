@@ -79,7 +79,7 @@ commands:
       transition: dissolve
       duration: 1000
   - bgm:
-      track: audio/bgm/music_box.mp3
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 

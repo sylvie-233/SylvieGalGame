@@ -8,7 +8,7 @@ commands:
       transition: fade
       duration: 1000
   - bgm:
-      track: audio/bgm/afternoon.mp3
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 
@@ -129,7 +129,10 @@ commands:
 
   - label: melody_ending
 
-  - bgm: stop
+  - bgm:
+      track: audio/bgm/music_box.mp3
+      fade: 900
+      loop: true
   - se: audio/se/bell.wav
 
   - text:
@@ -170,7 +173,7 @@ commands:
   - label: quiet_ending
 
   - bgm:
-      track: audio/bgm/night.mp3
+      track: audio/bgm/music_box.mp3
       fade: 1200
       loop: true
 

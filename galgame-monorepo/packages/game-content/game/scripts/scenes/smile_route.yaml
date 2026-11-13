@@ -67,7 +67,7 @@ commands:
       transition: fade
       duration: 900
   - bgm:
-      track: audio/bgm/afternoon.mp3
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 
@@ -128,7 +128,7 @@ commands:
       transition: slide-left
       duration: 1100
   - bgm:
-      track: audio/bgm/afternoon.mp3
+      track: audio/bgm/night.mp3
       fade: 900
       loop: true
 
