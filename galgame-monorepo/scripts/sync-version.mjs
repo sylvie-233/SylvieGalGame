@@ -5,14 +5,15 @@
  *   node scripts/sync-version.mjs --set 0.2.0 写入全部位置
  *   node scripts/sync-version.mjs --expect v0.1.0  校验是否等于期望版本（发布流水线用）
  *
- * 版本源以根 package.json 为准，同步到 Electron / Web / 内容包与 game.yaml。
+ * 版本源以根 package.json 为准，同步到全部 workspace 包与 game.yaml。
  * 检查模式不一致时以非零退出码结束；--set 只改文件，不创建 tag。
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 需要保持一致的版本位置：根 / 桌面 / Web / 内容包，以及内容清单 game.yaml。
+// 需要保持一致的版本位置：根 / 桌面 / Web / 全部共享包，以及内容清单 game.yaml。
+// 私有 workspace 包也纳入检查，避免发布时残留旧版本号。
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const MANIFEST = path.join(ROOT, 'packages/game-content/game/scripts/game.yaml');
@@ -21,6 +22,12 @@ const PACKAGE_FILES = [
   'apps/electron/package.json',
   'apps/web/package.json',
   'packages/game-content/package.json',
+  'packages/engine-core/package.json',
+  'packages/minigames/package.json',
+  'packages/player/package.json',
+  'packages/types/package.json',
+  'packages/eslint-config/package.json',
+  'packages/tsconfig/package.json',
 ];
 // 语义化版本，允许预发布后缀（如 1.0.0-beta.1）。
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;

@@ -1,6 +1,6 @@
 {
   "name": "@sylvie/minigames",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Sylvie Galgame 剧情小游戏包：Phaser 4 实现与可插拔的宿主加载器",

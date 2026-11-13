@@ -113,7 +113,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 | `pnpm typecheck` | 全仓 TypeScript 检查 |
 | `pnpm test` | 单元测试（Vitest）：引擎 36 个 + 播放器状态 / 存档工具 8 个 + 小游戏数据 5 个 |
 | `pnpm validate` | 加载真实剧本、内容体检、跑通全部分支与结局、检查资源与版本一致性 |
-| `pnpm version:check` | 检查根 / Electron / Web / 内容包 / `game.yaml` 版本是否一致 |
+| `pnpm version:check` | 检查全部 workspace `package.json` 与 `game.yaml` 版本是否一致 |
 | `pnpm version:set <版本>` | 以根 `package.json` 为基准统一写入全部版本号 |
 | `pnpm assets` | 重新生成占位图片与图标；音频默认保留，`--placeholder-audio` 生成旧占位 |
 | `pnpm package` | 输出免安装目录 `apps/electron/out/SylvieGalGame-win32-x64/` |
@@ -125,7 +125,7 @@ pnpm dev:web      # 启动 Web 预览（http://127.0.0.1:5175，直接跑共享�
 
 ### 版本与签名
 
-根 `package.json` 是版本源，`pnpm version:set <版本>` 会同步 Electron / Web / 内容包与 `scripts/game.yaml`；`pnpm validate` 与 `pnpm version:check` 会拦截不一致。
+根 `package.json` 是版本源，`pnpm version:set <版本>` 会同步全部 workspace 包（Electron / Web / 共享包 / 内容包）与 `scripts/game.yaml`；`pnpm validate` 与 `pnpm version:check` 会拦截不一致。
 
 需要签名时设置 `WINDOWS_CERTIFICATE_FILE` 与 `WINDOWS_CERTIFICATE_PASSWORD` 再执行 `pnpm make`，Electron exe 与 NSIS 安装包会一并签名；未设置时保持未签名产物。
 

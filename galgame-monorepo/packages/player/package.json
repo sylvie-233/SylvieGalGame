@@ -1,6 +1,6 @@
 {
   "name": "@sylvie/player",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Sylvie Galgame React 播放器：分层舞台、对话、选项、存读档与设置（Web / Electron 共用）",

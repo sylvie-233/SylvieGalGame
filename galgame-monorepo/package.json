@@ -1,6 +1,6 @@
 {
   "name": "sylvie-galgame",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Sylvie Galgame · YAML 驱动的视觉小说播放器（Electron + React + TypeScript Monorepo）",
   "license": "MIT",

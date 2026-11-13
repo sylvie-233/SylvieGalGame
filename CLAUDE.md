@@ -40,7 +40,7 @@ pnpm package      # 免安装目录 apps/electron/out/SylvieGalGame-win32-x64/
 pnpm make         # NSIS 安装包 apps/electron/out/make/
 pnpm smoke        # 启动已打包 exe，CDP 驱动 UI 并截图（需 Node 22+，先 package）
 pnpm smoke:web    # 构建 Web + vite preview + 无头 Chrome，验证标题/推进/选项/存读档并截图
-pnpm version:check         # 校验根 / Electron / Web / 内容包 / game.yaml 版本一致
+pnpm version:check         # 校验全部 workspace package.json / game.yaml 版本一致
 pnpm version:set <版本>    # 以根 package.json 为基准统一写入全部版本号
 pnpm version:expect v0.2.0 # 校验 tag 与全部版本号一致（release workflow 使用）
 ```
