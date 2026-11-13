@@ -1,4 +1,7 @@
+import type { AmbientEffect } from '@sylvie/types';
 import { motion } from 'motion/react';
+
+import { AmbientLayer } from './AmbientLayer';
 
 interface TitleScreenProps {
   /** 游戏标题，来自 manifest。 */
@@ -13,6 +16,8 @@ interface TitleScreenProps {
   ready: boolean;
   /** 已解析的标题背景 URL。 */
   backgroundUrl: string;
+  /** 标题页持续环境特效；来自 manifest.titleScreen.effects。 */
+  effects: AmbientEffect[];
   onNewGame: () => void;
   /** 从自动 / 快速 / 手动存档中取最新一份继续。 */
   onContinue: () => void;
@@ -39,6 +44,7 @@ export function TitleScreen({
   showVersion,
   ready,
   backgroundUrl,
+  effects,
   onNewGame,
   onContinue,
   onLoad,
@@ -64,6 +70,9 @@ export function TitleScreen({
             'radial-gradient(circle at 24% 42%, rgba(9,11,18,0.06), rgba(6,7,12,0.74) 66%), linear-gradient(100deg, rgba(6,7,12,0.86) 0%, rgba(6,7,12,0.36) 44%, rgba(6,7,12,0.1) 72%), linear-gradient(0deg, rgba(6,7,12,0.8), transparent 46%)',
         }}
       />
+
+      {/* 环境特效在遮罩之上、菜单文字之下，模拟灯光 / 萤火虫。 */}
+      <AmbientLayer effects={effects} className="z-[1]" />
 
       <motion.div
         className="relative z-[2] flex h-full max-w-[900px] flex-col items-start justify-center px-[clamp(32px,6vw,96px)] py-[clamp(32px,6vw,96px)] max-[900px]:px-7 max-[900px]:py-8"

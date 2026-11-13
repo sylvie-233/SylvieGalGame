@@ -91,6 +91,88 @@
         }
       ]
     },
+    "particleRange": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number" }
+        }
+      ]
+    },
+    "particlesEffect": {
+      "oneOf": [
+        { "enum": ["fireflies", "lights", "dust"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "preset": { "enum": ["fireflies", "lights", "dust"] },
+            "count": { "type": "integer", "minimum": 1, "maximum": 200 },
+            "colors": {
+              "oneOf": [
+                { "type": "string", "pattern": "^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+                  }
+                }
+              ]
+            },
+            "size": {
+              "oneOf": [
+                { "type": "number", "minimum": 0.5, "maximum": 64 },
+                {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": { "type": "number", "minimum": 0.5, "maximum": 64 }
+                }
+              ]
+            },
+            "speed": {
+              "oneOf": [
+                { "type": "number", "minimum": 0, "maximum": 300 },
+                {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": { "type": "number", "minimum": 0, "maximum": 300 }
+                }
+              ]
+            },
+            "opacity": { "$ref": "#/definitions/particleRange" },
+            "twinkle": { "$ref": "#/definitions/particleRange" },
+            "area": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": { "type": "number", "minimum": 0, "maximum": 100 }
+            },
+            "glow": { "type": "number", "minimum": 0, "maximum": 10 },
+            "blend": { "enum": ["normal", "screen"] }
+          }
+        }
+      ]
+    },
+    "ambientEffect": {
+      "oneOf": [
+        { "enum": ["fireflies", "lights", "dust", "clear", "none", "off", "hide", "empty"] },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["particles"],
+          "properties": {
+            "particles": { "$ref": "#/definitions/particlesEffect" }
+          }
+        }
+      ]
+    },
     "command": {
       "oneOf": [
         {
@@ -364,6 +446,23 @@
               ]
             }
           }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["effect"],
+          "properties": {
+            "effect": {
+              "oneOf": [
+                { "$ref": "#/definitions/ambientEffect" },
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/definitions/ambientEffect" }
+                },
+                { "type": "null" }
+              ]
+            }
+          }
         }
       ]
     },
@@ -448,7 +547,16 @@
             "bgm": { "type": "string", "minLength": 1 },
             "bgmTrack": { "type": "string", "minLength": 1 },
             "subtitle": { "type": "string" },
-            "showVersion": { "type": "boolean" }
+            "showVersion": { "type": "boolean" },
+            "effects": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/definitions/ambientEffect" }
+                },
+                { "$ref": "#/definitions/ambientEffect" }
+              ]
+            }
           }
         },
         "gallery": {

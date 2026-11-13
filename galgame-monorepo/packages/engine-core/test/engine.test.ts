@@ -175,6 +175,7 @@ describe('script loading', () => {
       bgm: null,
       subtitle: '',
       showVersion: true,
+      effects: [],
     });
     expect(manifest.gallery).toEqual({ cgs: [], bgms: [] });
     expect(manifest.scenes).toEqual(['foo']);
@@ -190,6 +191,10 @@ titleScreen:
   bgm: audio/bgm/title.wav
   subtitle: 副标题
   showVersion: false
+  effects:
+    - particles:
+        preset: dust
+        count: 6
 gallery:
   cgs:
     - { id: first, image: images/cg/first.svg, title: 第一张 }
@@ -205,6 +210,21 @@ gallery:
       bgm: 'audio/bgm/title.wav',
       subtitle: '副标题',
       showVersion: false,
+      effects: [
+        {
+          kind: 'particles',
+          preset: 'dust',
+          count: 6,
+          colors: ['#ffffff', '#d9e6ff', '#ffe8c8'],
+          size: [1, 2.4],
+          speed: [2, 7],
+          opacity: [0.08, 0.4],
+          twinkle: [2, 4.5],
+          area: [0, 0, 100, 100],
+          glow: 1.4,
+          blend: 'normal',
+        },
+      ],
     });
     expect(manifest.gallery).toEqual({
       cgs: [
@@ -383,7 +403,7 @@ describe('game engine', () => {
       backlog: [],
       stage: {},
       createdAt: Date.now(),
-      version: 3,
+      version: 4,
       contentVersion: '',
       bgmPosition: 0,
       chapter: '',
@@ -512,6 +532,49 @@ commands:
     engine.advance();
     expect(effects).toEqual(['shake:12:300', 'flash:black:0.85']);
     expect(engine.getSnapshot().dialogue?.text).toBe('第二句');
+  });
+
+  it('applies ambient effects to the stage and restores them from saves', async () => {
+    const files = createFiles();
+    files['scripts/scenes/start.yaml'] = `
+commands:
+  - label: begin
+  - effect:
+      particles:
+        preset: fireflies
+        count: 5
+        area: [10, 20, 30, 40]
+  - text: "有萤火虫。"
+  - effect: clear
+  - text: "特效结束。"
+`;
+    const storage = createStorage();
+    const host: EngineHost = { assets: createAssets(files), storage, onWarning: () => {} };
+    const engine = new GameEngine({ host });
+    await engine.initialize();
+    engine.start();
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.stage.effects).toHaveLength(1);
+    expect(snapshot.stage.effects[0]).toMatchObject({
+      kind: 'particles',
+      preset: 'fireflies',
+      count: 5,
+      area: [10, 20, 30, 40],
+    });
+
+    const save = engine.createSave();
+    expect(save.stage.effects).toHaveLength(1);
+
+    const next = new GameEngine({ host });
+    await next.initialize();
+    expect(next.restoreSave(save)).toBe(true);
+    expect(next.getSnapshot().stage.effects).toHaveLength(1);
+    expect(next.getSnapshot().stage.effects[0]?.preset).toBe('fireflies');
+
+    // effect: clear 立即清空，并同步到快照。
+    next.advance();
+    expect(next.getSnapshot().stage.effects).toEqual([]);
   });
 
   it('suggests assets of upcoming branch target scenes', async () => {
@@ -847,7 +910,7 @@ commands:
     });
   });
 
-  it('saves content version and bgm position, and migrates v1/v2 saves', async () => {
+  it('saves content version and bgm position, and migrates v1/v2/v3 saves', async () => {
     const engine = await createEngine();
     engine.start();
     const save = engine.createSave({ bgmPosition: 12.5 });
@@ -864,15 +927,29 @@ commands:
     delete legacyV2.bgmPosition;
     await storage.set('save:legacy-2', JSON.stringify(legacyV2));
 
+    // v3 没有 stage.effects；迁移应补空数组而不是把整档判为坏档。
+    const legacyV3 = structuredClone(save) as unknown as Record<string, unknown>;
+    legacyV3.version = 3;
+    const legacyV3Stage = legacyV3.stage as Record<string, unknown>;
+    delete legacyV3Stage.effects;
+    await storage.set('save:legacy-3', JSON.stringify(legacyV3));
+
     const migratedV1 = await readSave(storage, 'save:legacy-1');
-    expect(migratedV1?.version).toBe(3);
+    expect(migratedV1?.version).toBe(4);
     expect(migratedV1?.contentVersion).toBe('');
     expect(migratedV1?.bgmPosition).toBe(0);
     expect(migratedV1?.variables.affection).toBe(0);
+    expect(migratedV1?.stage.effects).toEqual([]);
 
     const migratedV2 = await readSave(storage, 'save:legacy-2');
-    expect(migratedV2?.version).toBe(3);
+    expect(migratedV2?.version).toBe(4);
     expect(migratedV2?.contentVersion).toBe('1.0.0');
     expect(migratedV2?.bgmPosition).toBe(0);
+    expect(migratedV2?.stage.effects).toEqual([]);
+
+    const migratedV3 = await readSave(storage, 'save:legacy-3');
+    expect(migratedV3?.version).toBe(4);
+    expect(migratedV3?.contentVersion).toBe('1.0.0');
+    expect(migratedV3?.stage.effects).toEqual([]);
   });
 });

@@ -14,6 +14,7 @@ import type {
   Command,
   CompiledScene,
   DialogueSnapshot,
+  EffectCommand,
   EndingCommand,
   EndingDefinition,
   EngineEffect,
@@ -86,6 +87,7 @@ function createEmptyStage(): StageSnapshot {
     background: { image: null, transition: 'none', duration: 0, revision: 0 },
     sprites: {},
     cg: { image: null, visible: false, transition: 'none', duration: 0, revision: 0 },
+    effects: [],
   };
 }
 
@@ -102,7 +104,12 @@ function cloneParams(params: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
-/** 深拷贝舞台，保证快照 / 回滚历史与引擎内部状态互不影响。 */
+/**
+ * 深拷贝舞台，保证快照 / 回滚历史与引擎内部状态互不影响。
+ * 特效配置本身不可变（每次 effect 指令整体替换），因此直接复用引用；
+ * 这样播放器可以按配置对象引用判断是否需要重新初始化粒子。
+ * 旧存档可能缺少 effects 字段，这里兜底为空数组。
+ */
 function cloneStage(stage: StageSnapshot): StageSnapshot {
   return {
     background: { ...stage.background },
@@ -110,6 +117,8 @@ function cloneStage(stage: StageSnapshot): StageSnapshot {
       Object.entries(stage.sprites).map(([id, sprite]) => [id, { ...sprite }]),
     ),
     cg: { ...stage.cg },
+    // 只复制数组外壳，配置对象保持引用稳定；播放器据此避免每帧重建粒子。
+    effects: Array.isArray(stage.effects) ? stage.effects.slice() : [],
   };
 }
 
@@ -751,6 +760,11 @@ export class GameEngine {
           this.pointer.index += 1;
           this.emit();
           break;
+        case 'effect':
+          this.applyEffect(command);
+          this.pointer.index += 1;
+          this.emit();
+          break;
         case 'bgm':
           this.applyBgm(command);
           this.pointer.index += 1;
@@ -991,6 +1005,11 @@ export class GameEngine {
       duration: command.duration,
       revision: previous.revision + 1,
     };
+  }
+
+  /** 整体替换舞台环境特效；空数组即清除。 */
+  private applyEffect(command: EffectCommand): void {
+    this.stage.effects = command.effects;
   }
 
   /** 记录 BGM 并通知播放器执行切换。 */

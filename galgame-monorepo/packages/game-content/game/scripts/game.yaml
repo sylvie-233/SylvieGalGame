@@ -8,6 +8,11 @@ titleScreen:
   bgm: audio/bgm/music_box.mp3
   subtitle: 一枚硬币，两个失眠的人，和一辆不会来的末班车
   showVersion: true
+  effects:
+    - particles:
+        preset: fireflies
+        count: 52
+        area: [0, 0, 100, 100]
 
 scenes:
   - prologue

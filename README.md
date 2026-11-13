@@ -28,12 +28,13 @@
 
 - **纯 YAML 驱动**：`label` / `jump` / `choice` / `set` / `if` / `wait` / `minigame` 等指令，跨场景跳转与条件显隐，启动时校验结构、目标与资源。
 - **业务逻辑抽离**：`engine-core` 不依赖 React / DOM，可脱离桌面端在 Node 中运行与测试；`player` 只消费快照和效果事件。
-- **分层渲染**：背景 → 多立绘 → CG → 对话 UI → 选项 → 菜单遮罩，支持 fade / dissolve / slide / wipe 转场与逐条缓动；另提供 `shake` / `flash` 演出指令。
+- **分层渲染**：背景 → 多立绘 → CG → 环境特效 → 对话 UI → 选项 → 菜单遮罩，支持 fade / dissolve / slide / wipe 转场与逐条缓动；另提供 `shake` / `flash` 演出指令。
+- **可配置环境特效**：标题页与任意场景都能用 YAML 的 `effect` 指令开启粒子（萤火虫 / 灯光光斑 / 浮尘），可覆盖数量、颜色、速度、区域、闪烁、光晕与混合方式；粒子由 tsParticles 渲染，特效配置写入舞台快照，随存档与回滚恢复。
 - **文本体验**：逐字打字、点击补全、Auto、Ctrl 跳过已读、未读自动停止、历史回看与语音回放。
 - **回滚与插值**：`PageUp` / 滚轮上滑回到最近 50 个阻塞点，完整恢复指针、变量、舞台与 BGM；`text` 支持 `{变量名}` 插值与 `{{` / `}}` 转义。
 - **稳定已读与分支动作**：文本 id 按内容哈希生成，插入无关台词不会打乱 Skip 记录；`set` 支持表达式与字符串拼接，选项可在跳转前执行一组赋值。
 - **章节与结局**：manifest 登记章节展示名与结局表，`ending` 指令结束本局；结局页显示标题与描述，存档面板显示可读章节名。
-- **表现与标题配置**：立绘支持 `scale` / `z`；manifest 可配置窗口标题、标题背景、标题 BGM、副标题与版本显示；`H` / 右键一键隐藏界面。
+- **表现与标题配置**：立绘支持 `scale` / `z`；manifest 可配置窗口标题、标题背景、标题 BGM、副标题、版本显示与标题页特效；`H` / 右键一键隐藏界面。
 - **音频续播**：存档记录 BGM 播放位置，读档后从原位置继续。
 - **回忆图鉴**：标题页与游戏内菜单可查看 CG 鉴赏、音乐试听与结局列表；解锁记录独立于存档，首次触发即永久点亮。
 - **音频管理**：BGM / SE / VO 独立音量与打断规则，进入场景预加载图片与音频。
@@ -208,7 +209,7 @@ docker compose -f scripts/docker-compose.yml -f scripts/docker-compose.game.yml 
 ## 技术栈
 
 - **引擎内核**：纯 TypeScript，YAML 解析、指针 + 阻塞调度、变量与条件表达式、已读标记、存档序列化
-- **播放器**：React 19、Tailwind CSS v4、Motion 12、Zustand 5、Howler.js
+- **播放器**：React 19、Tailwind CSS v4、Motion 12、Zustand 5、Howler.js、tsParticles（环境粒子，按需加载）
 - **剧情小游戏**：Phaser 4，独立 `@sylvie/minigames` 包与宿主 loader 注册表
 - **桌面端**：Electron 45、Electron Forge 8、Vite 8、NSIS
 - **Web 预览**：Vite 8 + React 19（源码别名热更新、`/game` 资源中间件、IndexedDB 存档 + localStorage 回退）
@@ -293,7 +294,7 @@ pwsh ./manage.ps1 validate
 ## 一期边界
 
 - 无剧本编辑器，剧情直接写 YAML。
-- 未做粒子与 3D 转场；现有转场为 fade / dissolve / slide / wipe。
+- 未做 3D 转场；现有转场为 fade / dissolve / slide / wipe。环境特效目前只有 tsParticles 粒子，雨、雾等类型可按同一套 `kind` 机制扩展。
 - 资源为松散文件，未加密或压缩。
 - 美术与音频为程序生成的占位素材，可直接替换为正式资源。
 - 安装包未签名，Windows SmartScreen 可能提示。

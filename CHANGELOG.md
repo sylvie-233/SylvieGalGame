@@ -11,6 +11,8 @@
 
 ### Added
 
+- 可配置环境特效：新增 `effect` 指令与 `titleScreen.effects`，支持 `fireflies` / `lights` / `dust` 三种粒子预设，并可用 YAML 覆盖数量、颜色、大小、速度、透明度、闪烁、区域、光晕与混合方式。标题页默认启用萤火虫，旧音乐教室加入浮尘。
+- 粒子由 tsParticles 渲染（`@tsparticles/react` + `@tsparticles/basic`），播放器只负责把 YAML 配置映射成库选项；粒子 chunk 按需懒加载，支持 DPR 与「减少动态效果」静态首帧。特效写入舞台快照，会随存档与回滚恢复；`SAVE_VERSION` 升至 4，v1-v3 存档自动迁移。
 - 可拔插剧情小游戏：新增 `minigame` 指令、`PlayerPlatform.minigames` loader 注册表与 `@sylvie/minigames` 包；首个 Phaser 4 玩法「回声」在旧音乐教室让玩家按回希尔维弹过的八个音，结果写入 `echo_echoes` / `echo_cleared` 并影响后续对话与尾声。Phaser 按需懒加载，小游戏期间 BGM 自动压低。
 
 ### Changed

@@ -11,6 +11,7 @@ import type {
   KeyValueStorage,
   SaveData,
   SaveExportBundle,
+  StageSnapshot,
 } from '@sylvie/types';
 import {
   AUTO_SAVE_COUNT,
@@ -34,7 +35,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // 仍可迁移的历史版本；新增 SAVE_VERSION 时要同步扩展这里。
-const LEGACY_SAVE_VERSIONS = new Set([1, 2]);
+const LEGACY_SAVE_VERSIONS = new Set([1, 2, 3]);
 
 /** 字符串或 null；用于立绘 / CG / BGM 这类允许为空的字段。 */
 function isNullableString(value: unknown): value is string | null {
@@ -55,27 +56,86 @@ function isBacklogEntry(value: unknown): boolean {
   return typeof value.at === 'number' && Number.isFinite(value.at);
 }
 
+/** 特效里的数值区间必须是两个有限数字。 */
+function isNumberRange(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value.every((item) => typeof item === 'number' && Number.isFinite(item))
+  );
+}
+
+/**
+ * 粒子特效结构检查。
+ * 播放器会直接读取这些字段并映射成 tsParticles options；类型错误应在读档阶段拒绝，
+ * 而不是等到渲染时抛异常。
+ */
+function isParticlesEffect(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.preset === 'string' &&
+    typeof value.count === 'number' &&
+    Number.isInteger(value.count) &&
+    value.count >= 1 &&
+    value.count <= 200 &&
+    Array.isArray(value.colors) &&
+    value.colors.length > 0 &&
+    value.colors.every((color) => typeof color === 'string') &&
+    isNumberRange(value.size) &&
+    isNumberRange(value.speed) &&
+    isNumberRange(value.opacity) &&
+    isNumberRange(value.twinkle) &&
+    Array.isArray(value.area) &&
+    value.area.length === 4 &&
+    value.area.every((item) => typeof item === 'number' && Number.isFinite(item)) &&
+    typeof value.glow === 'number' &&
+    Number.isFinite(value.glow) &&
+    (value.blend === 'normal' || value.blend === 'screen')
+  );
+}
+
+/** 未知特效类型一律视为坏档，避免播放器拿到无法渲染的配置。 */
+function isAmbientEffect(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.kind === 'particles') return isParticlesEffect(value);
+  return false;
+}
+
 /**
  * 舞台快照的结构检查。
  * `restoreSave` 会直接遍历 `stage.sprites`，因此这里必须确认它是对象表，
  * 而不是仅检查 `stage` 本身是对象——后者会让损坏存档在读档路径抛出 TypeError。
+ * `requireEffects` 为 false 时允许旧存档缺少 effects（迁移会补空数组）。
  */
-function hasStageShape(value: unknown): boolean {
+function hasStageShape(value: unknown, requireEffects = false): boolean {
   if (!isRecord(value)) return false;
   if (!isRecord(value.background) || !isNullableString(value.background.image)) return false;
   if (!isRecord(value.cg) || !isNullableString(value.cg.image)) return false;
   if (typeof value.cg.visible !== 'boolean') return false;
   if (!isRecord(value.sprites)) return false;
-  return Object.values(value.sprites).every(
-    (sprite) => isRecord(sprite) && typeof sprite.id === 'string' && isNullableString(sprite.image),
-  );
+  if (
+    !Object.values(value.sprites).every(
+      (sprite) =>
+        isRecord(sprite) && typeof sprite.id === 'string' && isNullableString(sprite.image),
+    )
+  ) {
+    return false;
+  }
+  if (requireEffects) {
+    if (!Array.isArray(value.effects) || !value.effects.every(isAmbientEffect)) return false;
+  } else if (
+    value.effects !== undefined &&
+    (!Array.isArray(value.effects) || !value.effects.every(isAmbientEffect))
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
  * 结构性检查：字段齐全且类型正确，但不校验具体内容是否合法。
  * 校验深度以「读档 / 渲染路径不会抛异常」为准，嵌套字段缺失视为坏档。
  */
-function hasSaveShape(value: Record<string, unknown>): boolean {
+function hasSaveShape(value: Record<string, unknown>, requireEffects = true): boolean {
   if (typeof value.scene !== 'string' || typeof value.chapter !== 'string') return false;
   if (typeof value.createdAt !== 'number' || !Number.isFinite(value.createdAt)) return false;
   if (!isRecord(value.pointer)) return false;
@@ -89,7 +149,7 @@ function hasSaveShape(value: Record<string, unknown>): boolean {
   }
   if (!isRecord(value.variables)) return false;
   if (!Object.values(value.variables).every(isVariableValue)) return false;
-  if (!hasStageShape(value.stage)) return false;
+  if (!hasStageShape(value.stage, requireEffects)) return false;
   if (!isRecord(value.audio) || !isNullableString(value.audio.bgm)) return false;
   if (!Array.isArray(value.readMarks) || !value.readMarks.every((id) => typeof id === 'string')) {
     return false;
@@ -117,9 +177,10 @@ export function isSaveData(value: unknown): value is SaveData {
  * 迁移只发生在读取时，原文件在下一次写入前保持不变，
  * 因此即使迁移逻辑出错也不会破坏用户原始数据。
  *
- * 版本链（v1 / v2 → v3）：
+ * 版本链（v1 / v2 → v3 → v4）：
  * - 补 contentVersion（v1 无此字段，空字符串表示未知版本）；
- * - 补 bgmPosition（v1 / v2 无此字段，0 表示从头播放）。
+ * - 补 bgmPosition（v1 / v2 无此字段，0 表示从头播放）；
+ * - 补 stage.effects（v1-v3 无此字段，空数组表示没有环境特效）。
  */
 export function migrateSaveData(value: unknown): SaveData | null {
   if (!isRecord(value)) return null;
@@ -129,9 +190,11 @@ export function migrateSaveData(value: unknown): SaveData | null {
   if (
     typeof value.version === 'number' &&
     LEGACY_SAVE_VERSIONS.has(value.version) &&
-    hasSaveShape(value)
+    // 旧版没有 effects，因此这里允许缺失；若存在则仍校验其结构。
+    hasSaveShape(value, false)
   ) {
     const legacy = value as unknown as Partial<SaveData>;
+    const legacyStage: Record<string, unknown> = isRecord(legacy.stage) ? legacy.stage : {};
     return {
       ...legacy,
       version: SAVE_VERSION,
@@ -140,6 +203,10 @@ export function migrateSaveData(value: unknown): SaveData | null {
         typeof legacy.bgmPosition === 'number' && Number.isFinite(legacy.bgmPosition)
           ? legacy.bgmPosition
           : 0,
+      stage: {
+        ...legacyStage,
+        effects: Array.isArray(legacyStage.effects) ? legacyStage.effects : [],
+      } as unknown as StageSnapshot,
     } as SaveData;
   }
   return null;

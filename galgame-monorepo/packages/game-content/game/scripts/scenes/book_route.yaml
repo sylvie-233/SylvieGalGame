@@ -110,6 +110,12 @@ commands:
   - se:
       sound: audio/se/chair.ogg
       volume: 0.5
+  # 旧音乐教室里的浮尘；离开场景前用 effect: clear 收掉。
+  - effect:
+      particles:
+        preset: dust
+        count: 60
+        opacity: [0.1, 0.45]
 
   - text:
       speaker: 旁白
@@ -259,6 +265,7 @@ commands:
       text: "那我就再请你喝一罐。还是一百二十元。"
 
   - cg: hide
+  - effect: clear
   - wait: 400
 
   - jump: "common#common_start"

@@ -1,4 +1,5 @@
 import type { Command } from './commands';
+import type { AmbientEffect } from './effects';
 import type { GalleryConfig } from './gallery';
 import type { VariableValue } from './variables';
 
@@ -17,6 +18,8 @@ export interface TitleConfig {
   bgm: string | null;
   subtitle: string;
   showVersion: boolean;
+  /** 标题页持续显示的环境特效；为空数组表示没有。 */
+  effects: AmbientEffect[];
 }
 
 /**

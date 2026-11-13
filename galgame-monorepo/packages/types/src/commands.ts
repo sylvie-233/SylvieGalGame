@@ -4,6 +4,7 @@
  * 场景 YAML 由 engine-core 解析后，每条指令都会变成这里的一种带 `kind`
  * 判别字段的普通对象；播放器只消费这些结构，不感知原始 YAML 写法。
  */
+import type { AmbientEffect } from './effects';
 import type { MinigameCommand } from './minigame';
 import type { VariableValue } from './variables';
 
@@ -177,6 +178,16 @@ export interface FlashCommand {
   duration: number;
 }
 
+/**
+ * 设置舞台的持续环境特效（粒子等），不阻塞剧情。
+ * 每次执行都会整体替换当前特效列表；空数组表示全部清除。
+ * 与一次性的 `shake` / `flash` 不同，它写入舞台快照，因此会进入存档与回滚。
+ */
+export interface EffectCommand {
+  kind: 'effect';
+  effects: AmbientEffect[];
+}
+
 /** 所有剧本指令的联合类型，通过 `kind` 字段判别具体成员。 */
 export type Command =
   | BgCommand
@@ -195,7 +206,8 @@ export type Command =
   | WaitCommand
   | EndingCommand
   | ShakeCommand
-  | FlashCommand;
+  | FlashCommand
+  | EffectCommand;
 
 /** 全部指令名的有序清单，可用于校验或派生字面量类型。 */
 export const COMMAND_KINDS = [
@@ -216,6 +228,7 @@ export const COMMAND_KINDS = [
   'ending',
   'shake',
   'flash',
+  'effect',
 ] as const;
 
 /** 指令名的字面量联合类型。 */

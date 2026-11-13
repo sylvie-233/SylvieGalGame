@@ -88,7 +88,7 @@ engine-core ──快照/效果──▶ player（Zustand + React + Motion）
                                           Web: IndexedDB / localStorage 回退）
 ```
 
-引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` / `minigame` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` / `shake` / `flash` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档，并通过 `getUpcomingSceneAssets()` 预取后续分支场景；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。预加载有数量预算（单场景 32 个、音频 LRU 24 条），超出按需加载。
+引擎采用指针 + 阻塞模型：`text` / `choice` / `wait` / `minigame` 会阻塞，`bg` / `sprite` / `cg` / `bgm` / `se` / `voice` / `set` / `if` / `jump` / `shake` / `flash` / `effect` 即时执行。每次推进都产生不可变快照，Zustand 只保存快照引用，渲染层按阶段呈现。到达文本 / 选项时引擎会发出 `checkpoint` 效果，播放器据此节流自动存档，并通过 `getUpcomingSceneAssets()` 预取后续分支场景；阻塞前的完整状态进入回滚历史（最多 50 个），`rollback()` 直接恢复而不重跑脚本。预加载有数量预算（单场景 32 个、音频 LRU 24 条），超出按需加载。
 
 ## 开始开发
 
@@ -193,14 +193,14 @@ pnpm validate
 - 图鉴解锁单独写入 `meta:gallery`（CG / BGM / 结局 id），与存档互不影响；标题页与游戏内菜单均可打开「回忆图鉴」。
 - 存档面板支持「导出全部存档」与单档导出为 JSON，也可导入同格式文件；导出包含存档、已读、设置与图鉴记录，导入会覆盖同键数据并跳过未知键。桌面端走系统文件对话框，Web 端走浏览器下载 / 上传。
 - 存档内容：场景与指针、全部变量、图层状态、BGM、已读标记、Backlog、章节备注、截图缩略图、内容版本号。
-- 存档版本为 `3`；`version: 1` / `2` 自动迁移并补齐 `contentVersion`、`bgmPosition`，迁移失败不会覆盖原数据。读取到不同内容版本的存档时会提示剧情可能已变化。读档后 BGM 会从存档记录的位置继续播放。
+- 存档版本为 `4`；`version: 1` / `2` / `3` 自动迁移并补齐 `contentVersion`、`bgmPosition` 与 `stage.effects`，迁移失败不会覆盖原数据。读取到不同内容版本的存档时会提示剧情可能已变化。读档后 BGM 会从存档记录的位置继续播放，环境特效也会一并恢复。
 - 自动存档在到达文本 / 选项时触发，900ms 防抖；截图只在选项或章节变化时重新抓取，普通文本复用上一张缩略图。
 - 桌面端统一写入 `userData/game-storage.json`（Windows 下通常位于 `%APPDATA%\SylvieGalGame\`）。
 - Web 预览优先写入 IndexedDB，并请求 `navigator.storage.persist()`；不支持或打开失败时回退 `localStorage`（`sylvie:` 前缀），旧版 `sylvie:` 数据首次启动会自动迁移进 IndexedDB。存档缩略图使用 JPEG 压缩。控制台可用 `await window.sylvieWeb.resetStorage()` 清空预览存档，`await window.sylvieWeb.storageKeys()` 列出键名，`storageDelete(key)` 按原始键删除单条。
 
 ## 当前边界
 
-- 转场覆盖淡入淡出、溶解、左右滑动与擦除，并提供震屏 / 闪屏；没有粒子或 3D 转场。
+- 转场覆盖淡入淡出、溶解、左右滑动与擦除，并提供震屏 / 闪屏与可配置环境粒子；没有 3D 转场。粒子由 `@tsparticles/react` + `@tsparticles/basic` 渲染（只在页面启用粒子特效时才加载对应 chunk），新增雨 / 雾等特效可沿用同一套 `kind` 分派。
 - 资源为松散文件，未做加密或压缩。
 - `pnpm validate` 的诊断带 `scene.yaml:行号`，并区分错误（Schema / 阻断）与警告（可继续）；播放器内面板展示的是运行时警告文本。
 - 渲染异常由 ErrorBoundary 兜底，错误页会显示存档与日志路径；桌面端渲染进程 console、加载失败、preload 错误与主进程异常写入 `userData/logs/runtime-YYYY-MM-DD.log`，保留 7 天。

@@ -1,4 +1,5 @@
 import type { SpritePosition, Transition, TransitionEase } from './commands';
+import type { AmbientEffect } from './effects';
 import type { MinigameState } from './minigame';
 import type { EndingDefinition } from './script';
 import type { VariableTable } from './variables';
@@ -51,6 +52,11 @@ export interface StageSnapshot {
   background: BackgroundState;
   sprites: Record<string, SpriteState>;
   cg: CgState;
+  /**
+   * 持续环境特效（粒子等），按数组顺序叠放；空数组表示没有特效。
+   * 特效配置整体不可变，播放器按对象引用判断是否需要重新初始化。
+   */
+  effects: AmbientEffect[];
 }
 
 /** 当前阻塞中的对话行（text 已完成变量插值）。 */

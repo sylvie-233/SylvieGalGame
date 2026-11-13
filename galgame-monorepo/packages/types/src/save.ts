@@ -5,8 +5,9 @@ import type { VariableTable } from './variables';
  * 存档版本历史：
  * - 2：新增 contentVersion，用于提示存档与当前内容是否匹配。
  * - 3：新增 bgmPosition，读档后恢复 BGM 播放位置。
+ * - 4：舞台状态新增 effects，保存环境粒子等持续特效。
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /**
  * 一份完整存档。

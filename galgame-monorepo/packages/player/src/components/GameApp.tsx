@@ -945,6 +945,7 @@ export function GameApp() {
           showVersion={titleScreen?.showVersion ?? true}
           ready={ready}
           backgroundUrl={titleArt}
+          effects={titleScreen?.effects ?? []}
           onNewGame={startNewGame}
           onContinue={() => void continueGame()}
           onLoad={() => setOverlay({ kind: 'saves', mode: 'load', origin: 'title' })}

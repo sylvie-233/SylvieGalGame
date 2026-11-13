@@ -15,6 +15,7 @@ import type {
   Command,
   CompiledBlock,
   CompiledScene,
+  EffectCommand,
   EndingCommand,
   EndingDefinition,
   FlashCommand,
@@ -38,6 +39,7 @@ import type {
 } from '@sylvie/types';
 import { isSeq, parse as parseYaml, parseDocument } from 'yaml';
 
+import { parseAmbientEffects } from './effects';
 import { validateExpression } from './expression';
 import { validateInterpolation } from './interpolate';
 
@@ -246,6 +248,7 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
     bgm: null,
     subtitle: '',
     showVersion: true,
+    effects: [],
   };
   if (raw.titleScreen !== undefined) {
     if (!isRecord(raw.titleScreen)) {
@@ -256,6 +259,11 @@ export function parseManifest(source: string, warn: Warn): GameManifest {
       titleScreen.bgm = asString(raw.titleScreen.bgm) ?? asString(raw.titleScreen.bgmTrack);
       titleScreen.subtitle = asString(raw.titleScreen.subtitle) ?? '';
       titleScreen.showVersion = asBoolean(raw.titleScreen.showVersion) ?? true;
+      titleScreen.effects = parseAmbientEffects(
+        raw.titleScreen.effects,
+        'game.yaml titleScreen.effects',
+        warn,
+      );
     }
   }
 
@@ -895,6 +903,23 @@ function parseFlash(payload: unknown, block: string, index: number, warn: Warn):
   return { kind: 'flash', color: 'white', opacity: 0.85, duration: 500 };
 }
 
+/**
+ * effect 指令：设置持续环境特效。
+ * 参数可以是预设名、`{ particles: ... }` 映射，或它们的数组；
+ * `clear` / `none` / 空数组表示清空。具体解析由 effects.ts 负责。
+ */
+function parseEffect(
+  payload: unknown,
+  block: string,
+  index: number,
+  warn: Warn,
+): EffectCommand {
+  return {
+    kind: 'effect',
+    effects: parseAmbientEffects(payload, `${block} 第 ${index + 1} 条 effect`, warn),
+  };
+}
+
 /** ending 只接受结局 id 字符串；是否登记在 manifest 中由第二遍校验。 */
 function parseEnding(
   payload: unknown,
@@ -1079,6 +1104,8 @@ function parseCommand(raw: unknown, block: string, index: number, warn: Warn): C
       return parseShake(payload, block, index, warn);
     case 'flash':
       return parseFlash(payload, block, index, warn);
+    case 'effect':
+      return parseEffect(payload, block, index, warn);
     case 'import':
       warn(`[脚本] ${block} 第 ${index + 1} 条 import：请写在场景文件顶部的 imports 字段`);
       return null;

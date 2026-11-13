@@ -269,6 +269,15 @@ importers:
       '@sylvie/types':
         specifier: workspace:*
         version: link:../types
+      '@tsparticles/basic':
+        specifier: 4.5.3
+        version: 4.5.3
+      '@tsparticles/engine':
+        specifier: 4.5.3
+        version: 4.5.3
+      '@tsparticles/react':
+        specifier: 4.5.3
+        version: 4.5.3(@tsparticles/engine@4.5.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       framer-motion:
         specifier: ^12.0.0
         version: 12.43.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1247,6 +1256,74 @@ packages:
     resolution: {integrity: sha512-BCNiY0a1ZjdOHVqw7kyb7U72BwfMF3dfUuN+tQsLWky/J5JOI/r7abibglXfygrZhVO/3u3V+E25kkKTeMkXaQ==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
+
+  '@tsparticles/animation-utils@4.5.3':
+    resolution: {integrity: sha512-Fz2bTDc6Folav8isOk2scXM+LCSPhQ9hD8xCSmsEGuGH7JkE+XTsS4j6E9H6b+RFlZ1yb2TxdVBJnfXy8XM9Bw==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/basic@4.5.3':
+    resolution: {integrity: sha512-f0gHWnqChK4ksE9Bq3YN0iuJVMi2B81YSkCL5BrohuykoaKCLSVVSqjhefmELTMrdiFVsdt6WPJ+HjVQgjt7CA==}
+
+  '@tsparticles/engine@4.5.3':
+    resolution: {integrity: sha512-ak8AAPQKinJlwztRAo+OA5ItwjLtymmjayefQCF6K1FIWs5SaWiHWbzMB5vdOvuGUE6OOchqj8NLcu3HfHmdjw==}
+
+  '@tsparticles/plugin-blend@4.5.3':
+    resolution: {integrity: sha512-fJJp0xVEeGQDpkjGzvftMbCrLWtwqo+ees49gCnr9SZYVMRbxi3vQYukvi4ULOzYgEW5bTseVprDfiqOwfQJcw==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-hex-color@4.5.3':
+    resolution: {integrity: sha512-k+AkTG8r2UTE3n2u4kmb9dODRVtBc3Yttk7/UQ5HPlcBMr8AnKbx9gyxzzCx2MaEFZG2My0cghJPvQvibrAW7Q==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-hsl-color@4.5.3':
+    resolution: {integrity: sha512-jfyHjPvrc8ORwaiIJ3xgzIveRhlImn21TiblpakeF2Ft5HgxJ+Lb8eIN/2VUJFjdqLpQ3H1nGSJspHYzeU5RtQ==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-move@4.5.3':
+    resolution: {integrity: sha512-kyriGuLkOu5uVv3cHRacJRk8XMm9gga7OzCuf3oxbgfqqIaazva4Qw8N19RCpVCW1EfwyWFGq3h5VD/QplkA0w==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-rgb-color@4.5.3':
+    resolution: {integrity: sha512-lKlI9BaHXy+L30d2CKWWn3B9Ye7LOqRHav8rzXcxAQMfZxj4iK1UuGRT+27/KzQMZBYMPd9G4R7x7lV8RngFdQ==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/react@4.5.3':
+    resolution: {integrity: sha512-d7dXB929QiFHQDLJuy/mMlm/PpVMWC71iAeNzPVlObrzJH64PRhiC2r5bKHamTFw246AgKca0DbuQoR70OxsiA==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@tsparticles/shape-circle@4.5.3':
+    resolution: {integrity: sha512-jtJAqqnltG12YCy7VpTtIIEOlRNmVDz11SQrZlxFUHWgIYa0UcTEUDeLpP4h9IW7KtnxJKBo/xu1JLRq4tY6fw==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-opacity@4.5.3':
+    resolution: {integrity: sha512-VaWHjSacuvcDpUPKriQMeG4xzNTKRuK7tZJL0toDQdB4uei2LX5qUBUqTrI0oBWW5Rk0QdUZR83LkhCLVJWtew==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-out-modes@4.5.3':
+    resolution: {integrity: sha512-gx9cV9LutgY0f25AQtFqW285jGCsHpAxYKbmoN4MOUEYOVX9WiDfrf59Ta9c/SelLvOanVsu5V1hVzBsJyX37w==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-paint@4.5.3':
+    resolution: {integrity: sha512-I+tPJgq7M5Qcu4pX97J1Hfo0s+bnCmj32IiZ3AJTFFA/+xScaL0SF7T7tW5YtXR45ZwYjaSdnmQ80CwrLxJjdQ==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-size@4.5.3':
+    resolution: {integrity: sha512-hh62wuc4HZ+BydUC62bA74hgr+qV888iWm23V222d6rqIkOpYzi5tcoPAh48Mgjl2gMSigTE6sySJez7reffNQ==}
+    peerDependencies:
+      '@tsparticles/engine': 4.5.3
 
   '@turbo/darwin-64@2.11.11':
     resolution: {integrity: sha512-HMMeUIEAsmyIbSYn1ySvF/4gGMa0joiTMq4dQDuloIAnOpbtFT3JEiVsYnASdTWDXvplbRbZlqjU1EBeSR9G1A==}
@@ -4478,6 +4555,74 @@ snapshots:
       '@tailwindcss/oxide': 4.3.5
       tailwindcss: 4.3.5
       vite: 8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+
+  '@tsparticles/animation-utils@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/basic@4.5.3':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+      '@tsparticles/plugin-blend': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/plugin-hex-color': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/plugin-hsl-color': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/plugin-move': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/plugin-rgb-color': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/shape-circle': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/updater-opacity': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/updater-out-modes': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/updater-paint': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/updater-size': 4.5.3(@tsparticles/engine@4.5.3)
+
+  '@tsparticles/engine@4.5.3': {}
+
+  '@tsparticles/plugin-blend@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-hex-color@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-hsl-color@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-move@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/plugin-rgb-color@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/react@4.5.3(@tsparticles/engine@4.5.3)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+
+  '@tsparticles/shape-circle@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-opacity@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/animation-utils': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-out-modes@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-paint@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/engine': 4.5.3
+
+  '@tsparticles/updater-size@4.5.3(@tsparticles/engine@4.5.3)':
+    dependencies:
+      '@tsparticles/animation-utils': 4.5.3(@tsparticles/engine@4.5.3)
+      '@tsparticles/engine': 4.5.3
 
   '@turbo/darwin-64@2.11.11':
     optional: true

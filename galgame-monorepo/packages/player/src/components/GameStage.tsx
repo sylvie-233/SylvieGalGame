@@ -1,6 +1,7 @@
 import type { GameSnapshot, SpritePosition, TransitionEase } from '@sylvie/types';
 import type { RefObject } from 'react';
 
+import { AmbientLayer } from './AmbientLayer';
 import { ChoiceOverlay } from './ChoiceOverlay';
 import { CrossfadeImage } from './CrossfadeImage';
 import { DialogueBox, type DialogueHandle } from './DialogueBox';
@@ -53,7 +54,7 @@ const VIGNETTE =
   'bg-[radial-gradient(ellipse_at_50%_46%,transparent_42%,rgba(3,4,8,0.5)_100%),linear-gradient(0deg,rgba(4,5,9,0.72)_0%,transparent_38%),linear-gradient(180deg,rgba(4,5,9,0.28)_0%,transparent_22%)]';
 
 /**
- * 游戏舞台：按 z 轴分层渲染背景 → 立绘 → CG → 暗角 → 点击层 → 对话框 → 选项。
+ * 游戏舞台：按 z 轴分层渲染背景 → 立绘 → CG → 环境特效 → 暗角 → 点击层 → 对话框 → 选项。
  * 组件不持有引擎状态，只根据快照播放转场并把交互回调给外层。
  */
 export function GameStage({
@@ -143,6 +144,9 @@ export function GameStage({
           />
         )}
       </div>
+
+      {/* 环境特效位于 CG 之上、暗角之下，避免被压暗或盖住立绘。 */}
+      <AmbientLayer effects={snapshot.stage.effects} className="z-[4]" />
 
       <div className={`pointer-events-none absolute inset-0 z-[5] ${VIGNETTE}`} aria-hidden="true" />
 
