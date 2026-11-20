@@ -304,6 +304,18 @@ pwsh ./manage.ps1 validate
 - Web 预览壳只用于调试与静态预览，正式交付仍以 Electron 打包产物为准。
 - `smoke` 依赖 Node.js 22+ 的内置 WebSocket；其余开发与打包操作 Node 20.11+ 即可。
 
+## 赞助支持
+
+如果这个项目对你有帮助，欢迎通过爱发电支持作者。可使用支付宝或微信扫码赞助：
+
+<p align="center">
+  <a href="https://ifdian.net/a/sylvie233">
+    <img src="docs/afdian-Sylvie.jpg" alt="爱发电赞助二维码（支付宝 / 微信扫码）" width="240">
+  </a>
+</p>
+
+爱发电主页：<https://ifdian.net/a/sylvie233>
+
 ## License
 
 [MIT](LICENSE)
